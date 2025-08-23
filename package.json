@@ -10,6 +10,7 @@
     "dev:client": "cd src/client && npm run dev",
     "build:client": "cd src/client && npm run build",
     "build:server": "echo 'Server build complete'",
+    "build:production": "node scripts/build-production.js",
     "vercel-build": "npm run build:client",
     "setup": "node scripts/setup.js",
     "test": "jest",

@@ -1,4 +1,10 @@
-const tf = require('@tensorflow/tfjs-node');
+// TensorFlow.js is optional for basic parsing
+let tf = null;
+try {
+  tf = require('@tensorflow/tfjs-node');
+} catch (error) {
+  console.log('TensorFlow.js not available, using basic parsing only');
+}
 const natural = require('natural');
 const pdfParse = require('pdf-parse');
 const fs = require('fs').promises;
@@ -13,11 +19,12 @@ class ResumeParser {
 
   async initialize() {
     try {
-      // Initialize TensorFlow.js
-      await tf.ready();
-      
-      // Load pre-trained model (placeholder - you would load your actual model)
-      // this.model = await tf.loadLayersModel('file://./ml/models/resume_parser_model.json');
+      // Initialize TensorFlow.js if available
+      if (tf) {
+        await tf.ready();
+        // Load pre-trained model (placeholder - you would load your actual model)
+        // this.model = await tf.loadLayersModel('file://./ml/models/resume_parser_model.json');
+      }
       
       // Initialize tokenizer
       this.tokenizer = new natural.WordTokenizer();

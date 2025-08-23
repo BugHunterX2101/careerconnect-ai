@@ -1,4 +1,10 @@
-const tf = require('@tensorflow/tfjs-node');
+// TensorFlow.js is optional for basic recommendations
+let tf = null;
+try {
+  tf = require('@tensorflow/tfjs-node');
+} catch (error) {
+  console.log('TensorFlow.js not available, using basic recommendations only');
+}
 const natural = require('natural');
 const axios = require('axios');
 
@@ -12,8 +18,10 @@ class JobRecommender {
 
   async initialize() {
     try {
-      // Initialize TensorFlow.js
-      await tf.ready();
+      // Initialize TensorFlow.js if available
+      if (tf) {
+        await tf.ready();
+      }
       
       // Initialize tokenizer
       this.tokenizer = new natural.WordTokenizer();
