@@ -2,7 +2,7 @@ const Queue = require('bull');
 const winston = require('winston');
 const ResumeParser = require('../ml/resumeParser');
 const JobRecommender = require('../ml/jobRecommender');
-const Resume = require('../models/Resume');
+const Resume = require('../models/Resume.js');
 const { getRedisClient } = require('../database/redis');
 
 // Initialize logger
