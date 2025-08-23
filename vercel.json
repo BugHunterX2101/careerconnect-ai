@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "careerconnect-ai",
   "builds": [
     {
       "src": "src/server/index.js",
@@ -26,10 +25,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "src/server/index.js": {
-      "maxDuration": 30
-    }
   }
 } 

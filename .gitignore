@@ -299,3 +299,4 @@ app.log
 error.log
 access.log
 *.log
+.vercel
