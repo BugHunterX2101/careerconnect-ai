@@ -2,7 +2,7 @@
 
 A comprehensive AI-powered resume parsing and job recommendation platform with advanced features including OAuth authentication, LinkedIn integration, Google Meet video conferencing, and real-time chat capabilities.
 
-## 🚀 Features
+## Features
 
 ### Core AI Features
 - **BERT-powered Resume Parsing**: Advanced resume analysis using Universal Sentence Encoder
@@ -35,7 +35,7 @@ A comprehensive AI-powered resume parsing and job recommendation platform with a
 - **Public Profiles**: Shareable public profile pages
 - **Data Export**: Export profile data in multiple formats
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 ### Backend Framework
 - **Node.js** - Runtime environment
@@ -69,7 +69,7 @@ A comprehensive AI-powered resume parsing and job recommendation platform with a
 - **Sharp** - Image processing
 - **PDF Parse** - PDF document parsing
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
@@ -107,7 +107,7 @@ src/
     └── jobQueue.js              # Background job processing
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js >= 18.0.0
@@ -189,7 +189,7 @@ src/
    npm run queue:worker
    ```
 
-## 📚 API Documentation
+## API Documentation
 
 ### Authentication Endpoints
 
@@ -284,7 +284,7 @@ src/
 3. Get Client ID and Client Secret
 4. Add callback URL: `http://localhost:3000/api/auth/github/callback`
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
 ### Build Docker Image
 ```bash
@@ -305,7 +305,7 @@ REDIS_URL=redis://redis:6379
 JWT_SECRET=your-production-jwt-secret
 ```
 
-## 📊 Monitoring & Logging
+## Monitoring & Logging
 
 ### Logging
 - **Winston** for structured logging
@@ -322,7 +322,7 @@ JWT_SECRET=your-production-jwt-secret
 - Performance monitoring
 - Error rate tracking
 
-## 🔒 Security Features
+## Security Features
 
 ### Authentication Security
 - JWT token expiration
@@ -342,7 +342,7 @@ JWT_SECRET=your-production-jwt-secret
 - Virus scanning (optional)
 - Secure file storage
 
-## 🧪 Testing
+## Testing
 
 ### Run Tests
 ```bash
@@ -359,7 +359,7 @@ npm run test:coverage
 npm run test:api
 ```
 
-## 📈 Performance Optimization
+## Performance Optimization
 
 ### Caching Strategy
 - Redis caching for frequently accessed data
@@ -376,35 +376,13 @@ npm run test:api
 - Connection pooling
 - Query optimization
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Add tests
 5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the repository
-- Check the documentation
-- Contact the development team
-
-## 🔄 Version History
-
-### v2.0.0 (Current)
-- Added OAuth authentication (Google, LinkedIn, GitHub)
-- Integrated LinkedIn job posting and search
-- Added Google Meet video conferencing
-- Implemented real-time chat system
-- Enhanced AI features with BERT integration
-- Added comprehensive profile management
-- Improved security and performance
 
 ### v1.0.0
 - Basic resume parsing
