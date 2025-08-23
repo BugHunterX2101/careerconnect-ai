@@ -11,6 +11,7 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "cd src/client && npm run build",
     "build:server": "echo 'Server build complete'",
+    "vercel-build": "npm run build:client",
     "setup": "node scripts/setup.js",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -1,44 +1,35 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "index.js",
-            "use": "@vercel/node"
-        },
-        {
-            "src": "public/**",
-            "use": "@vercel/static"
-        }
-    ],
-    "routes": [
-        {
-            "src": "/api/(.*)",
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "headers": {
-                "Access-Control-Allow-Origin": "https://careerconnect-7af1-78chub5qr-vedit-agrawals-projects.vercel.app",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "86400",
-                "Vary": "Origin"
-            },
-            "dest": "index.js"
-        },
-        {
-            "src": "/favicon.ico",
-            "dest": "public/favicon.ico"
-        },
-        {
-            "src": "/signup",
-            "dest": "public/signup.html"
-        },
-        {
-            "src": "/dashboard",
-            "dest": "public/dashboard.html"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "public/$1"
-        }
-    ]
+  "version": 2,
+  "name": "careerconnect-ai",
+  "builds": [
+    {
+      "src": "src/server/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "src/client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "src/server/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/client/dist/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "src/server/index.js": {
+      "maxDuration": 30
+    }
+  }
 } 
