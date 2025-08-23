@@ -8,8 +8,12 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: 'logs/redis.log' }),
-    new winston.transports.Console()
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
   ]
 });
 
@@ -18,6 +22,10 @@ let redisClient = null;
 const connectRedis = async () => {
   try {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    
+    if (!process.env.REDIS_URL) {
+      logger.warn('No REDIS_URL provided, using local Redis');
+    }
     
     redisClient = redis.createClient({
       url: redisUrl,
@@ -96,7 +104,14 @@ const closeRedis = async () => {
 };
 
 // Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, closing Redis connection');
+  await closeRedis();
+  process.exit(0);
+});
+
 process.on('SIGINT', async () => {
+  logger.info('SIGINT received, closing Redis connection');
   await closeRedis();
   process.exit(0);
 });

@@ -27,9 +27,9 @@ const profileRoutes = require('../routes/profile');
 const { errorHandler } = require('../middleware/errorHandler');
 const { requestLogger } = require('../middleware/logger');
 
-// Initialize logger
+// Initialize logger with Railway-compatible configuration
 const logger = winston.createLogger({
-  level: 'info',
+  level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
@@ -37,26 +37,36 @@ const logger = winston.createLogger({
   ),
   defaultMeta: { service: 'careerconnect-ai' },
   transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
+    // Only add file transports if we're not in production (Railway)
+    ...(process.env.NODE_ENV !== 'production' ? [
+      new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+      new winston.transports.File({ filename: 'logs/combined.log' })
+    ] : [])
   ],
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.simple()
-  }));
-}
+// Always add console transport for Railway
+logger.add(new winston.transports.Console({
+  format: winston.format.combine(
+    winston.format.colorize(),
+    winston.format.simple()
+  )
+}));
 
 const app = express();
 const server = createServer(app);
+
+// CORS configuration for Railway
+const allowedOrigins = [
+  process.env.CLIENT_URL || "http://localhost:5173",
+  "https://careerconnect-ai-production.up.railway.app",
+  "https://careerconnect-ai-frontend.onrender.com",
+  "https://careerconnect-ai-backend.onrender.com"
+];
+
 const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.CLIENT_URL || "http://localhost:5173",
-      "https://careerconnect-ai-frontend.onrender.com",
-      "https://careerconnect-ai-backend.onrender.com"
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -97,12 +107,6 @@ app.use('/api/auth', authLimiter);
 app.use(compression());
 
 // CORS configuration
-const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5173",
-  "https://careerconnect-ai-frontend.onrender.com",
-  "https://careerconnect-ai-backend.onrender.com"
-];
-
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -134,7 +138,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '2.0.0'
   });
 });
 
@@ -255,10 +261,22 @@ async function initializeServices() {
   try {
     // Connect to databases
     await connectDB();
-    await connectRedis();
     
-    // Setup job queue
-    await setupJobQueue();
+    // Try to connect to Redis (optional for Railway)
+    try {
+      await connectRedis();
+      logger.info('Redis connected successfully');
+    } catch (redisError) {
+      logger.warn('Redis connection failed, continuing without Redis:', redisError.message);
+    }
+    
+    // Try to setup job queue (optional for Railway)
+    try {
+      await setupJobQueue();
+      logger.info('Job queue setup completed');
+    } catch (queueError) {
+      logger.warn('Job queue setup failed, continuing without job queue:', queueError.message);
+    }
     
     // Make io available to routes
     app.set('io', io);
@@ -266,7 +284,8 @@ async function initializeServices() {
     logger.info('All services initialized successfully');
   } catch (error) {
     logger.error('Failed to initialize services:', error);
-    process.exit(1);
+    // Don't exit on service initialization failure for Railway
+    logger.info('Continuing with basic functionality...');
   }
 }
 
@@ -277,6 +296,7 @@ initializeServices().then(() => {
   server.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`Health check: http://localhost:${PORT}/health`);
   });
 }).catch((error) => {
   logger.error('Failed to start server:', error);

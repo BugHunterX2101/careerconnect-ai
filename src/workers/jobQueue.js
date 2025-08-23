@@ -13,8 +13,12 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: 'logs/jobQueue.log' }),
-    new winston.transports.Console()
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
   ]
 });
 
@@ -28,9 +32,20 @@ let dataAnalysisQueue = null;
 let resumeParser = null;
 let jobRecommender = null;
 
+// Check if Redis is available
+const isRedisAvailable = () => {
+  return process.env.REDIS_URL || process.env.REDIS_HOST;
+};
+
 const setupJobQueue = async () => {
   try {
     logger.info('Setting up job queues...');
+
+    // Check if Redis is available
+    if (!isRedisAvailable()) {
+      logger.warn('Redis not available, job queues will be disabled');
+      return;
+    }
 
     // Initialize ML services
     resumeParser = new ResumeParser();
@@ -39,13 +54,17 @@ const setupJobQueue = async () => {
     await resumeParser.initialize();
     await jobRecommender.initialize();
 
-    // Create queues
-    resumeProcessingQueue = new Queue('resume-processing', {
-      redis: {
+    // Create queues with Redis URL
+    const redisConfig = process.env.REDIS_URL ? 
+      { url: process.env.REDIS_URL } : 
+      {
         host: process.env.REDIS_HOST || 'localhost',
         port: process.env.REDIS_PORT || 6379,
         password: process.env.REDIS_PASSWORD
-      },
+      };
+
+    resumeProcessingQueue = new Queue('resume-processing', {
+      redis: redisConfig,
       defaultJobOptions: {
         attempts: 3,
         backoff: {
@@ -58,11 +77,7 @@ const setupJobQueue = async () => {
     });
 
     jobRecommendationQueue = new Queue('job-recommendations', {
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD
-      },
+      redis: redisConfig,
       defaultJobOptions: {
         attempts: 2,
         backoff: {
@@ -75,11 +90,7 @@ const setupJobQueue = async () => {
     });
 
     emailQueue = new Queue('email-notifications', {
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD
-      },
+      redis: redisConfig,
       defaultJobOptions: {
         attempts: 5,
         backoff: {
@@ -92,11 +103,7 @@ const setupJobQueue = async () => {
     });
 
     dataAnalysisQueue = new Queue('data-analysis', {
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD
-      },
+      redis: redisConfig,
       defaultJobOptions: {
         attempts: 2,
         backoff: {
@@ -365,6 +372,13 @@ const setupJobProcessors = () => {
 // Queue management functions
 const addResumeProcessingJob = async (userId, resumeId, filePath, fileType) => {
   try {
+    if (!resumeProcessingQueue) {
+      logger.warn('Job queue not available, processing resume synchronously');
+      // Fallback to synchronous processing
+      const result = await processResumeSynchronously(userId, resumeId, filePath, fileType);
+      return { id: 'sync-' + Date.now(), result };
+    }
+
     const job = await resumeProcessingQueue.add('parse-resume', {
       userId,
       resumeId,
@@ -501,14 +515,67 @@ const resumeAllQueues = async () => {
 
 const closeAllQueues = async () => {
   try {
-    await resumeProcessingQueue.close();
-    await jobRecommendationQueue.close();
-    await emailQueue.close();
-    await dataAnalysisQueue.close();
+    if (resumeProcessingQueue) await resumeProcessingQueue.close();
+    if (jobRecommendationQueue) await jobRecommendationQueue.close();
+    if (emailQueue) await emailQueue.close();
+    if (dataAnalysisQueue) await dataAnalysisQueue.close();
     
     logger.info('All queues closed');
   } catch (error) {
     logger.error('Error closing queues:', error);
+    throw error;
+  }
+};
+
+// Synchronous fallback processing functions
+const processResumeSynchronously = async (userId, resumeId, filePath, fileType) => {
+  try {
+    logger.info(`Processing resume ${resumeId} synchronously`);
+    
+    // Initialize ML services if not already done
+    if (!resumeParser) {
+      resumeParser = new ResumeParser();
+      await resumeParser.initialize();
+    }
+    
+    // Update resume status to processing
+    await Resume.findByIdAndUpdate(resumeId, {
+      processingStatus: 'processing',
+      processingProgress: 10
+    });
+
+    // Parse resume
+    const parsedData = await resumeParser.parseResume(filePath, fileType);
+    
+    // Update resume with parsed data
+    await Resume.findByIdAndUpdate(resumeId, {
+      ...parsedData,
+      processingStatus: 'completed',
+      processingProgress: 100,
+      processedAt: new Date()
+    });
+
+    logger.info(`Resume ${resumeId} processed successfully`);
+    
+    return {
+      success: true,
+      resumeId,
+      parsedData: {
+        skillsCount: parsedData.skills.length,
+        experienceCount: parsedData.experience.length,
+        educationCount: parsedData.education.length,
+        overallScore: parsedData.aiAnalysis.overallScore
+      }
+    };
+  } catch (error) {
+    logger.error(`Error processing resume ${resumeId}:`, error);
+    
+    // Update resume status to failed
+    await Resume.findByIdAndUpdate(resumeId, {
+      processingStatus: 'failed',
+      processingError: error.message
+    });
+    
     throw error;
   }
 };
