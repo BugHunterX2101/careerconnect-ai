@@ -11,6 +11,8 @@
     "build:client": "cd src/client && npm run build",
     "build:server": "echo 'Server build complete'",
     "build:production": "node scripts/build-production.js",
+    "railway-build": "npm run build:client",
+    "railway-deploy": "railway up",
     "vercel-build": "npm run build:client",
     "setup": "node scripts/setup.js",
     "test": "jest",
