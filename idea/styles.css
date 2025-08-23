@@ -1,0 +1,481 @@
+:root {
+    --primary-color: #00f7ff;
+    --background: #0a0a0a;
+    --card-bg: #151515;
+    --text-color: #ffffff;
+}
+
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Container Styles */
+.container {
+    background: var(--card-bg);
+    width: 90%;
+    max-width: 1200px;
+    height: 600px;
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 0 60px rgba(0, 247, 255, 0.15);
+    position: relative;
+    z-index: 1;
+}
+
+/* Navigation Styles */
+nav {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 25px 60px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+}
+
+.nav-links a {
+    color: rgba(0, 247, 255, 0.8);
+    text-decoration: none;
+    font-size: 1rem;
+    padding: 5px 0;
+    transition: color 0.3s ease;
+    position: relative;
+}
+
+.nav-links a:hover {
+    color: rgba(0, 247, 255, 1);
+}
+
+/* Content Layout */
+.content-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: calc(100% - 80px);
+    padding: 0 60px;
+}
+
+/* Login Section Styles */
+.login-section {
+    width: 320px;
+    padding: 2.5rem;
+    margin-right: 40px;
+    margin-top: -60px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+}
+
+.login-form input {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 16px;
+    border-radius: 8px;
+    color: var(--text-color);
+    transition: border 0.3s ease;
+}
+
+.login-form input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.login-form input:hover {
+    background: #333;
+}
+
+.login-form input:focus {
+    outline: none;
+    border: 1px solid var(--primary-color);
+    box-shadow: 0 0 10px rgba(0, 247, 255, 0.2);
+}
+
+.login-form button {
+    width: 100%;
+    background-color: var(--primary-color);
+    color: var(--background);
+    border: none;
+    padding: 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.login-form button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 247, 255, 0.3);
+}
+
+/* Welcome Section Styles */
+.welcome-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.brand-container {
+    position: relative;
+    z-index: 4;
+    padding: 40px;
+    transform: translateY(-60px);
+}
+
+.brand-name {
+    font-size: 4.5rem;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, #00f7ff 0%, #00d8ff 25%, #0099ff 50%, #00b3ff 75%, #00f7ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    z-index: 2;
+    text-shadow: 
+        0 0 20px rgba(0, 247, 255, 0.6),
+        0 0 40px rgba(0, 247, 255, 0.4),
+        0 0 60px rgba(0, 247, 255, 0.2),
+        0 0 80px rgba(0, 247, 255, 0.1);
+    animation: textPulse 3s ease-in-out infinite;
+}
+
+@keyframes textPulse {
+    0%, 100% {
+        text-shadow: 
+            0 0 20px rgba(0, 247, 255, 0.6),
+            0 0 40px rgba(0, 247, 255, 0.4),
+            0 0 60px rgba(0, 247, 255, 0.2),
+            0 0 80px rgba(0, 247, 255, 0.1);
+    }
+    50% {
+        text-shadow: 
+            0 0 25px rgba(0, 247, 255, 0.8),
+            0 0 50px rgba(0, 247, 255, 0.6),
+            0 0 75px rgba(0, 247, 255, 0.4),
+            0 0 100px rgba(0, 247, 255, 0.2);
+    }
+}
+
+/* Checkbox styling */
+.remember-me {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.remember-me input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+/* Hover effects for buttons and inputs */
+.nav-links a {
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.nav-links a:hover::after {
+    width: 100%;
+}
+
+/* Add shine effect on button hover */
+.login-form button::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        to bottom right,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(45deg);
+    transition: 0.5s;
+    opacity: 0;
+}
+
+.login-form button:hover::after {
+    animation: shine 1s;
+}
+
+@keyframes shine {
+    0% {
+        transform: translateX(-100%) rotate(45deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(100%) rotate(45deg);
+        opacity: 0;
+    }
+}
+
+/* Add canvas styling */
+#particleCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+/* Profile icon styles */
+.profile-icon {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(
+        135deg,
+        rgba(0, 247, 255, 0.15) 0%,
+        rgba(0, 247, 255, 0.05) 100%
+    );
+    border-radius: 50%;
+    margin: 0 auto 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(0, 247, 255, 0.2);
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 247, 255, 0.1);
+}
+
+/* Profile head */
+.profile-icon::after {
+    content: '';
+    width: 35 px;
+    height: 35px;
+    background: linear-gradient(
+        135deg,
+        rgba(0, 247, 255, 0.3) 0%,
+        rgba(0, 247, 255, 0.1) 100%
+    );
+    border-radius: 50%;
+    position: absolute;
+    top: 15px;
+}
+
+/* Profile body */
+.profile-icon::before {
+    content: '';
+    width: 55px;
+    height: 30px;
+    background: linear-gradient(
+        135deg,
+        rgba(0, 247, 255, 0.3) 0%,
+        rgba(0, 247, 255, 0.1) 100%
+    );
+    border-radius: 25px 25px 0 0;
+    position: absolute;
+    bottom: 15px;
+}
+
+/* Add subtle animation */
+@keyframes profileGlow {
+    0% { box-shadow: 0 0 20px rgba(0, 247, 255, 0.1); }
+    50% { box-shadow: 0 0 30px rgba(0, 247, 255, 0.2); }
+    100% { box-shadow: 0 0 20px rgba(0, 247, 255, 0.1); }
+}
+
+.profile-icon {
+    animation: profileGlow 3s ease-in-out infinite;
+}
+
+/* Adjust form spacing for better alignment */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+}
+
+.login-form input {
+    padding: 16px;
+}
+
+.login-form button {
+    margin-top: 0.5rem;
+    padding: 16px;
+}
+
+/* Add hover cards */
+.nav-item {
+    position: relative;
+}
+
+.hover-card {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    background: rgba(21, 21, 21, 0.95);
+    border: 1px solid rgba(0, 247, 255, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 15px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 100;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.nav-item:hover .hover-card {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(5px);
+}
+
+/* Hover card arrow */
+.hover-card::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: rgba(21, 21, 21, 0.95);
+    border-left: 1px solid rgba(0, 247, 255, 0.2);
+    border-top: 1px solid rgba(0, 247, 255, 0.2);
+}
+
+/* Hover card content styles */
+.hover-card h3 {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+}
+
+.hover-card p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.hover-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.hover-card li {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hover-card li:last-child {
+    border-bottom: none;
+}
+
+/* Update nav-links for better positioning */
+.nav-links {
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+    position: relative;
+}
+
+.nav-links a {
+    padding: 5px 0;
+}
+
+/* Canvas positioning */
+#backgroundParticles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: 0 .8;
+}
+
+#brandParticles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* Add a glowing ring effect */
+.brand-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(
+        circle,
+        rgba(0, 247, 255, 0.1) 0%,
+        rgba(0, 247, 255, 0.05) 40%,
+        transparent 70%
+    );
+    border-radius: 50%;
+    z-index: 1;
+    animation: ringPulse 4s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+/* Container background */
+.container {
+    position: relative;
+    z-index: 1;
+    background: rgba(21, 21, 21, 0.85);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}

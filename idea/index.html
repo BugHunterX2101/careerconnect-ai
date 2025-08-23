@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="CareerConnect - Turning Skills into Paychecks and Dreams into Reality">
+        <title>CareerConnect</title>
+        <link rel="stylesheet" href="styles.css">
+    </head>
+    <body>
+        <!-- Background particle canvas -->
+        <canvas id="backgroundParticles"></canvas>
+        
+        <div class="container">
+            <!-- Navigation Bar with hover cards -->
+            <nav>
+                <div class="nav-links">
+                    <div class="nav-item">
+                        <a href="#about">About</a>
+                        <div class="hover-card about-card">
+                            <h3>About Us</h3>
+                            <p>The Skill Development and Employment Matching Platform empowers low-income workers by bridging the gap between skills and opportunities. We believe in transforming untapped potential into a thriving workforce, driving both personal and economic growth.</p>
+                        </div>
+                    </div>
+
+                    <div class="nav-item">
+                        <a href="#services">Services</a>
+                        <div class="hover-card services-card">
+                            <h3>Our Services</h3>
+                            <ul>
+                                <li>Skill Assessment & Training</li>
+                                <li>AI-Powered Job Matching</li>
+                                <li>Multilingual Support</li>
+                                <li>Community Resources</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="nav-item">
+                        <a href="#contact">Contact</a>
+                        <div class="hover-card contact-card">
+                            <h3>Get in Touch</h3>
+                            <p>Need assistance? Our support team is available 24/7.</p>
+                            <ul>
+                                <li>Email: support@platform.com</li>
+                                <li>Phone: 1-800-SKILLS</li>
+                                <li>Live Chat: Available</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="nav-item">
+                        <a href="#signup">Sign Up</a>
+                        <div class="hover-card signup-card">
+                            <h3>Join Us Today</h3>
+                            <ul>
+                                <li>Free Skill Assessment</li>
+                                <li>Personalized Learning Path</li>
+                                <li>Job Matching Services</li>
+                                <li>Community Access</li>
+                            </ul>
+                            <p class="signup-note">Start your journey to success!</p>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="content-wrapper">
+                <!-- Left side with brand name -->
+                <div class="welcome-section">
+                    <div class="brand-container">
+                        <!-- CareerConnect particle canvas -->
+                        <canvas id="brandParticles"></canvas>
+                        <h1 class="brand-name">CareerConnect</h1>
+                    </div>
+                </div>
+
+                <!-- Right side with login -->
+                <div class="login-section">
+                    <div class="profile-icon"></div>
+                    <form class="login-form">
+                        <input type="text" placeholder="Username" required>
+                        <input type="password" placeholder="Password" required>
+                        <button type="submit">Sign In</button>
+                        <div class="remember-me">
+                            <input type="checkbox" id="remember">
+                            <label for="remember">Remember me</label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sign Up Modal -->
+        <div class="modal" id="signUpModal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Create Account</h2>
+                <form class="signup-form">
+                    <input type="text" placeholder="Full Name" required>
+                    <input type="email" placeholder="Email" required>
+                    <input type="password" placeholder="Password" required>
+                    <input type="password" placeholder="Confirm Password" required>
+                    <button type="submit">Create Account</button>
+                </form>
+            </div>
+        </div>
+
+        <script src="script.js"></script>
+    </body>
+</html> 

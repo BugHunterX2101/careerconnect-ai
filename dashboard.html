@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareerConnect Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-container">
+                    <img src="bulb_logo.png" alt="CareerConnect Logo" class="brand-logo">
+                    <h2>CareerConnect</h2>
+                </div>
+            </div>
+            
+            <div class="user-profile">
+                <img src="profile-placeholder.jpg" alt="Profile" class="profile-img">
+                <h3>Welcome Back</h3>
+                <p class="user-name">User</p>
+            </div>
+
+            <nav class="side-nav">
+                <a href="#dashboard" class="active"><i class="fas fa-home"></i>Dashboard</a>
+                <a href="#form"><i class="fas fa-file-alt"></i>Form</a>
+                <a href="#job-postings"><i class="fas fa-briefcase"></i>Job Postings</a>
+                <a href="#courses"><i class="fas fa-book"></i>Courses</a>
+                <a href="#aspirations"><i class="fas fa-star"></i>Aspirations</a>
+            </nav>
+
+            <div class="team-section">
+                <h4>Study Group</h4>
+                <div class="team-members">
+                    <img src="member1.jpg" alt="Member 1">
+                    <img src="member2.jpg" alt="Member 2">
+                    <img src="member3.jpg" alt="Member 3">
+                </div>
+                <button class="join-btn">Join Now</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header>
+                <div class="header-left">
+                    <h1>Good Morning, <span class="user-greeting">User</span></h1>
+                    <p>Track your progress and manage your learning journey</p>
+                </div>
+                <div class="header-right">
+                    <button class="suggestion-btn">See Suggestions</button>
+                    <div class="user-actions">
+                        <i class="fas fa-bell"></i>
+                        <i class="fas fa-calendar"></i>
+                        <img src="profile-placeholder.jpg" alt="Profile" class="header-profile">
+                    </div>
+                </div>
+            </header>
+
+            <section class="quick-stats">
+                <div class="stat-card progress-card">
+                    <h3>Weekly Progress</h3>
+                    <div class="progress-circle" data-progress="65">
+                        <div class="progress-text">65%</div>
+                    </div>
+                </div>
+                <div class="stat-card library-card">
+                    <h3>Skill Library</h3>
+                    <div class="skill-preview">
+                        <div class="member-avatars">
+                            <img src="member1.jpg" alt="Member">
+                            <img src="member2.jpg" alt="Member">
+                        </div>
+                        <p>Try new skills</p>
+                    </div>
+                </div>
+                <div class="stat-card workshop-card">
+                    <h3>Workshop</h3>
+                    <p>Sales marketing workshop</p>
+                    <div class="workshop-avatar">
+                        <img src="instructor.jpg" alt="Instructor">
+                    </div>
+                </div>
+            </section>
+
+            <section class="analytics">
+                <h2>Progress Analytics</h2>
+                <div class="chart-container">
+                    <canvas id="progressChart"></canvas>
+                </div>
+            </section>
+
+            <section class="upcoming-events">
+                <div class="section-header">
+                    <h2>Upcoming Webinars</h2>
+                    <a href="#" class="see-all">See all</a>
+                </div>
+                <div class="webinar-list">
+                    <div class="webinar-card">
+                        <div class="webinar-icon">📱</div>
+                        <div class="webinar-info">
+                            <h4>Color Theory</h4>
+                            <p>Duration: 2 hrs</p>
+                        </div>
+                        <span class="webinar-time">2:00 PM</span>
+                    </div>
+                    <div class="webinar-card">
+                        <div class="webinar-icon">💡</div>
+                        <div class="webinar-info">
+                            <h4>Design Elements</h4>
+                            <p>Duration: 1.5 hrs</p>
+                        </div>
+                        <span class="webinar-time">4:00 PM</span>
+                    </div>
+                    <div class="webinar-card">
+                        <div class="webinar-icon">📊</div>
+                        <div class="webinar-info">
+                            <h4>Market Analysis</h4>
+                            <p>Duration: 2 hrs</p>
+                        </div>
+                        <span class="webinar-time">6:00 PM</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="aspirations">
+                <div class="section-header">
+                    <h2>Career Aspirations</h2>
+                    <a href="#" class="see-all">See all</a>
+                </div>
+                <div class="aspiration-cards">
+                    <div class="aspiration-card">
+                        <div class="aspiration-icon">🎯</div>
+                        <div class="aspiration-content">
+                            <h4>Career Goal</h4>
+                            <p>Full Stack Developer</p>
+                            <div class="progress-bar">
+                                <div class="progress progress-75"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="aspiration-card">
+                        <div class="aspiration-icon">💡</div>
+                        <div class="aspiration-content">
+                            <h4>Skills Target</h4>
+                            <p>React & Node.js</p>
+                            <div class="progress-bar">
+                                <div class="progress progress-60"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="aspiration-card">
+                        <div class="aspiration-icon">📈</div>
+                        <div class="aspiration-content">
+                            <h4>Salary Goal</h4>
+                            <p>$85,000/year</p>
+                            <div class="progress-bar">
+                                <div class="progress progress-45"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Form Section Content -->
+            <section class="form-section" id="formSection">
+                <div class="section-header">
+                    <h2>Profile Information</h2>
+                    <p>Complete your profile to enhance job matching</p>
+                </div>
+                
+                <form class="profile-form">
+                    <!-- Basic Information -->
+                    <div class="form-group">
+                        <h3>Basic Information</h3>
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="fullName">Full Name</label>
+                                <input type="text" id="fullName" placeholder="Enter your full name">
+                            </div>
+                            <div class="form-field">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" placeholder="Enter your email">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Professional Links -->
+                    <div class="form-group">
+                        <h3>Professional Links</h3>
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="githubUrl">
+                                    <i class="fab fa-github"></i> GitHub URL
+                                </label>
+                                <input type="url" id="githubUrl" placeholder="https://github.com/username">
+                            </div>
+                            <div class="form-field">
+                                <label for="linkedinUrl">
+                                    <i class="fab fa-linkedin"></i> LinkedIn URL
+                                </label>
+                                <input type="url" id="linkedinUrl" placeholder="https://linkedin.com/in/username">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Education Details -->
+                    <div class="form-group">
+                        <h3>Education Details</h3>
+                        <div class="education-fields">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label for="degree">Degree/Certification</label>
+                                    <input type="text" id="degree" placeholder="e.g., Bachelor's in Computer Science">
+                                </div>
+                                <div class="form-field">
+                                    <label for="institution">Institution</label>
+                                    <input type="text" id="institution" placeholder="Enter institution name">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label for="gradYear">Graduation Year</label>
+                                    <input type="number" id="gradYear" placeholder="YYYY">
+                                </div>
+                                <div class="form-field">
+                                    <label for="gpa">GPA</label>
+                                    <input type="number" id="gpa" step="0.01" min="0" max="4" placeholder="e.g., 3.5">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="add-education-btn">
+                            <i class="fas fa-plus"></i> Add More Education
+                        </button>
+                    </div>
+
+                    <!-- Skills -->
+                    <div class="form-group">
+                        <h3>Skills</h3>
+                        <div class="form-field">
+                            <label for="skills">Technical Skills</label>
+                            <input type="text" id="skills" placeholder="e.g., JavaScript, Python, React">
+                            <p class="field-hint">Separate multiple skills with commas</p>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="form-actions">
+                        <button type="submit" class="save-btn">Save Profile</button>
+                        <button type="reset" class="reset-btn">Reset Form</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Inside main-content, after the existing sections -->
+            <div class="scroll-sections">
+                <!-- About Section -->
+                <section id="about" class="scroll-section">
+                    <div class="section-header">
+                        <h2>About CareerConnect</h2>
+                        <div class="section-divider"></div>
+                    </div>
+                    <div class="about-content">
+                        <div class="mission-card">
+                            <h3>Our Mission</h3>
+                            <p>Empowering individuals to achieve their career aspirations through skill development and meaningful connections.</p>
+                        </div>
+                        <div class="features-grid">
+                            <div class="feature-card">
+                                <i class="fas fa-brain"></i>
+                                <h4>Skill Assessment</h4>
+                                <p>AI-powered skill evaluation and personalized learning paths.</p>
+                            </div>
+                            <div class="feature-card">
+                                <i class="fas fa-handshake"></i>
+                                <h4>Job Matching</h4>
+                                <p>Intelligent job recommendations based on your skills and goals.</p>
+                            </div>
+                            <div class="feature-card">
+                                <i class="fas fa-users"></i>
+                                <h4>Community</h4>
+                                <p>Connect with peers and industry experts.</p>
+                            </div>
+                            <div class="feature-card">
+                                <i class="fas fa-certificate"></i>
+                                <h4>Certification</h4>
+                                <p>Industry-recognized certifications and badges.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Job Postings Section -->
+                <section id="job-postings" class="scroll-section">
+                    <div class="section-header">
+                        <h2>Job Postings</h2>
+                        <div class="section-divider"></div>
+                    </div>
+                    <div class="jobs-grid">
+                        <div class="job-card">
+                            <div class="job-header">
+                                <img src="company1-logo.png" alt="Company Logo">
+                                <div class="job-title">
+                                    <h3>Senior Frontend Developer</h3>
+                                    <p>TechCorp Solutions</p>
+                                </div>
+                                <span class="job-type">Full-time</span>
+                            </div>
+                            <div class="job-details">
+                                <p class="job-location"><i class="fas fa-map-marker-alt"></i> New York, NY</p>
+                                <p class="job-salary"><i class="fas fa-dollar-sign"></i> $90k - $120k</p>
+                                <div class="job-skills">
+                                    <span>React</span>
+                                    <span>TypeScript</span>
+                                    <span>Node.js</span>
+                                </div>
+                            </div>
+                            <button class="apply-btn">Apply Now</button>
+                        </div>
+                        <!-- Add more job cards -->
+                    </div>
+                </section>
+
+                <!-- Courses Section -->
+                <section id="courses" class="scroll-section">
+                    <div class="section-header">
+                        <h2>Available Courses</h2>
+                        <div class="section-divider"></div>
+                    </div>
+                    <div class="courses-grid">
+                        <div class="course-card">
+                            <div class="course-image">
+                                <img src="course1.jpg" alt="Course">
+                                <span class="course-level">Beginner</span>
+                            </div>
+                            <div class="course-content">
+                                <h3>Web Development Fundamentals</h3>
+                                <p>Learn HTML, CSS, and JavaScript basics</p>
+                                <div class="course-meta">
+                                    <span><i class="fas fa-clock"></i> 8 weeks</span>
+                                    <span><i class="fas fa-user-graduate"></i> 1.2k students</span>
+                                </div>
+                                <div class="course-rating">
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star-half-alt"></i>
+                                    <span>(245)</span>
+                                </div>
+                            </div>
+                            <button class="enroll-btn">Enroll Now</button>
+                        </div>
+                        <!-- Add more course cards -->
+                    </div>
+                </section>
+
+                <!-- Aspirations Section -->
+                <section id="aspirations" class="scroll-section">
+                    <div class="section-header">
+                        <h2>Career Aspirations</h2>
+                        <div class="section-divider"></div>
+                    </div>
+                    <div class="aspirations-content">
+                        <div class="career-path-timeline">
+                            <div class="timeline-item">
+                                <div class="timeline-point"></div>
+                                <div class="timeline-content">
+                                    <h3>Entry Level</h3>
+                                    <p>Junior Developer</p>
+                                    <ul>
+                                        <li>Learn fundamental technologies</li>
+                                        <li>Gain team collaboration experience</li>
+                                        <li>Build portfolio projects</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <!-- Add more timeline items -->
+                        </div>
+                        <div class="skills-progress">
+                            <h3>Skills Development</h3>
+                            <div class="skill-bar">
+                                <span class="skill-name">Frontend Development</span>
+                                <div class="progress-bar">
+                                    <div class="progress progress-75"></div>
+                                </div>
+                            </div>
+                            <!-- Add more skill bars -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
