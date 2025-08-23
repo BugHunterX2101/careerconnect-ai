@@ -11,9 +11,21 @@ const { errorHandler } = require('../middleware/errorHandler');
 const logger = require('../middleware/logger');
 const { addResumeProcessingJob, addJobRecommendationJob } = require('../workers/jobQueue');
 
-// Import models
-const Resume = require('../models/Resume');
-const User = require('../models/User');
+// Try to import models (optional)
+let Resume = null;
+let User = null;
+
+try {
+  Resume = require('../models/Resume');
+} catch (error) {
+  console.warn('Resume model not available:', error.message);
+}
+
+try {
+  User = require('../models/User');
+} catch (error) {
+  console.warn('User model not available:', error.message);
+}
 
 const router = express.Router();
 
@@ -98,96 +110,112 @@ router.post('/upload',
   async (req, res) => {
     const startTime = Date.now();
     
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'No file uploaded'
-        }
-      });
-    }
-
-    const { title, isPublic = false, description } = req.body;
-    const fileType = path.extname(req.file.originalname).toLowerCase().substring(1);
-
-    // Create resume record
-    const resume = new Resume({
-      userId: req.user._id,
-      originalFileName: req.file.originalname,
-      filePath: req.file.path,
-      fileSize: req.file.size,
-      fileType,
-      title: title || req.file.originalname,
-      isPublic,
-      description
-    });
-
-    await resume.save();
-
-    // Add resume processing job to queue
-    await addResumeProcessingJob(
-      req.user._id,
-      resume._id,
-      req.file.path,
-      fileType
-    );
-
-    performanceLogger('resume_upload', startTime, {
-      userId: req.user._id,
-      resumeId: resume._id,
-      fileSize: req.file.size,
-      fileType
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Resume uploaded successfully and queued for processing',
-      data: {
-        resumeId: resume._id,
-        status: resume.processingStatus,
-        originalFileName: resume.originalFileName,
-        fileSize: resume.fileSize
+    try {
+      if (!Resume || !User) {
+        return res.status(503).json({ error: 'Models not available' });
       }
-    });
-  })
-);
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'No file uploaded'
+          }
+        });
+      }
+
+      const { title, isPublic = false, description } = req.body;
+      const fileType = path.extname(req.file.originalname).toLowerCase().substring(1);
+
+      // Create resume record
+      const resume = new Resume({
+        userId: req.user._id,
+        originalFileName: req.file.originalname,
+        filePath: req.file.path,
+        fileSize: req.file.size,
+        fileType,
+        title: title || req.file.originalname,
+        isPublic,
+        description
+      });
+
+      await resume.save();
+
+      // Add resume processing job to queue
+      await addResumeProcessingJob(
+        req.user._id,
+        resume._id,
+        req.file.path,
+        fileType
+      );
+
+      performanceLogger('resume_upload', startTime, {
+        userId: req.user._id,
+        resumeId: resume._id,
+        fileSize: req.file.size,
+        fileType
+      });
+
+             res.status(201).json({
+         success: true,
+         message: 'Resume uploaded successfully and queued for processing',
+         data: {
+           resumeId: resume._id,
+           status: resume.processingStatus,
+           originalFileName: resume.originalFileName,
+           fileSize: resume.fileSize
+         }
+       });
+     } catch (error) {
+       errorHandler(error, req, res);
+     }
+   }
+ );
 
 // @route   GET /api/resume
 // @desc    Get user's resumes
 // @access  Private
 router.get('/', 
-  authenticate, 
-  asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-    
-    const query = { userId: req.user._id };
-    if (status) {
-      query.processingStatus = status;
-    }
-
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    const resumes = await Resume.find(query)
-      .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .select('-filePath');
-
-    const total = await Resume.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        resumes,
-        pagination: {
-          currentPage: page * 1,
-          totalPages: Math.ceil(total / limit),
-          totalItems: total,
-          itemsPerPage: limit * 1
-        }
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
       }
-    });
+
+      const { page = 1, limit = 10, status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+      
+      const query = { userId: req.user._id };
+      if (status) {
+        query.processingStatus = status;
+      }
+
+      const sortOptions = {};
+      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+      const resumes = await Resume.find(query)
+        .sort(sortOptions)
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .select('-filePath');
+
+      const total = await Resume.countDocuments(query);
+
+      res.json({
+        success: true,
+        data: {
+          resumes,
+          pagination: {
+            currentPage: page * 1,
+            totalPages: Math.ceil(total / limit),
+            totalItems: total,
+            itemsPerPage: limit * 1
+          }
+        }
+      });
+    } catch (error) {
+      errorHandler(error, req, res);
+    }
   })
 );
 
@@ -195,26 +223,33 @@ router.get('/',
 // @desc    Get specific resume
 // @access  Private
 router.get('/:id', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findById(req.params.id)
-      .populate('userId', 'firstName lastName email')
-      .select('-filePath');
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
 
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
-        }
+      const resume = await Resume.findById(req.params.id)
+        .populate('userId', 'firstName lastName email')
+        .select('-filePath');
+
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: resume
       });
+    } catch (error) {
+      errorHandler(error, req, res);
     }
-
-    res.json({
-      success: true,
-      data: resume
-    });
   })
 );
 
@@ -222,39 +257,45 @@ router.get('/:id',
 // @desc    Update resume
 // @access  Private
 router.put('/:id', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  validateRequest(updateResumeSchema),
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findById(req.params.id);
-    
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
+
+      const resume = await Resume.findById(req.params.id);
+      
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      // Update resume fields
+      Object.keys(req.body).forEach(key => {
+        if (key === 'skills' && Array.isArray(req.body[key])) {
+          resume.skills = req.body[key];
+        } else if (key === 'personalInfo' && typeof req.body[key] === 'object') {
+          resume.personalInfo = { ...resume.personalInfo, ...req.body[key] };
+        } else {
+          resume[key] = req.body[key];
         }
       });
+
+      await resume.save();
+
+      res.json({
+        success: true,
+        message: 'Resume updated successfully',
+        data: resume
+      });
+    } catch (error) {
+      errorHandler(error, req, res);
     }
-
-    // Update resume fields
-    Object.keys(req.body).forEach(key => {
-      if (key === 'skills' && Array.isArray(req.body[key])) {
-        resume.skills = req.body[key];
-      } else if (key === 'personalInfo' && typeof req.body[key] === 'object') {
-        resume.personalInfo = { ...resume.personalInfo, ...req.body[key] };
-      } else {
-        resume[key] = req.body[key];
-      }
-    });
-
-    await resume.save();
-
-    res.json({
-      success: true,
-      message: 'Resume updated successfully',
-      data: resume
-    });
   })
 );
 
@@ -262,33 +303,40 @@ router.put('/:id',
 // @desc    Delete resume
 // @access  Private
 router.delete('/:id', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findById(req.params.id);
-    
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
-        }
-      });
-    }
-
-    // Delete file from filesystem
+  authenticateToken, 
+  async (req, res) => {
     try {
-      await fs.unlink(resume.filePath);
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
+
+      const resume = await Resume.findById(req.params.id);
+      
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      // Delete file from filesystem
+      try {
+        await fs.unlink(resume.filePath);
+      } catch (error) {
+        console.error('Error deleting file:', error);
+      }
+
+      await Resume.findByIdAndDelete(req.params.id);
+
+      res.json({
+        success: true,
+        message: 'Resume deleted successfully'
+      });
     } catch (error) {
-      console.error('Error deleting file:', error);
+      errorHandler(error, req, res);
     }
-
-    await Resume.findByIdAndDelete(req.params.id);
-
-    res.json({
-      success: true,
-      message: 'Resume deleted successfully'
-    });
   })
 );
 
@@ -296,30 +344,37 @@ router.delete('/:id',
 // @desc    Get resume processing status
 // @access  Private
 router.get('/:id/status', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findById(req.params.id)
-      .select('processingStatus processingProgress processingError processedAt');
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
 
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
+      const resume = await Resume.findById(req.params.id)
+        .select('processingStatus processingProgress processingError processedAt');
+
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          status: resume.processingStatus,
+          progress: resume.processingProgress,
+          error: resume.processingError,
+          processedAt: resume.processedAt
         }
       });
+    } catch (error) {
+      errorHandler(error, req, res);
     }
-
-    res.json({
-      success: true,
-      data: {
-        status: resume.processingStatus,
-        progress: resume.processingProgress,
-        error: resume.processingError,
-        processedAt: resume.processedAt
-      }
-    });
   })
 );
 
@@ -327,42 +382,49 @@ router.get('/:id/status',
 // @desc    Reprocess resume
 // @access  Private
 router.post('/:id/reprocess', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findById(req.params.id);
-    
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
+
+      const resume = await Resume.findById(req.params.id);
+      
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      // Reset processing status
+      resume.processingStatus = 'pending';
+      resume.processingProgress = 0;
+      resume.processingError = null;
+      await resume.save();
+
+      // Add reprocessing job to queue
+      await addResumeProcessingJob(
+        req.user._id,
+        resume._id,
+        resume.filePath,
+        resume.fileType
+      );
+
+      res.json({
+        success: true,
+        message: 'Resume reprocessing started',
+        data: {
+          resumeId: resume._id,
+          status: resume.processingStatus
         }
       });
+    } catch (error) {
+      errorHandler(error, req, res);
     }
-
-    // Reset processing status
-    resume.processingStatus = 'pending';
-    resume.processingProgress = 0;
-    resume.processingError = null;
-    await resume.save();
-
-    // Add reprocessing job to queue
-    await addResumeProcessingJob(
-      req.user._id,
-      resume._id,
-      resume.filePath,
-      resume.fileType
-    );
-
-    res.json({
-      success: true,
-      message: 'Resume reprocessing started',
-      data: {
-        resumeId: resume._id,
-        status: resume.processingStatus
-      }
-    });
   })
 );
 
@@ -370,39 +432,46 @@ router.post('/:id/reprocess',
 // @desc    Get resume AI analysis
 // @access  Private
 router.get('/:id/analysis', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findById(req.params.id)
-      .select('aiAnalysis skills experience education');
-
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
-        }
-      });
-    }
-
-    if (resume.processingStatus !== 'completed') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Resume processing not completed'
-        }
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        analysis: resume.aiAnalysis,
-        skills: resume.skills,
-        experience: resume.experience,
-        education: resume.education
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
       }
-    });
+
+      const resume = await Resume.findById(req.params.id)
+        .select('aiAnalysis skills experience education');
+
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      if (resume.processingStatus !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Resume processing not completed'
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          analysis: resume.aiAnalysis,
+          skills: resume.skills,
+          experience: resume.experience,
+          education: resume.education
+        }
+      });
+    } catch (error) {
+      errorHandler(error, req, res);
+    }
   })
 );
 
@@ -410,56 +479,63 @@ router.get('/:id/analysis',
 // @desc    Get job recommendations for resume
 // @access  Private
 router.post('/:id/recommendations', 
-  authenticate, 
-  authorizeResource(Resume, 'id'),
-  asyncHandler(async (req, res) => {
-    const { limit = 20, location, remoteOnly, minSalary, maxSalary, employmentType, seniorityLevel, skills = [] } = req.body;
-
-    const resume = await Resume.findById(req.params.id);
-    
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found'
-        }
-      });
-    }
-
-    if (resume.processingStatus !== 'completed') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Resume processing not completed'
-        }
-      });
-    }
-
-    // Add job recommendation job to queue
-    const job = await addJobRecommendationJob(
-      req.user._id,
-      resume._id,
-      {
-        limit,
-        location,
-        remoteOnly,
-        minSalary,
-        maxSalary,
-        employmentType,
-        seniorityLevel,
-        skills
-      },
-      true // Send email notification
-    );
-
-    res.json({
-      success: true,
-      message: 'Job recommendations generation started',
-      data: {
-        jobId: job.id,
-        resumeId: resume._id
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
       }
-    });
+
+      const { limit = 20, location, remoteOnly, minSalary, maxSalary, employmentType, seniorityLevel, skills = [] } = req.body;
+
+      const resume = await Resume.findById(req.params.id);
+      
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found'
+          }
+        });
+      }
+
+      if (resume.processingStatus !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Resume processing not completed'
+          }
+        });
+      }
+
+      // Add job recommendation job to queue
+      const job = await addJobRecommendationJob(
+        req.user._id,
+        resume._id,
+        {
+          limit,
+          location,
+          remoteOnly,
+          minSalary,
+          maxSalary,
+          employmentType,
+          seniorityLevel,
+          skills
+        },
+        true // Send email notification
+      );
+
+      res.json({
+        success: true,
+        message: 'Job recommendations generation started',
+        data: {
+          jobId: job.id,
+          resumeId: resume._id
+        }
+      });
+    } catch (error) {
+      errorHandler(error, req, res);
+    }
   })
 );
 
@@ -467,28 +543,36 @@ router.post('/:id/recommendations',
 // @desc    Get public resume (for employers)
 // @access  Public
 router.get('/public/:id', 
-  asyncHandler(async (req, res) => {
-    const resume = await Resume.findOne({
-      _id: req.params.id,
-      isPublic: true,
-      isActive: true
-    })
-    .populate('userId', 'firstName lastName location')
-    .select('-filePath -personalInfo.email -personalInfo.phone -personalInfo.address');
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
 
-    if (!resume) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: 'Resume not found or not public'
-        }
+      const resume = await Resume.findOne({
+        _id: req.params.id,
+        isPublic: true,
+        isActive: true
+      })
+      .populate('userId', 'firstName lastName location')
+      .select('-filePath -personalInfo.email -personalInfo.phone -personalInfo.address');
+
+      if (!resume) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Resume not found or not public'
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: resume
       });
+    } catch (error) {
+      errorHandler(error, req, res);
     }
-
-    res.json({
-      success: true,
-      data: resume
-    });
   })
 );
 
@@ -496,68 +580,76 @@ router.get('/public/:id',
 // @desc    Search resumes (for employers)
 // @access  Private (employers only)
 router.get('/search', 
-  authenticate, 
-  authorize('employer', 'admin'),
-  asyncHandler(async (req, res) => {
-    const { 
-      page = 1, 
-      limit = 10, 
-      skills, 
-      location, 
-      experience, 
-      education,
-      sortBy = 'aiAnalysis.overallScore',
-      sortOrder = 'desc'
-    } = req.query;
-
-    const query = {
-      isPublic: true,
-      isActive: true,
-      processingStatus: 'completed'
-    };
-
-    // Add search filters
-    if (skills) {
-      const skillArray = skills.split(',').map(s => s.trim());
-      query['skills.name'] = { $in: skillArray };
-    }
-
-    if (location) {
-      query['userId.location.city'] = new RegExp(location, 'i');
-    }
-
-    if (experience) {
-      query['aiAnalysis.experienceScore'] = { $gte: parseInt(experience) };
-    }
-
-    if (education) {
-      query['education.degree'] = new RegExp(education, 'i');
-    }
-
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    const resumes = await Resume.find(query)
-      .populate('userId', 'firstName lastName location')
-      .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .select('-filePath -personalInfo.email -personalInfo.phone -personalInfo.address');
-
-    const total = await Resume.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        resumes,
-        pagination: {
-          currentPage: page * 1,
-          totalPages: Math.ceil(total / limit),
-          totalItems: total,
-          itemsPerPage: limit * 1
-        }
+  authenticateToken, 
+  authorizeRole('employer', 'admin'),
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
       }
-    });
+
+      const { 
+        page = 1, 
+        limit = 10, 
+        skills, 
+        location, 
+        experience, 
+        education,
+        sortBy = 'aiAnalysis.overallScore',
+        sortOrder = 'desc'
+      } = req.query;
+
+      const query = {
+        isPublic: true,
+        isActive: true,
+        processingStatus: 'completed'
+      };
+
+      // Add search filters
+      if (skills) {
+        const skillArray = skills.split(',').map(s => s.trim());
+        query['skills.name'] = { $in: skillArray };
+      }
+
+      if (location) {
+        query['userId.location.city'] = new RegExp(location, 'i');
+      }
+
+      if (experience) {
+        query['aiAnalysis.experienceScore'] = { $gte: parseInt(experience) };
+      }
+
+      if (education) {
+        query['education.degree'] = new RegExp(education, 'i');
+      }
+
+      const sortOptions = {};
+      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+      const resumes = await Resume.find(query)
+        .populate('userId', 'firstName lastName location')
+        .sort(sortOptions)
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .select('-filePath -personalInfo.email -personalInfo.phone -personalInfo.address');
+
+      const total = await Resume.countDocuments(query);
+
+      res.json({
+        success: true,
+        data: {
+          resumes,
+          pagination: {
+            currentPage: page * 1,
+            totalPages: Math.ceil(total / limit),
+            totalItems: total,
+            itemsPerPage: limit * 1
+          }
+        }
+      });
+    } catch (error) {
+      errorHandler(error, req, res);
+    }
   })
 );
 
@@ -565,44 +657,52 @@ router.get('/search',
 // @desc    Get resume statistics
 // @access  Private
 router.get('/stats', 
-  authenticate, 
-  asyncHandler(async (req, res) => {
-    const stats = await Resume.aggregate([
-      { $match: { userId: req.user._id } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          completed: { $sum: { $cond: [{ $eq: ['$processingStatus', 'completed'] }, 1, 0] } },
-          processing: { $sum: { $cond: [{ $eq: ['$processingStatus', 'processing'] }, 1, 0] } },
-          failed: { $sum: { $cond: [{ $eq: ['$processingStatus', 'failed'] }, 1, 0] } },
-          public: { $sum: { $cond: ['$isPublic', 1, 0] } },
-          averageScore: { $avg: '$aiAnalysis.overallScore' },
-          totalSkills: { $sum: { $size: '$skills' } }
+  authenticateToken, 
+  async (req, res) => {
+    try {
+      if (!Resume) {
+        return res.status(503).json({ error: 'Resume model not available' });
+      }
+
+      const stats = await Resume.aggregate([
+        { $match: { userId: req.user._id } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            completed: { $sum: { $cond: [{ $eq: ['$processingStatus', 'completed'] }, 1, 0] } },
+            processing: { $sum: { $cond: [{ $eq: ['$processingStatus', 'processing'] }, 1, 0] } },
+            failed: { $sum: { $cond: [{ $eq: ['$processingStatus', 'failed'] }, 1, 0] } },
+            public: { $sum: { $cond: ['$isPublic', 1, 0] } },
+            averageScore: { $avg: '$aiAnalysis.overallScore' },
+            totalSkills: { $sum: { $size: '$skills' } }
+          }
         }
-      }
-    ]);
+      ]);
 
-    const recentResumes = await Resume.find({ userId: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('title processingStatus aiAnalysis.overallScore createdAt');
+      const recentResumes = await Resume.find({ userId: req.user._id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('title processingStatus aiAnalysis.overallScore createdAt');
 
-    res.json({
-      success: true,
-      data: {
-        stats: stats[0] || {
-          total: 0,
-          completed: 0,
-          processing: 0,
-          failed: 0,
-          public: 0,
-          averageScore: 0,
-          totalSkills: 0
-        },
-        recentResumes
-      }
-    });
+      res.json({
+        success: true,
+        data: {
+          stats: stats[0] || {
+            total: 0,
+            completed: 0,
+            processing: 0,
+            failed: 0,
+            public: 0,
+            averageScore: 0,
+            totalSkills: 0
+          },
+          recentResumes
+        }
+      });
+    } catch (error) {
+      errorHandler(error, req, res);
+    }
   })
 );
 

@@ -3,10 +3,17 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
 const logger = require('../middleware/logger');
+
+// Try to import User model (optional)
+let User = null;
+try {
+  User = require('../models/User');
+} catch (error) {
+  console.warn('User model not available:', error.message);
+}
 
 const router = express.Router();
 
@@ -36,6 +43,10 @@ const validateLogin = [
 // @access  Public
 router.post('/register', authLimiter, validateRegistration, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -100,6 +111,10 @@ router.post('/register', authLimiter, validateRegistration, async (req, res) => 
 // @access  Public
 router.post('/login', authLimiter, validateLogin, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -156,6 +171,10 @@ router.post('/login', authLimiter, validateLogin, async (req, res) => {
 // @access  Private
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.user.userId).select('-password');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -173,6 +192,10 @@ router.get('/me', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/refresh', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -211,6 +234,10 @@ router.post('/logout', authenticateToken, async (req, res) => {
 // @access  Public
 router.post('/forgot-password', authLimiter, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { email } = req.body;
 
     const user = await User.findOne({ email });
@@ -249,6 +276,10 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
 // @access  Public
 router.post('/reset-password', authLimiter, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { token, newPassword } = req.body;
 
     if (!token || !newPassword) {
@@ -297,6 +328,10 @@ router.get('/google/callback',
   passport.authenticate('google', { session: false }),
   async (req, res) => {
     try {
+      if (!User) {
+        return res.status(503).json({ error: 'User model not available' });
+      }
+
       const { user } = req;
       
       // Generate JWT token
@@ -329,6 +364,10 @@ router.get('/linkedin/callback',
   passport.authenticate('linkedin', { session: false }),
   async (req, res) => {
     try {
+      if (!User) {
+        return res.status(503).json({ error: 'User model not available' });
+      }
+
       const { user } = req;
       
       // Generate JWT token
@@ -361,6 +400,10 @@ router.get('/github/callback',
   passport.authenticate('github', { session: false }),
   async (req, res) => {
     try {
+      if (!User) {
+        return res.status(503).json({ error: 'User model not available' });
+      }
+
       const { user } = req;
       
       // Generate JWT token
@@ -384,6 +427,10 @@ router.get('/github/callback',
 // @access  Private
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { firstName, lastName, phone, location, bio, skills, experience, education } = req.body;
 
     const user = await User.findById(req.user.userId);
@@ -422,6 +469,10 @@ router.put('/profile', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/change-password', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { currentPassword, newPassword } = req.body;
 
     const user = await User.findById(req.user.userId).select('+password');
