@@ -249,7 +249,7 @@ src/
 - `POST /api/ml/salary-prediction` - Predict salary
 - `GET /api/ml/market-insights` - Get market insights
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -493,9 +493,3 @@ npm run test:api
 3. Make your changes
 4. Add tests
 5. Submit a pull request
-
-### v1.0.0
-- Basic resume parsing
-- Job recommendations
-- User authentication
-- Basic profile management 
