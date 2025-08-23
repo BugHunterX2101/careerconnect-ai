@@ -1,9 +1,29 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const Conversation = require('../models/Conversation');
-const Message = require('../models/Message');
-const User = require('../models/User');
+// Try to import models (optional)
+let Conversation = null;
+let Message = null;
+let User = null;
+
+try {
+  Conversation = require('../models/Conversation');
+} catch (error) {
+  console.warn('Conversation model not available:', error.message);
+}
+
+try {
+  Message = require('../models/Message');
+} catch (error) {
+  console.warn('Message model not available:', error.message);
+}
+
+try {
+  User = require('../models/User');
+} catch (error) {
+  console.warn('User model not available:', error.message);
+}
+
 const { authenticateToken } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
 const logger = require('../middleware/logger');
@@ -49,6 +69,10 @@ const validateMessage = [
 // @access  Private
 router.get('/conversations', authenticateToken, async (req, res) => {
   try {
+    if (!Conversation) {
+      return res.status(503).json({ error: 'Conversation model not available' });
+    }
+
     const userId = req.user.userId;
     const { page = 1, limit = 20 } = req.query;
 
@@ -83,6 +107,10 @@ router.get('/conversations', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/conversations', authenticateToken, async (req, res) => {
   try {
+    if (!Conversation || !User) {
+      return res.status(503).json({ error: 'Models not available' });
+    }
+
     const { participantIds, title, type = 'direct' } = req.body;
     const userId = req.user.userId;
 
@@ -147,6 +175,10 @@ router.post('/conversations', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/conversations/:id', authenticateToken, async (req, res) => {
   try {
+    if (!Conversation) {
+      return res.status(503).json({ error: 'Conversation model not available' });
+    }
+
     const { id } = req.params;
     const userId = req.user.userId;
 
@@ -174,6 +206,10 @@ router.get('/conversations/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/conversations/:id', authenticateToken, async (req, res) => {
   try {
+    if (!Conversation) {
+      return res.status(503).json({ error: 'Conversation model not available' });
+    }
+
     const { id } = req.params;
     const { title, participantIds } = req.body;
     const userId = req.user.userId;
@@ -228,6 +264,10 @@ router.put('/conversations/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/conversations/:id/messages', authenticateToken, async (req, res) => {
   try {
+    if (!Message || !Conversation) {
+      return res.status(503).json({ error: 'Models not available' });
+    }
+
     const { id } = req.params;
     const { page = 1, limit = 50, before } = req.query;
     const userId = req.user.userId;
@@ -274,6 +314,10 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
 // @access  Private
 router.post('/conversations/:id/messages', authenticateToken, messageLimiter, upload.single('attachment'), validateMessage, async (req, res) => {
   try {
+    if (!Message || !Conversation) {
+      return res.status(503).json({ error: 'Models not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -355,6 +399,10 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 // @access  Private
 router.put('/messages/:id', authenticateToken, validateMessage, async (req, res) => {
   try {
+    if (!Message) {
+      return res.status(503).json({ error: 'Message model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -403,6 +451,10 @@ router.put('/messages/:id', authenticateToken, validateMessage, async (req, res)
 // @access  Private
 router.delete('/messages/:id', authenticateToken, async (req, res) => {
   try {
+    if (!Message) {
+      return res.status(503).json({ error: 'Message model not available' });
+    }
+
     const { id } = req.params;
     const userId = req.user.userId;
 
@@ -431,6 +483,10 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/conversations/:id/read', authenticateToken, async (req, res) => {
   try {
+    if (!Conversation) {
+      return res.status(503).json({ error: 'Conversation model not available' });
+    }
+
     const { id } = req.params;
     const userId = req.user.userId;
 
@@ -453,6 +509,10 @@ router.post('/conversations/:id/read', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/search', authenticateToken, async (req, res) => {
   try {
+    if (!Message) {
+      return res.status(503).json({ error: 'Message model not available' });
+    }
+
     const { q, conversationId, page = 1, limit = 20 } = req.query;
     const userId = req.user.userId;
 
@@ -513,6 +573,10 @@ router.get('/search', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/attachments/:messageId', authenticateToken, async (req, res) => {
   try {
+    if (!Message) {
+      return res.status(503).json({ error: 'Message model not available' });
+    }
+
     const { messageId } = req.params;
     const userId = req.user.userId;
 

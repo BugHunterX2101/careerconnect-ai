@@ -1,7 +1,13 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
+// Try to import User model (optional)
+let User = null;
+try {
+  User = require('../models/User');
+} catch (error) {
+  console.warn('User model not available:', error.message);
+}
 const { authenticateToken } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
 const logger = require('../middleware/logger');
@@ -51,6 +57,10 @@ const validateSkills = [
 // @access  Private
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.user.userId)
       .select('-password')
       .populate('resumes', 'title skills experience education createdAt');
@@ -71,6 +81,10 @@ router.get('/', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/', authenticateToken, profileUpdateLimiter, validateProfileUpdate, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -124,6 +138,10 @@ router.put('/', authenticateToken, profileUpdateLimiter, validateProfileUpdate, 
 // @access  Private
 router.post('/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: 'Avatar file is required' });
     }
@@ -158,6 +176,10 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), async (req, r
 // @access  Public
 router.get('/avatar/:userId', async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.params.userId);
     if (!user || !user.profile.avatar) {
       return res.status(404).json({ error: 'Avatar not found' });
@@ -181,6 +203,10 @@ router.get('/avatar/:userId', async (req, res) => {
 // @access  Private
 router.delete('/avatar', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -202,6 +228,10 @@ router.delete('/avatar', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/skills', authenticateToken, validateSkills, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -233,6 +263,10 @@ router.put('/skills', authenticateToken, validateSkills, async (req, res) => {
 // @access  Private
 router.put('/experience', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { experience } = req.body;
 
     if (!Array.isArray(experience)) {
@@ -263,6 +297,10 @@ router.put('/experience', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/education', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { education } = req.body;
 
     if (!Array.isArray(education)) {
@@ -293,6 +331,10 @@ router.put('/education', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/preferences', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const {
       jobAlerts, emailNotifications, pushNotifications,
       privacySettings, theme, language
@@ -329,6 +371,10 @@ router.put('/preferences', authenticateToken, async (req, res) => {
 // @access  Public
 router.get('/public/:userId', async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.params.userId)
       .select('firstName lastName profile.skills profile.experience profile.education profile.bio profile.avatar')
       .populate('resumes', 'title skills experience education createdAt');
@@ -363,6 +409,10 @@ router.get('/public/:userId', async (req, res) => {
 // @access  Private
 router.post('/export', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { format = 'json' } = req.body;
 
     const user = await User.findById(req.user.userId)
@@ -411,6 +461,10 @@ router.post('/export', authenticateToken, async (req, res) => {
 // @access  Private
 router.delete('/', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const { password } = req.body;
 
     if (!password) {
@@ -445,6 +499,10 @@ router.delete('/', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
     const user = await User.findById(req.user.userId)
       .populate('resumes')
       .populate('appliedJobs')

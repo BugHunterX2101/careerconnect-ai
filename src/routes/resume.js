@@ -8,7 +8,7 @@ const { z } = require('zod');
 // Import middleware and utilities
 const { authenticateToken, authorizeRole, checkOwnership } = require('../middleware/auth');
 const { errorHandler } = require('../middleware/errorHandler');
-const logger = require('../middleware/logger');
+const { performanceLogger } = require('../middleware/logger');
 const { addResumeProcessingJob, addJobRecommendationJob } = require('../workers/jobQueue');
 
 // Try to import models (optional)

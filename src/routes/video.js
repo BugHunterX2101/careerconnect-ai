@@ -1,8 +1,28 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const Interview = require('../models/Interview');
-const User = require('../models/User');
-const Job = require('../models/Job');
+// Try to import models (optional)
+let Interview = null;
+let User = null;
+let Job = null;
+
+try {
+  Interview = require('../models/Interview');
+} catch (error) {
+  console.warn('Interview model not available:', error.message);
+}
+
+try {
+  User = require('../models/User');
+} catch (error) {
+  console.warn('User model not available:', error.message);
+}
+
+try {
+  Job = require('../models/Job');
+} catch (error) {
+  console.warn('Job model not available:', error.message);
+}
+
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
 const logger = require('../middleware/logger');
@@ -32,6 +52,10 @@ const validateInterview = [
 // @access  Private (employer)
 router.post('/interviews', authenticateToken, authorizeRole('employer'), interviewLimiter, validateInterview, async (req, res) => {
   try {
+    if (!Interview || !User || !Job) {
+      return res.status(503).json({ error: 'Models not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -41,15 +65,13 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
       jobId, candidateId, scheduledAt, duration, type, notes, description
     } = req.body;
 
-    const employerId = req.user.userId;
-
     // Verify job exists and belongs to employer
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    if (job.employer.toString() !== employerId) {
+    if (job.employer.toString() !== req.user.userId) {
       return res.status(403).json({ error: 'Not authorized to schedule interviews for this job' });
     }
 
@@ -63,7 +85,7 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
     const conflictingInterview = await Interview.findOne({
       $or: [
         { candidate: candidateId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } },
-        { interviewer: employerId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } }
+        { interviewer: req.user.userId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } }
       ],
       status: { $in: ['scheduled', 'confirmed'] }
     });
@@ -76,7 +98,7 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
     const interview = new Interview({
       job: jobId,
       candidate: candidateId,
-      interviewer: employerId,
+      interviewer: req.user.userId,
       scheduledAt: new Date(scheduledAt),
       duration,
       type,
@@ -143,6 +165,10 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
 // @access  Private
 router.get('/interviews', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const userId = req.user.userId;
     const { page = 1, limit = 20, status, type } = req.query;
 
@@ -189,6 +215,10 @@ router.get('/interviews', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/interviews/:id', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const { id } = req.params;
     const userId = req.user.userId;
 
@@ -220,6 +250,10 @@ router.get('/interviews/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.put('/interviews/:id', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const { id } = req.params;
     const { scheduledAt, duration, notes, status } = req.body;
     const userId = req.user.userId;
@@ -294,6 +328,10 @@ router.put('/interviews/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.delete('/interviews/:id', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const { id } = req.params;
     const userId = req.user.userId;
 
@@ -340,6 +378,10 @@ router.delete('/interviews/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/interviews/:id/join', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const { id } = req.params;
     const userId = req.user.userId;
 
@@ -394,6 +436,10 @@ router.post('/interviews/:id/join', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/interviews/:id/end', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const { id } = req.params;
     const { feedback, rating, notes } = req.body;
     const userId = req.user.userId;
@@ -442,6 +488,10 @@ router.post('/interviews/:id/end', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/meet-link/:interviewId', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const { interviewId } = req.params;
     const userId = req.user.userId;
 
@@ -498,6 +548,10 @@ router.get('/meet-link/:interviewId', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/upcoming', authenticateToken, async (req, res) => {
   try {
+    if (!Interview) {
+      return res.status(503).json({ error: 'Interview model not available' });
+    }
+
     const userId = req.user.userId;
     const { limit = 5 } = req.query;
 

@@ -1,8 +1,22 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const Job = require('../models/Job');
-const User = require('../models/User');
+// Try to import models (optional)
+let Job = null;
+let User = null;
+
+try {
+  Job = require('../models/Job');
+} catch (error) {
+  console.warn('Job model not available:', error.message);
+}
+
+try {
+  User = require('../models/User');
+} catch (error) {
+  console.warn('User model not available:', error.message);
+}
+
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
 const logger = require('../middleware/logger');
@@ -60,6 +74,9 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
     const userId = req.user.userId;
 
     // Get user's resume and profile for recommendations
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
     const user = await User.findById(userId).populate('resumes');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -150,6 +167,9 @@ router.get('/search', jobSearchLimiter, async (req, res) => {
 
     // Search local jobs
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
     const jobs = await Job.find(searchQuery)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -179,6 +199,10 @@ router.get('/search', jobSearchLimiter, async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
+
     const job = await Job.findById(req.params.id)
       .populate('employer', 'firstName lastName company profile');
 
@@ -218,6 +242,9 @@ router.post('/apply/:id', authenticateToken, upload.single('resume'), async (req
     const { coverLetter } = req.body;
     const userId = req.user.userId;
 
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
     const job = await Job.findById(id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -253,6 +280,9 @@ router.post('/apply/:id', authenticateToken, upload.single('resume'), async (req
     await job.save();
 
     // Update user's applied jobs
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
     await User.findByIdAndUpdate(userId, {
       $addToSet: { appliedJobs: id }
     });
@@ -276,12 +306,18 @@ router.post('/save/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
     const job = await Job.findById(id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     // Add to saved jobs
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
     await User.findByIdAndUpdate(userId, {
       $addToSet: { savedJobs: id }
     });
@@ -302,6 +338,9 @@ router.delete('/save/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
     await User.findByIdAndUpdate(userId, {
       $pull: { savedJobs: id }
     });
@@ -321,6 +360,10 @@ router.delete('/save/:id', authenticateToken, async (req, res) => {
 // @access  Private (employer)
 router.post('/', authenticateToken, authorizeRole('employer'), jobPostingLimiter, validateJobPosting, async (req, res) => {
   try {
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -376,6 +419,10 @@ router.post('/', authenticateToken, authorizeRole('employer'), jobPostingLimiter
 // @access  Private (employer)
 router.put('/:id', authenticateToken, authorizeRole('employer'), validateJobPosting, async (req, res) => {
   try {
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -413,6 +460,10 @@ router.put('/:id', authenticateToken, authorizeRole('employer'), validateJobPost
 // @access  Private (employer)
 router.delete('/:id', authenticateToken, authorizeRole('employer'), async (req, res) => {
   try {
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
+
     const job = await Job.findById(req.params.id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -441,6 +492,9 @@ router.get('/employer/my-jobs', authenticateToken, authorizeRole('employer'), as
     const { page = 1, limit = 10, status } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
     const query = { employer: req.user.userId };
     if (status) {
       query.status = status;
@@ -474,6 +528,9 @@ router.get('/employer/applications/:jobId', authenticateToken, authorizeRole('em
     const { jobId } = req.params;
     const { page = 1, limit = 20, status } = req.query;
 
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
     const job = await Job.findById(jobId).populate({
       path: 'applications.applicant',
       select: 'firstName lastName email profile'
@@ -520,6 +577,9 @@ router.put('/employer/applications/:jobId/:applicationId', authenticateToken, au
     const { jobId, applicationId } = req.params;
     const { status, notes } = req.body;
 
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -561,6 +621,9 @@ router.get('/employer/candidates/search', authenticateToken, authorizeRole('empl
   try {
     const { skills, location, experience, page = 1, limit = 20 } = req.query;
 
+    if (!User) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
     const searchQuery = { role: 'jobseeker' };
 
     if (skills) {
