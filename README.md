@@ -1,4 +1,4 @@
-# CareerConnect AI - Backend
+# CareerConnect AI
 
 A comprehensive AI-powered resume parsing and job recommendation platform with advanced features including OAuth authentication, LinkedIn integration, Google Meet video conferencing, and real-time chat capabilities.
 
@@ -249,6 +249,115 @@ src/
 - `POST /api/ml/salary-prediction` - Predict salary
 - `GET /api/ml/market-insights` - Get market insights
 
+## 🚀 Getting Started
+
+### Prerequisites
+
+* Node.js (v18 or higher)
+* MongoDB (v5 or higher)
+* Redis (v6 or higher)
+* Git
+
+### Quick Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/BugHunterX2101/careerconnect-ai.git
+   cd careerconnect-ai
+   ```
+
+2. **Run the automated setup:**
+   ```bash
+   npm run setup
+   ```
+   
+   This will:
+   - Create environment files (`.env` and `src/client/.env`)
+   - Install all dependencies (backend and frontend)
+   - Create necessary directories
+   - Generate startup scripts
+
+3. **Start the application:**
+   
+   **Option A: Automated startup (recommended)**
+   ```bash
+   # Linux/Mac
+   ./start.sh
+   
+   # Windows
+   start.bat
+   ```
+   
+   **Option B: Manual startup**
+   ```bash
+   # Terminal 1 - Backend
+   npm run dev
+   
+   # Terminal 2 - Frontend
+   npm run dev:client
+   ```
+   
+   **Option C: Single command**
+   ```bash
+   npm run dev:full
+   ```
+
+### Manual Setup (Alternative)
+
+If you prefer manual setup:
+
+1. **Install dependencies:**
+   ```bash
+   # Backend
+   npm install
+   
+   # Frontend
+   cd src/client && npm install
+   ```
+
+2. **Create environment files:**
+   
+   Create `.env` in the root directory (see `env.example` for complete list):
+   ```env
+   NODE_ENV=development
+   PORT=3000
+   CLIENT_URL=http://localhost:5173
+   MONGODB_URI=mongodb://localhost:27017/careerconnect_ai
+   REDIS_URL=redis://localhost:6379
+   JWT_SECRET=your_jwt_secret_here
+   ```
+   
+   Create `src/client/.env` (see `src/client/env.example` for complete list):
+   ```env
+   VITE_API_URL=http://localhost:3000/api
+   VITE_SOCKET_URL=http://localhost:3000
+   VITE_APP_NAME=CareerConnect AI
+   ```
+
+3. **Start services:**
+   ```bash
+   # Backend
+   npm run dev
+   
+   # Frontend (in another terminal)
+   cd src/client && npm run dev
+   ```
+
+### Access the Application
+
+- **Frontend:** http://localhost:5173
+- **Backend API:** http://localhost:3000/api
+- **Health Check:** http://localhost:3000/health
+- **API Documentation:** http://localhost:3000/api/docs
+
+### Testing Integration
+
+Run the integration test to verify everything is working:
+
+```bash
+npm run test:integration
+```
+
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -257,11 +366,12 @@ src/
 - `MONGODB_URI` - MongoDB connection string
 - `JWT_SECRET` - JWT signing secret
 - `PORT` - Server port (default: 3000)
+- `CLIENT_URL` - Frontend URL for CORS (default: http://localhost:5173)
 
 #### Optional Variables
 - `NODE_ENV` - Environment (development/production)
 - `REDIS_URL` - Redis connection string
-- `CLIENT_URL` - Frontend URL for CORS
+- `JWT_REFRESH_SECRET` - JWT refresh token secret
 
 ### OAuth Setup
 

@@ -6,19 +6,26 @@
   "scripts": {
     "start": "node src/server/index.js",
     "dev": "nodemon src/server/index.js",
+    "dev:full": "concurrently \"npm run dev\" \"npm run dev:client\"",
+    "dev:client": "cd src/client && npm run dev",
     "build": "npm run build:client && npm run build:server",
     "build:client": "cd src/client && npm run build",
     "build:server": "echo 'Server build complete'",
+    "setup": "node scripts/setup.js",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:integration": "node scripts/test-integration.js",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "docker:build": "docker build -t careerconnect-ai .",
     "docker:run": "docker run -p 3000:3000 careerconnect-ai",
+    "docker:compose": "docker-compose up -d",
     "redis:start": "redis-server",
     "queue:worker": "node src/workers/jobQueue.js",
     "ml:train": "node src/ml/trainModel.js",
-    "ml:predict": "node src/ml/predict.js"
+    "ml:predict": "node src/ml/predict.js",
+    "clean": "rm -rf node_modules package-lock.json && cd src/client && rm -rf node_modules package-lock.json",
+    "install:all": "npm install && cd src/client && npm install"
   },
   "keywords": [
     "ai",
@@ -63,8 +70,7 @@
     "cheerio": "^1.0.0-rc.12",
     "natural": "^6.10.4",
     "compromise": "^14.10.0",
-    "spacy": "^0.0.1",
-    "node-nlp": "^4.27.0",
+    "natural": "^6.10.4",
     "passport": "^0.6.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-linkedin-oauth2": "^2.0.0",
@@ -81,7 +87,8 @@
     "supertest": "^6.3.3",
     "eslint": "^8.55.0",
     "prettier": "^3.1.1",
-    "@types/node": "^20.10.5"
+    "@types/node": "^20.10.5",
+    "concurrently": "^8.2.2"
   },
   "engines": {
     "node": ">=18.0.0",

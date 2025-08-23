@@ -6,9 +6,9 @@ const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 
 // Import middleware and utilities
-const { authenticate, authorize, authorizeResource } = require('../middleware/auth');
-const { asyncHandler, validateRequest } = require('../middleware/errorHandler');
-const { performanceLogger } = require('../middleware/logger');
+const { authenticateToken, authorizeRole, checkOwnership } = require('../middleware/auth');
+const { errorHandler } = require('../middleware/errorHandler');
+const logger = require('../middleware/logger');
 const { addResumeProcessingJob, addJobRecommendationJob } = require('../workers/jobQueue');
 
 // Import models
@@ -92,11 +92,10 @@ const upload = multer({
 // @desc    Upload and parse resume
 // @access  Private
 router.post('/upload', 
-  authenticate, 
-  authorize('jobseeker', 'employer'),
+  authenticateToken, 
+  authorizeRole('jobseeker', 'employer'),
   upload.single('resume'),
-  validateRequest(uploadResumeSchema),
-  asyncHandler(async (req, res) => {
+  async (req, res) => {
     const startTime = Date.now();
     
     if (!req.file) {

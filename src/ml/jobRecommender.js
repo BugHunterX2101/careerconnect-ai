@@ -1,622 +1,412 @@
 const tf = require('@tensorflow/tfjs-node');
-const use = require('@tensorflow-models/universal-sentence-encoder');
 const natural = require('natural');
-const winston = require('winston');
-const Job = require('../models/Job');
-const Resume = require('../models/Resume');
-const { getRedisClient } = require('../database/redis');
-
-// Initialize logger
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ filename: 'logs/jobRecommender.log' }),
-    new winston.transports.Console()
-  ]
-});
+const axios = require('axios');
 
 class JobRecommender {
   constructor() {
     this.model = null;
-    this.tokenizer = new natural.WordTokenizer();
-    this.tfidf = new natural.TfIdf();
-    this.skillWeights = {
-      required: 1.0,
-      preferred: 0.7,
-      'nice-to-have': 0.3
-    };
+    this.tokenizer = null;
+    this.isInitialized = false;
+    this.jobDatabase = [];
   }
 
   async initialize() {
     try {
-      logger.info('Initializing Job Recommender...');
+      // Initialize TensorFlow.js
+      await tf.ready();
       
-      // Load BERT model
-      this.model = await use.load();
-      logger.info('BERT model loaded successfully');
+      // Initialize tokenizer
+      this.tokenizer = new natural.WordTokenizer();
       
-      logger.info('Job Recommender initialized successfully');
+      // Load job database (placeholder - you would load from your database)
+      await this.loadJobDatabase();
+      
+      this.isInitialized = true;
+      console.log('JobRecommender initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize Job Recommender:', error);
+      console.error('Error initializing JobRecommender:', error);
       throw error;
     }
   }
 
-  async getJobRecommendations(userId, resumeId, options = {}) {
+  async loadJobDatabase() {
     try {
-      logger.info(`Getting job recommendations for user: ${userId}, resume: ${resumeId}`);
-      
+      // This would typically load from your database
+      // For now, we'll use a placeholder
+      this.jobDatabase = [
+        {
+          id: '1',
+          title: 'Software Engineer',
+          company: 'Tech Corp',
+          location: 'San Francisco, CA',
+          description: 'Full-stack development with React and Node.js',
+          requirements: ['javascript', 'react', 'node.js', 'mongodb'],
+          salary: { min: 80000, max: 120000 },
+          type: 'full-time',
+          remote: true
+        },
+        {
+          id: '2',
+          title: 'Data Scientist',
+          company: 'AI Solutions',
+          location: 'New York, NY',
+          description: 'Machine learning and data analysis',
+          requirements: ['python', 'machine learning', 'statistics', 'sql'],
+          salary: { min: 90000, max: 140000 },
+          type: 'full-time',
+          remote: false
+        }
+      ];
+    } catch (error) {
+      console.error('Error loading job database:', error);
+      this.jobDatabase = [];
+    }
+  }
+
+  async getJobRecommendations(user, options = {}) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       const {
-        limit = 20,
-        location = null,
-        remoteOnly = false,
-        minSalary = null,
-        maxSalary = null,
-        employmentType = null,
-        seniorityLevel = null,
-        skills = []
+        page = 1,
+        limit = 10,
+        location,
+        remote,
+        salary_min,
+        salary_max
       } = options;
 
-      // Get resume data
-      const resume = await Resume.findOne({ _id: resumeId, userId, isActive: true });
-      if (!resume) {
-        throw new Error('Resume not found');
-      }
+      // Get user's resume and skills
+      const userSkills = this.extractUserSkills(user);
+      const userExperience = this.extractUserExperience(user);
+      const userLocation = user.profile?.location || '';
 
-      // Build query for jobs
-      const jobQuery = this.buildJobQuery({
-        location,
-        remoteOnly,
-        minSalary,
-        maxSalary,
-        employmentType,
-        seniorityLevel
+      // Calculate job scores
+      const scoredJobs = this.jobDatabase.map(job => {
+        const score = this.calculateJobScore(job, userSkills, userExperience, userLocation);
+        return { ...job, score };
       });
 
-      // Get jobs from database
-      const jobs = await Job.find(jobQuery)
-        .populate('employerId', 'firstName lastName company.name')
-        .limit(limit * 2); // Get more jobs for better ranking
+      // Apply filters
+      let filteredJobs = scoredJobs.filter(job => {
+        // Location filter
+        if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
+          return false;
+        }
 
-      if (jobs.length === 0) {
-        return {
-          recommendations: [],
-          totalFound: 0,
-          filters: options
-        };
-      }
+        // Remote filter
+        if (remote !== undefined && job.remote !== remote) {
+          return false;
+        }
 
-      // Calculate match scores
-      const scoredJobs = await this.calculateMatchScores(jobs, resume, skills);
-      
-      // Sort by match score and take top results
-      const recommendations = scoredJobs
-        .sort((a, b) => b.matchScore - a.matchScore)
-        .slice(0, limit);
+        // Salary filter
+        if (salary_min && job.salary.max < salary_min) {
+          return false;
+        }
+        if (salary_max && job.salary.min > salary_max) {
+          return false;
+        }
 
-      // Cache results
-      await this.cacheRecommendations(userId, resumeId, recommendations);
+        return true;
+      });
 
-      logger.info(`Generated ${recommendations.length} job recommendations`);
+      // Sort by score
+      filteredJobs.sort((a, b) => b.score - a.score);
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedJobs = filteredJobs.slice(startIndex, endIndex);
 
       return {
-        recommendations,
-        totalFound: jobs.length,
-        filters: options,
-        resumeScore: resume.aiAnalysis.overallScore
+        jobs: paginatedJobs,
+        total: filteredJobs.length,
+        page,
+        totalPages: Math.ceil(filteredJobs.length / limit)
       };
     } catch (error) {
-      logger.error('Error getting job recommendations:', error);
+      console.error('Error getting job recommendations:', error);
       throw error;
     }
   }
 
-  buildJobQuery(filters) {
-    const query = {
-      status: 'active',
-      $or: [
-        { expiresAt: { $exists: false } },
-        { expiresAt: { $gt: new Date() } }
-      ]
-    };
-
-    if (filters.location) {
-      query['location.city'] = new RegExp(filters.location, 'i');
-    }
-
-    if (filters.remoteOnly) {
-      query['location.isRemote'] = true;
-    }
-
-    if (filters.minSalary || filters.maxSalary) {
-      query['benefits.salary'] = {};
-      if (filters.minSalary) {
-        query['benefits.salary.min'] = { $gte: filters.minSalary };
-      }
-      if (filters.maxSalary) {
-        query['benefits.salary.max'] = { $lte: filters.maxSalary };
+  extractUserSkills(user) {
+    const skills = [];
+    
+    // Extract skills from resumes
+    if (user.resumes && user.resumes.length > 0) {
+      for (const resume of user.resumes) {
+        if (resume.skills && Array.isArray(resume.skills)) {
+          skills.push(...resume.skills.map(skill => skill.name.toLowerCase()));
+        }
       }
     }
 
-    if (filters.employmentType) {
-      query.employmentType = filters.employmentType;
+    // Extract skills from profile
+    if (user.profile && user.profile.skills) {
+      skills.push(...user.profile.skills.map(skill => skill.name.toLowerCase()));
     }
 
-    if (filters.seniorityLevel) {
-      query.seniorityLevel = filters.seniorityLevel;
-    }
-
-    return query;
+    return [...new Set(skills)]; // Remove duplicates
   }
 
-  async calculateMatchScores(jobs, resume, additionalSkills = []) {
-    try {
-      const resumeSkills = resume.skills.map(skill => skill.name.toLowerCase());
-      const resumeKeywords = resume.aiAnalysis.extractedKeywords.map(kw => kw.keyword.toLowerCase());
-      const allResumeKeywords = [...resumeSkills, ...resumeKeywords, ...additionalSkills];
-      
-      const scoredJobs = [];
-
-      for (const job of jobs) {
-        const matchScore = await this.calculateJobMatchScore(job, resume, allResumeKeywords);
-        
-        scoredJobs.push({
-          job: job.toObject(),
-          matchScore,
-          matchDetails: {
-            skillsMatch: matchScore.skillsMatch,
-            experienceMatch: matchScore.experienceMatch,
-            locationMatch: matchScore.locationMatch,
-            salaryMatch: matchScore.salaryMatch,
-            educationMatch: matchScore.educationMatch
+  extractUserExperience(user) {
+    let totalExperience = 0;
+    
+    // Calculate experience from resumes
+    if (user.resumes && user.resumes.length > 0) {
+      for (const resume of user.resumes) {
+        if (resume.experience && Array.isArray(resume.experience)) {
+          for (const exp of resume.experience) {
+            if (exp.duration) {
+              const years = this.parseDuration(exp.duration);
+              totalExperience += years;
+            }
           }
-        });
+        }
       }
+    }
 
-      return scoredJobs;
+    return totalExperience;
+  }
+
+  parseDuration(duration) {
+    // Parse duration strings like "2020-2022" or "2 years"
+    const yearPattern = /\b\d{4}\s*[-–]\s*\d{4}\b/;
+    const yearMatch = duration.match(yearPattern);
+    
+    if (yearMatch) {
+      const years = yearMatch[0].split(/[-–]/);
+      return parseInt(years[1]) - parseInt(years[0]);
+    }
+
+    const numberPattern = /\d+/;
+    const numberMatch = duration.match(numberPattern);
+    if (numberMatch) {
+      return parseInt(numberMatch[0]);
+    }
+
+    return 0;
+  }
+
+  calculateJobScore(job, userSkills, userExperience, userLocation) {
+    let score = 0;
+
+    // Skills match (40% weight)
+    const skillMatch = this.calculateSkillMatch(job.requirements, userSkills);
+    score += skillMatch * 40;
+
+    // Experience match (25% weight)
+    const experienceMatch = this.calculateExperienceMatch(job, userExperience);
+    score += experienceMatch * 25;
+
+    // Location match (20% weight)
+    const locationMatch = this.calculateLocationMatch(job.location, userLocation);
+    score += locationMatch * 20;
+
+    // Salary match (15% weight)
+    const salaryMatch = this.calculateSalaryMatch(job.salary, userExperience);
+    score += salaryMatch * 15;
+
+    return Math.round(score);
+  }
+
+  calculateSkillMatch(jobRequirements, userSkills) {
+    if (!jobRequirements || jobRequirements.length === 0) return 0;
+    if (!userSkills || userSkills.length === 0) return 0;
+
+    const matchedSkills = jobRequirements.filter(req => 
+      userSkills.some(skill => skill.includes(req.toLowerCase()) || req.toLowerCase().includes(skill))
+    );
+
+    return (matchedSkills.length / jobRequirements.length) * 100;
+  }
+
+  calculateExperienceMatch(job, userExperience) {
+    // Simple experience matching - could be improved
+    if (userExperience >= 5) return 100;
+    if (userExperience >= 3) return 80;
+    if (userExperience >= 1) return 60;
+    return 40;
+  }
+
+  calculateLocationMatch(jobLocation, userLocation) {
+    if (!userLocation) return 50; // Neutral score if no user location
+
+    const jobLocationLower = jobLocation.toLowerCase();
+    const userLocationLower = userLocation.toLowerCase();
+
+    // Exact match
+    if (jobLocationLower.includes(userLocationLower) || userLocationLower.includes(jobLocationLower)) {
+      return 100;
+    }
+
+    // Partial match (same city or state)
+    const jobParts = jobLocationLower.split(',').map(part => part.trim());
+    const userParts = userLocationLower.split(',').map(part => part.trim());
+
+    for (const jobPart of jobParts) {
+      for (const userPart of userParts) {
+        if (jobPart === userPart && jobPart.length > 2) {
+          return 80;
+        }
+      }
+    }
+
+    // Remote work preference
+    if (job.remote) return 70;
+
+    return 30; // Low score for no match
+  }
+
+  calculateSalaryMatch(jobSalary, userExperience) {
+    if (!jobSalary) return 50;
+
+    const avgSalary = (jobSalary.min + jobSalary.max) / 2;
+    
+    // Simple salary matching based on experience
+    const expectedSalary = userExperience * 15000 + 50000; // Rough estimate
+    
+    const difference = Math.abs(avgSalary - expectedSalary);
+    const percentageDiff = (difference / expectedSalary) * 100;
+    
+    if (percentageDiff <= 10) return 100;
+    if (percentageDiff <= 20) return 80;
+    if (percentageDiff <= 30) return 60;
+    return 40;
+  }
+
+  async searchJobs(query, filters = {}) {
+    try {
+      const {
+        location,
+        remote,
+        salary_min,
+        salary_max,
+        job_type,
+        page = 1,
+        limit = 20
+      } = filters;
+
+      // Filter jobs based on query and filters
+      let filteredJobs = this.jobDatabase.filter(job => {
+        // Text search
+        const searchText = `${job.title} ${job.company} ${job.description}`.toLowerCase();
+        if (query && !searchText.includes(query.toLowerCase())) {
+          return false;
+        }
+
+        // Location filter
+        if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
+          return false;
+        }
+
+        // Remote filter
+        if (remote !== undefined && job.remote !== remote) {
+          return false;
+        }
+
+        // Salary filter
+        if (salary_min && job.salary.max < salary_min) {
+          return false;
+        }
+        if (salary_max && job.salary.min > salary_max) {
+          return false;
+        }
+
+        // Job type filter
+        if (job_type && job.type !== job_type) {
+          return false;
+        }
+
+        return true;
+      });
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedJobs = filteredJobs.slice(startIndex, endIndex);
+
+      return {
+        jobs: paginatedJobs,
+        total: filteredJobs.length,
+        page,
+        totalPages: Math.ceil(filteredJobs.length / limit)
+      };
     } catch (error) {
-      logger.error('Error calculating match scores:', error);
+      console.error('Error searching jobs:', error);
       throw error;
     }
   }
 
-  async calculateJobMatchScore(job, resume, resumeKeywords) {
+  async getSimilarJobs(jobId) {
     try {
-      // Skills matching (40% weight)
-      const skillsMatch = this.calculateSkillsMatch(job, resumeKeywords);
-      
-      // Experience matching (25% weight)
-      const experienceMatch = this.calculateExperienceMatch(job, resume);
-      
-      // Location matching (15% weight)
-      const locationMatch = this.calculateLocationMatch(job, resume);
-      
-      // Salary matching (10% weight)
-      const salaryMatch = this.calculateSalaryMatch(job, resume);
-      
-      // Education matching (10% weight)
-      const educationMatch = this.calculateEducationMatch(job, resume);
-
-      // Calculate weighted average
-      const totalScore = (
-        skillsMatch * 0.4 +
-        experienceMatch * 0.25 +
-        locationMatch * 0.15 +
-        salaryMatch * 0.1 +
-        educationMatch * 0.1
-      );
-
-      return {
-        totalScore: Math.round(totalScore * 100) / 100,
-        skillsMatch: Math.round(skillsMatch * 100),
-        experienceMatch: Math.round(experienceMatch * 100),
-        locationMatch: Math.round(locationMatch * 100),
-        salaryMatch: Math.round(salaryMatch * 100),
-        educationMatch: Math.round(educationMatch * 100)
-      };
-    } catch (error) {
-      logger.error('Error calculating job match score:', error);
-      return {
-        totalScore: 0,
-        skillsMatch: 0,
-        experienceMatch: 0,
-        locationMatch: 0,
-        salaryMatch: 0,
-        educationMatch: 0
-      };
-    }
-  }
-
-  calculateSkillsMatch(job, resumeKeywords) {
-    try {
-      if (!job.requirements.skills || job.requirements.skills.length === 0) {
-        return 0.5; // Neutral score if no skills specified
-      }
-
-      const jobSkills = job.requirements.skills.map(skill => skill.name.toLowerCase());
-      const jobKeywords = job.aiAnalysis.extractedKeywords.map(kw => kw.keyword.toLowerCase());
-      const allJobKeywords = [...jobSkills, ...jobKeywords];
-
-      let totalScore = 0;
-      let totalWeight = 0;
-
-      // Calculate weighted score based on skill importance
-      for (const jobSkill of job.requirements.skills) {
-        const skillName = jobSkill.name.toLowerCase();
-        const weight = this.skillWeights[jobSkill.level] || 0.5;
-        
-        if (resumeKeywords.includes(skillName)) {
-          totalScore += weight;
-        }
-        
-        totalWeight += weight;
-      }
-
-      // Add bonus for keyword matches
-      const keywordMatches = allJobKeywords.filter(keyword => 
-        resumeKeywords.includes(keyword)
-      ).length;
-
-      const keywordBonus = Math.min(0.2, keywordMatches / allJobKeywords.length);
-
-      return totalWeight > 0 ? (totalScore / totalWeight) + keywordBonus : 0;
-    } catch (error) {
-      logger.error('Error calculating skills match:', error);
-      return 0;
-    }
-  }
-
-  calculateExperienceMatch(job, resume) {
-    try {
-      const jobMinYears = job.requirements.experience.minYears || 0;
-      const jobMaxYears = job.requirements.experience.maxYears;
-      const resumeYears = resume.totalExperienceYears;
-
-      if (jobMinYears === 0 && !jobMaxYears) {
-        return 0.8; // Entry level or no experience requirement
-      }
-
-      if (resumeYears >= jobMinYears) {
-        if (!jobMaxYears || resumeYears <= jobMaxYears) {
-          return 1.0; // Perfect match
-        } else {
-          // Overqualified - still good but not perfect
-          return Math.max(0.7, 1.0 - (resumeYears - jobMaxYears) * 0.1);
-        }
-      } else {
-        // Underqualified
-        return Math.max(0.1, 1.0 - (jobMinYears - resumeYears) * 0.2);
-      }
-    } catch (error) {
-      logger.error('Error calculating experience match:', error);
-      return 0.5;
-    }
-  }
-
-  calculateLocationMatch(job, resume) {
-    try {
-      // If job is remote, it's a good match for everyone
-      if (job.location.isRemote) {
-        return 1.0;
-      }
-
-      // If resume has no location info, give neutral score
-      if (!resume.personalInfo.address && !resume.userId.location) {
-        return 0.5;
-      }
-
-      const resumeLocation = resume.userId.location || {};
-      const jobLocation = job.location;
-
-      // Exact city match
-      if (resumeLocation.city && jobLocation.city &&
-          resumeLocation.city.toLowerCase() === jobLocation.city.toLowerCase()) {
-        return 1.0;
-      }
-
-      // Same state/country match
-      if (resumeLocation.state && jobLocation.state &&
-          resumeLocation.state.toLowerCase() === jobLocation.state.toLowerCase()) {
-        return 0.8;
-      }
-
-      if (resumeLocation.country && jobLocation.country &&
-          resumeLocation.country.toLowerCase() === jobLocation.country.toLowerCase()) {
-        return 0.6;
-      }
-
-      return 0.2; // Different location
-    } catch (error) {
-      logger.error('Error calculating location match:', error);
-      return 0.5;
-    }
-  }
-
-  calculateSalaryMatch(job, resume) {
-    try {
-      // If no salary info, give neutral score
-      if (!job.benefits.salary.min && !job.benefits.salary.max) {
-        return 0.5;
-      }
-
-      // For now, return a neutral score as salary matching requires more complex logic
-      // In a real implementation, you might want to consider:
-      // - Current salary from resume
-      // - Salary expectations
-      // - Market rates for the position
-      return 0.7;
-    } catch (error) {
-      logger.error('Error calculating salary match:', error);
-      return 0.5;
-    }
-  }
-
-  calculateEducationMatch(job, resume) {
-    try {
-      const jobMinDegree = job.requirements.education.minimumDegree;
-      const resumeEducation = resume.education;
-
-      if (!jobMinDegree || !resumeEducation || resumeEducation.length === 0) {
-        return 0.7; // Neutral score
-      }
-
-      const degreeHierarchy = {
-        'high_school': 1,
-        'associate': 2,
-        'bachelor': 3,
-        'master': 4,
-        'phd': 5
-      };
-
-      const jobLevel = degreeHierarchy[jobMinDegree] || 3;
-      let highestResumeLevel = 0;
-
-      for (const edu of resumeEducation) {
-        if (edu.degree) {
-          const degree = edu.degree.toLowerCase();
-          if (degree.includes('phd') || degree.includes('doctorate')) {
-            highestResumeLevel = Math.max(highestResumeLevel, 5);
-          } else if (degree.includes('master')) {
-            highestResumeLevel = Math.max(highestResumeLevel, 4);
-          } else if (degree.includes('bachelor')) {
-            highestResumeLevel = Math.max(highestResumeLevel, 3);
-          } else if (degree.includes('associate')) {
-            highestResumeLevel = Math.max(highestResumeLevel, 2);
-          } else {
-            highestResumeLevel = Math.max(highestResumeLevel, 1);
-          }
-        }
-      }
-
-      if (highestResumeLevel >= jobLevel) {
-        return 1.0; // Meets or exceeds requirement
-      } else {
-        return Math.max(0.2, 1.0 - (jobLevel - highestResumeLevel) * 0.3);
-      }
-    } catch (error) {
-      logger.error('Error calculating education match:', error);
-      return 0.5;
-    }
-  }
-
-  async cacheRecommendations(userId, resumeId, recommendations) {
-    try {
-      const redisClient = getRedisClient();
-      const cacheKey = `job_recommendations:${userId}:${resumeId}`;
-      const cacheData = {
-        recommendations,
-        timestamp: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes
-      };
-
-      await redisClient.setEx(cacheKey, 1800, JSON.stringify(cacheData)); // 30 minutes TTL
-      logger.info(`Cached job recommendations for user: ${userId}`);
-    } catch (error) {
-      logger.error('Error caching recommendations:', error);
-      // Don't throw error as caching is not critical
-    }
-  }
-
-  async getCachedRecommendations(userId, resumeId) {
-    try {
-      const redisClient = getRedisClient();
-      const cacheKey = `job_recommendations:${userId}:${resumeId}`;
-      const cachedData = await redisClient.get(cacheKey);
-
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        const expiresAt = new Date(parsed.expiresAt);
-        
-        if (expiresAt > new Date()) {
-          logger.info(`Retrieved cached recommendations for user: ${userId}`);
-          return parsed.recommendations;
-        }
-      }
-
-      return null;
-    } catch (error) {
-      logger.error('Error getting cached recommendations:', error);
-      return null;
-    }
-  }
-
-  async getSimilarJobs(jobId, limit = 10) {
-    try {
-      const job = await Job.findById(jobId);
-      if (!job) {
+      const targetJob = this.jobDatabase.find(job => job.id === jobId);
+      if (!targetJob) {
         throw new Error('Job not found');
       }
 
-      const jobSkills = job.requirements.skills.map(skill => skill.name);
-      const jobKeywords = job.aiAnalysis.extractedKeywords.map(kw => kw.keyword);
+      // Find similar jobs based on requirements and title
+      const similarJobs = this.jobDatabase
+        .filter(job => job.id !== jobId)
+        .map(job => {
+          const similarity = this.calculateJobSimilarity(targetJob, job);
+          return { ...job, similarity };
+        })
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 5);
 
-      // Find jobs with similar skills
-      const similarJobs = await Job.find({
-        _id: { $ne: jobId },
-        status: 'active',
-        'requirements.skills.name': { $in: jobSkills },
-        $or: [
-          { expiresAt: { $exists: false } },
-          { expiresAt: { $gt: new Date() } }
-        ]
-      })
-      .populate('employerId', 'firstName lastName company.name')
-      .limit(limit * 2);
-
-      // Calculate similarity scores
-      const scoredJobs = similarJobs.map(similarJob => {
-        const similarityScore = this.calculateJobSimilarity(job, similarJob);
-        return {
-          job: similarJob.toObject(),
-          similarityScore
-        };
-      });
-
-      // Sort by similarity and return top results
-      return scoredJobs
-        .sort((a, b) => b.similarityScore - a.similarityScore)
-        .slice(0, limit);
-
+      return similarJobs;
     } catch (error) {
-      logger.error('Error getting similar jobs:', error);
+      console.error('Error getting similar jobs:', error);
       throw error;
     }
   }
 
   calculateJobSimilarity(job1, job2) {
-    try {
-      const skills1 = new Set(job1.requirements.skills.map(s => s.name.toLowerCase()));
-      const skills2 = new Set(job2.requirements.skills.map(s => s.name.toLowerCase()));
-      
-      const intersection = new Set([...skills1].filter(x => skills2.has(x)));
-      const union = new Set([...skills1, ...skills2]);
-      
-      const jaccardSimilarity = intersection.size / union.size;
-      
-      // Additional factors
-      const titleSimilarity = job1.title.toLowerCase() === job2.title.toLowerCase() ? 1 : 0;
-      const industrySimilarity = job1.aiAnalysis.industry === job2.aiAnalysis.industry ? 1 : 0;
-      const levelSimilarity = job1.seniorityLevel === job2.seniorityLevel ? 1 : 0;
-      
-      const totalSimilarity = (
-        jaccardSimilarity * 0.6 +
-        titleSimilarity * 0.2 +
-        industrySimilarity * 0.1 +
-        levelSimilarity * 0.1
-      );
-      
-      return Math.round(totalSimilarity * 100) / 100;
-    } catch (error) {
-      logger.error('Error calculating job similarity:', error);
-      return 0;
-    }
+    let similarity = 0;
+
+    // Title similarity
+    const titleSimilarity = this.calculateTextSimilarity(job1.title, job2.title);
+    similarity += titleSimilarity * 0.3;
+
+    // Requirements similarity
+    const reqSimilarity = this.calculateArraySimilarity(job1.requirements, job2.requirements);
+    similarity += reqSimilarity * 0.4;
+
+    // Company similarity
+    const companySimilarity = this.calculateTextSimilarity(job1.company, job2.company);
+    similarity += companySimilarity * 0.2;
+
+    // Location similarity
+    const locationSimilarity = this.calculateTextSimilarity(job1.location, job2.location);
+    similarity += locationSimilarity * 0.1;
+
+    return Math.round(similarity * 100);
   }
 
-  async getMarketInsights(skills, location = null) {
-    try {
-      const query = {
-        status: 'active',
-        'requirements.skills.name': { $in: skills },
-        $or: [
-          { expiresAt: { $exists: false } },
-          { expiresAt: { $gt: new Date() } }
-        ]
-      };
-
-      if (location) {
-        query['location.city'] = new RegExp(location, 'i');
-      }
-
-      const jobs = await Job.find(query);
-      
-      const insights = {
-        totalJobs: jobs.length,
-        averageSalary: this.calculateAverageSalary(jobs),
-        topCompanies: this.getTopCompanies(jobs),
-        skillDemand: this.calculateSkillDemand(jobs, skills),
-        remotePercentage: this.calculateRemotePercentage(jobs),
-        experienceDistribution: this.calculateExperienceDistribution(jobs)
-      };
-
-      return insights;
-    } catch (error) {
-      logger.error('Error getting market insights:', error);
-      throw error;
-    }
-  }
-
-  calculateAverageSalary(jobs) {
-    const jobsWithSalary = jobs.filter(job => 
-      job.benefits.salary.min || job.benefits.salary.max
-    );
-
-    if (jobsWithSalary.length === 0) return null;
-
-    const totalSalary = jobsWithSalary.reduce((sum, job) => {
-      const min = job.benefits.salary.min || 0;
-      const max = job.benefits.salary.max || min;
-      return sum + ((min + max) / 2);
-    }, 0);
-
-    return Math.round(totalSalary / jobsWithSalary.length);
-  }
-
-  getTopCompanies(jobs) {
-    const companyCount = {};
+  calculateTextSimilarity(text1, text2) {
+    const words1 = new Set(text1.toLowerCase().split(' '));
+    const words2 = new Set(text2.toLowerCase().split(' '));
     
-    jobs.forEach(job => {
-      const companyName = job.company.name;
-      companyCount[companyName] = (companyCount[companyName] || 0) + 1;
-    });
-
-    return Object.entries(companyCount)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 10)
-      .map(([name, count]) => ({ name, count }));
-  }
-
-  calculateSkillDemand(jobs, skills) {
-    const skillDemand = {};
+    const intersection = new Set([...words1].filter(x => words2.has(x)));
+    const union = new Set([...words1, ...words2]);
     
-    skills.forEach(skill => {
-      skillDemand[skill] = jobs.filter(job => 
-        job.requirements.skills.some(jobSkill => 
-          jobSkill.name.toLowerCase() === skill.toLowerCase()
-        )
-      ).length;
-    });
-
-    return skillDemand;
+    return intersection.size / union.size;
   }
 
-  calculateRemotePercentage(jobs) {
-    const remoteJobs = jobs.filter(job => job.location.isRemote);
-    return Math.round((remoteJobs.length / jobs.length) * 100);
-  }
-
-  calculateExperienceDistribution(jobs) {
-    const distribution = {
-      entry: 0,
-      junior: 0,
-      'mid-level': 0,
-      senior: 0,
-      lead: 0,
-      manager: 0,
-      director: 0,
-      executive: 0
-    };
-
-    jobs.forEach(job => {
-      if (distribution[job.seniorityLevel] !== undefined) {
-        distribution[job.seniorityLevel]++;
-      }
-    });
-
-    return distribution;
+  calculateArraySimilarity(arr1, arr2) {
+    if (!arr1 || !arr2) return 0;
+    
+    const set1 = new Set(arr1.map(item => item.toLowerCase()));
+    const set2 = new Set(arr2.map(item => item.toLowerCase()));
+    
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    
+    return intersection.size / union.size;
   }
 }
 
