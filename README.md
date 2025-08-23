@@ -1,4 +1,4 @@
-# CareerConnect AI - Backend
+# CareerConnect AI
 
 A comprehensive AI-powered resume parsing and job recommendation platform with advanced features including OAuth authentication, LinkedIn integration, Google Meet video conferencing, and real-time chat capabilities.
 
