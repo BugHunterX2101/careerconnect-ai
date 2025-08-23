@@ -147,6 +147,7 @@ docker-compose.override.yml
 *.yaml
 *.yml
 !docker-compose.yml
+!render.yaml
 
 # Terraform
 *.tfstate
