@@ -7,6 +7,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
 // Initialize logger

@@ -42,32 +42,9 @@ CLIENT_URL=https://careerconnect12-production.up.railway.app
   }
 }
 
-// Check if frontend is built
-const frontendBuildPath = path.join(__dirname, '../src/client/dist');
-if (!fs.existsSync(frontendBuildPath)) {
-  console.log('🏗️ Building frontend...');
-  const { execSync } = require('child_process');
-  try {
-    // Set Node.js memory limit and optimize build
-    process.env.NODE_OPTIONS = '--max-old-space-size=4096';
-    
-    execSync('cd src/client && npm install --production=false', { 
-      stdio: 'inherit',
-      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' }
-    });
-    
-    execSync('cd src/client && npm run build', { 
-      stdio: 'inherit',
-      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' }
-    });
-    
-    console.log('✅ Frontend built successfully');
-  } catch (error) {
-    console.error('❌ Frontend build failed:', error.message);
-    console.log('⚠️  Continuing with backend only...');
-  }
-}
+// Skip frontend build for now - focus on backend
+console.log('⚠️  Skipping frontend build - backend only mode');
+console.log('🔧 Starting production server...');
 
 // Start the server
-console.log('🔧 Starting production server...');
 require('../src/server/index.js');
