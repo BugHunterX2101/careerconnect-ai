@@ -75,9 +75,9 @@ Expected response:
 
 ## 🤖 GPT-OSS-120B Configuration
 
-The API key is pre-configured in the `.env` file:
+The API key should be configured in the `.env` file:
 ```env
-GPT_OSS_API_KEY=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
+GPT_OSS_API_KEY=your_gpt_oss_api_key_here
 GPT_OSS_BASE_URL=https://api.openai.com/v1
 GPT_OSS_MODEL=gpt-oss-120b
 ```
