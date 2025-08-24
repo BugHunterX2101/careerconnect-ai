@@ -22,29 +22,74 @@ PORT=8080
 CLIENT_URL=https://careerconnect12-production.up.railway.app
 
 # JWT Configuration
-JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
-JWT_REFRESH_SECRET=your_super_secret_refresh_key_here_change_in_production
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_EXPIRES_IN=7d
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=7d
 
-# AI/ML Configuration
-GPT_OSS_API_KEY=your_gpt_oss_api_key_here
-GPT_OSS_BASE_URL=https://api.openai.com/v1
-GPT_OSS_MODEL=gpt-oss-120b
+# Database Configuration
+DATABASE_URL=sqlite:./data/careerconnect.db
 
-# Application Configuration
-NODE_ENV=production
-PORT=8080
-CLIENT_URL=https://careerconnect12-production.up.railway.app
-`;
+# External APIs
+OPENAI_API_KEY=your-openai-api-key
+LINKEDIN_CLIENT_ID=your-linkedin-client-id
+LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Email Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+
+# File Upload
+MAX_FILE_SIZE=10485760
+UPLOAD_PATH=./uploads
+
+# Security
+CORS_ORIGIN=https://careerconnect12-production.up.railway.app
+RATE_LIMIT_WINDOW=900000
+RATE_LIMIT_MAX=100`;
     fs.writeFileSync(envPath, basicEnv);
     console.log('✅ Basic .env file created');
   }
 }
 
-// Skip frontend build for now - focus on backend
-console.log('⚠️  Skipping frontend build - backend only mode');
-console.log('🔧 Starting production server...');
+// Load environment variables
+require('dotenv').config({ path: envPath });
 
-// Start the server
+console.log('🔧 Environment loaded');
+console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`🚪 PORT: ${process.env.PORT || 8080}`);
+
+// Check if frontend build exists
+const frontendPath = path.join(__dirname, '../src/client/dist');
+if (fs.existsSync(frontendPath)) {
+  console.log('✅ Frontend build found at:', frontendPath);
+  console.log('📁 Frontend files:', fs.readdirSync(frontendPath));
+} else {
+  console.log('⚠️  Frontend build not found at:', frontendPath);
+  console.log('🔍 Checking if we need to build the frontend...');
+  
+  // Try to build the frontend if it doesn't exist
+  const clientPackagePath = path.join(__dirname, '../src/client/package.json');
+  if (fs.existsSync(clientPackagePath)) {
+    console.log('📦 Client package.json found, attempting to build...');
+    try {
+      const { execSync } = require('child_process');
+      console.log('🔨 Building frontend with increased memory...');
+      execSync('npm run build', { 
+        cwd: path.join(__dirname, '../src/client'),
+        env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' },
+        stdio: 'inherit'
+      });
+      console.log('✅ Frontend built successfully');
+    } catch (error) {
+      console.log('❌ Frontend build failed:', error.message);
+      console.log('⚠️  Continuing with backend-only mode');
+    }
+  }
+}
+
+// Start the main server
+console.log('🚀 Starting main server...');
 require('../src/server/index.js');
