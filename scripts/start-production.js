@@ -48,12 +48,23 @@ if (!fs.existsSync(frontendBuildPath)) {
   console.log('🏗️ Building frontend...');
   const { execSync } = require('child_process');
   try {
-    execSync('cd src/client && npm install', { stdio: 'inherit' });
-    execSync('cd src/client && npm run build', { stdio: 'inherit' });
+    // Set Node.js memory limit and optimize build
+    process.env.NODE_OPTIONS = '--max-old-space-size=4096';
+    
+    execSync('cd src/client && npm install --production=false', { 
+      stdio: 'inherit',
+      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' }
+    });
+    
+    execSync('cd src/client && npm run build', { 
+      stdio: 'inherit',
+      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' }
+    });
+    
     console.log('✅ Frontend built successfully');
   } catch (error) {
     console.error('❌ Frontend build failed:', error.message);
-    process.exit(1);
+    console.log('⚠️  Continuing with backend only...');
   }
 }
 
