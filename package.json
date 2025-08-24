@@ -5,6 +5,7 @@
   "main": "src/server/index.js",
   "scripts": {
     "start": "node scripts/start-production.js",
+    "start:railway": "node scripts/start-production.js",
     "dev": "nodemon src/server/index.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:client\"",
     "dev:client": "cd src/client && npm run dev",
