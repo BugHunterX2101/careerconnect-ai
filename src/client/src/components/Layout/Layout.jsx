@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState } from 'react';
 import {
   Box,
   AppBar,
@@ -16,178 +16,209 @@ import {
   Badge,
   useTheme,
   useMediaQuery,
-} from '@mui/material'
+  Divider,
+  Chip
+} from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard,
-  Description,
   Work,
+  Description,
   Person,
+  Chat,
+  VideoCall,
   Settings,
   Notifications,
   AccountCircle,
   Logout,
   Business,
-  Chat,
-  VideoCall,
   Search,
-  Bookmark,
-  Assessment,
-  Group,
+  Add,
+  People,
   Schedule,
-} from '@mui/icons-material'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+  Assessment,
+  TrendingUp,
+  School,
+  LinkedIn,
+  GitHub
+} from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
-const drawerWidth = 240
+const drawerWidth = 280;
 
 const Layout = ({ children }) => {
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [anchorEl, setAnchorEl] = useState(null)
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { user, logout } = useAuth()
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuth();
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen)
-  }
+    setMobileOpen(!mobileOpen);
+  };
 
   const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget)
-  }
+    setAnchorEl(event.currentTarget);
+  };
 
   const handleProfileMenuClose = () => {
-    setAnchorEl(null)
-  }
+    setAnchorEl(null);
+  };
 
   const handleLogout = () => {
-    logout()
-    handleProfileMenuClose()
-  }
+    logout();
+    handleProfileMenuClose();
+    navigate('/login');
+  };
 
   const navigationItems = [
     {
       text: 'Dashboard',
       icon: <Dashboard />,
       path: '/dashboard',
+      roles: ['jobseeker', 'employer']
     },
     {
-      text: 'Resumes',
+      text: 'Resume Management',
       icon: <Description />,
       path: '/resume/upload',
+      roles: ['jobseeker']
     },
     {
       text: 'Job Recommendations',
-      icon: <Work />,
+      icon: <TrendingUp />,
       path: '/jobs/recommendations',
+      roles: ['jobseeker']
     },
     {
       text: 'Job Search',
       icon: <Search />,
       path: '/jobs/search',
+      roles: ['jobseeker']
     },
     {
-      text: 'Saved Jobs',
-      icon: <Bookmark />,
-      path: '/jobs/saved',
+      text: 'Post Job',
+      icon: <Add />,
+      path: '/employer/jobs/post',
+      roles: ['employer']
     },
     {
-      text: 'Applications',
-      icon: <Assessment />,
-      path: '/jobs/applied',
+      text: 'Candidate Search',
+      icon: <People />,
+      path: '/employer/candidates',
+      roles: ['employer']
     },
     {
-      text: 'Profile',
-      icon: <Person />,
-      path: '/profile',
+      text: 'Schedule Interviews',
+      icon: <Schedule />,
+      path: '/employer/interviews/schedule',
+      roles: ['employer']
     },
     {
       text: 'Chat',
       icon: <Chat />,
       path: '/chat',
+      roles: ['jobseeker', 'employer']
+    },
+    {
+      text: 'Profile',
+      icon: <Person />,
+      path: '/profile',
+      roles: ['jobseeker', 'employer']
     },
     {
       text: 'Settings',
       icon: <Settings />,
       path: '/settings',
-    },
-  ]
-
-  // Add employer-specific navigation items
-  if (user?.role === 'employer') {
-    navigationItems.splice(3, 0, {
-      text: 'Employer Dashboard',
-      icon: <Business />,
-      path: '/employer/dashboard',
-    })
-    navigationItems.splice(4, 0, {
-      text: 'Post Job',
-      icon: <Work />,
-      path: '/employer/jobs/post',
-    })
-    navigationItems.splice(5, 0, {
-      text: 'Candidates',
-      icon: <Group />,
-      path: '/employer/candidates',
-    })
-    navigationItems.splice(6, 0, {
-      text: 'Interviews',
-      icon: <Schedule />,
-      path: '/employer/interviews/schedule',
-    })
-  }
+      roles: ['jobseeker', 'employer']
+    }
+  ];
 
   const drawer = (
-    <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          CareerConnect
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Logo/Brand */}
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+          CareerConnect AI
         </Typography>
-      </Toolbar>
-      <List>
-        {navigationItems.map((item) => (
-          <ListItem
-            button
-            key={item.text}
-            onClick={() => {
-              navigate(item.path)
-              if (isMobile) {
-                setMobileOpen(false)
-              }
-            }}
-            selected={location.pathname === item.path}
-            sx={{
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.primary.light,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.light,
-                },
-              },
-            }}
-          >
-            <ListItemIcon
+        <Chip 
+          label={user?.role === 'employer' ? 'Employer' : 'Job Seeker'} 
+          size="small" 
+          color="primary" 
+          variant="outlined"
+          sx={{ mt: 1 }}
+        />
+      </Box>
+
+      {/* Navigation */}
+      <List sx={{ flexGrow: 1, pt: 1 }}>
+        {navigationItems
+          .filter(item => item.roles.includes(user?.role))
+          .map((item) => (
+            <ListItem
+              key={item.text}
+              button
+              onClick={() => {
+                navigate(item.path);
+                if (isMobile) setMobileOpen(false);
+              }}
               sx={{
-                color: location.pathname === item.path ? theme.palette.primary.main : 'inherit',
+                mx: 1,
+                mb: 0.5,
+                borderRadius: 1,
+                backgroundColor: location.pathname === item.path ? 'primary.light' : 'transparent',
+                color: location.pathname === item.path ? 'primary.contrastText' : 'inherit',
+                '&:hover': {
+                  backgroundColor: location.pathname === item.path ? 'primary.light' : 'action.hover',
+                }
               }}
             >
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
+              <ListItemIcon sx={{ 
+                color: location.pathname === item.path ? 'primary.contrastText' : 'inherit',
+                minWidth: 40 
+              }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
       </List>
+
+      {/* User Info */}
+      <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <Avatar sx={{ width: 40, height: 40, mr: 2 }}>
+            {user?.profilePicture ? (
+              <img src={user.profilePicture} alt="Profile" />
+            ) : (
+              <Person />
+            )}
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              {user?.firstName} {user?.lastName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {user?.email}
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
     </Box>
-  )
+  );
 
   return (
     <Box sx={{ display: 'flex' }}>
+      {/* App Bar */}
       <AppBar
         position="fixed"
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
+          zIndex: theme.zIndex.drawer + 1
         }}
       >
         <Toolbar>
@@ -200,33 +231,36 @@ const Layout = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {navigationItems.find((item) => item.path === location.pathname)?.text || 'CareerConnect'}
-          </Typography>
           
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton color="inherit">
-              <Badge badgeContent={4} color="error">
-                <Notifications />
-              </Badge>
-            </IconButton>
-            
-            <IconButton
-              color="inherit"
-              onClick={handleProfileMenuOpen}
-              sx={{ ml: 1 }}
-            >
-              <Avatar
-                sx={{ width: 32, height: 32 }}
-                alt={user?.fullName || user?.email}
-              >
-                {user?.fullName?.charAt(0) || user?.email?.charAt(0)}
-              </Avatar>
-            </IconButton>
-          </Box>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            {navigationItems.find(item => item.path === location.pathname)?.text || 'CareerConnect AI'}
+          </Typography>
+
+          {/* Notifications */}
+          <IconButton color="inherit" sx={{ mr: 1 }}>
+            <Badge badgeContent={4} color="error">
+              <Notifications />
+            </Badge>
+          </IconButton>
+
+          {/* Profile Menu */}
+          <IconButton
+            color="inherit"
+            onClick={handleProfileMenuOpen}
+            sx={{ ml: 1 }}
+          >
+            <Avatar sx={{ width: 32, height: 32 }}>
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" />
+              ) : (
+                <AccountCircle />
+              )}
+            </Avatar>
+          </IconButton>
         </Toolbar>
       </AppBar>
 
+      {/* Drawer */}
       <Box
         component="nav"
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
@@ -235,12 +269,10 @@ const Layout = ({ children }) => {
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
           }}
         >
           {drawer}
@@ -249,7 +281,7 @@ const Layout = ({ children }) => {
           variant="permanent"
           sx={{
             display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
           }}
           open
         >
@@ -257,18 +289,20 @@ const Layout = ({ children }) => {
         </Drawer>
       </Box>
 
+      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
           width: { md: `calc(100% - ${drawerWidth}px)` },
+          mt: 8
         }}
       >
-        <Toolbar />
         {children}
       </Box>
 
+      {/* Profile Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -279,7 +313,7 @@ const Layout = ({ children }) => {
       >
         <MenuItem onClick={() => navigate('/profile')}>
           <ListItemIcon>
-            <AccountCircle fontSize="small" />
+            <Person fontSize="small" />
           </ListItemIcon>
           Profile
         </MenuItem>
@@ -289,6 +323,7 @@ const Layout = ({ children }) => {
           </ListItemIcon>
           Settings
         </MenuItem>
+        <Divider />
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <Logout fontSize="small" />
@@ -297,7 +332,7 @@ const Layout = ({ children }) => {
         </MenuItem>
       </Menu>
     </Box>
-  )
-}
+  );
+};
 
-export default Layout
+export default Layout;

@@ -263,6 +263,10 @@ development/
 build/
 dist/
 out/
+src/client/dist/
+
+# Deployment files
+.vercel/
 
 # Documentation builds
 docs/build/

@@ -1,11 +1,11 @@
-import React from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
-import { Box, CircularProgress, Typography } from '@mui/material'
-import { useAuth } from '../../contexts/AuthContext'
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading, isAuthenticated } = useAuth()
-  const location = useLocation()
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -15,22 +15,20 @@ const ProtectedRoute = ({ children }) => {
         justifyContent="center"
         alignItems="center"
         minHeight="100vh"
-        gap={2}
       >
         <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="h6" sx={{ mt: 2 }}>
           Loading...
         </Typography>
       </Box>
-    )
+    );
   }
 
-  if (!isAuthenticated) {
-    // Redirect to login page with the return url
-    return <Navigate to="/login" state={{ from: location }} replace />
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children
-}
+  return children;
+};
 
-export default ProtectedRoute
+export default ProtectedRoute;

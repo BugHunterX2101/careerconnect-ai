@@ -1,139 +1,212 @@
-import React, { useState } from 'react'
+import React, { useState } from 'react';
 import {
   Box,
-  Container,
-  Paper,
+  Card,
+  CardContent,
   Typography,
   TextField,
   Button,
-  Divider,
   Link,
   Alert,
   CircularProgress,
-  useTheme,
-} from '@mui/material'
-import { Google, LinkedIn, GitHub } from '@mui/icons-material'
-import { Link as RouterLink } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+  InputAdornment,
+  IconButton,
+  Divider,
+  useTheme
+} from '@mui/material';
+import {
+  Email,
+  Lock,
+  Visibility,
+  VisibilityOff,
+  Google,
+  LinkedIn
+} from '@mui/icons-material';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LoginPage = () => {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const theme = useTheme()
-  const { login } = useAuth()
+    password: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
-    })
-  }
+      [e.target.name]: e.target.value
+    });
+    setError(''); // Clear error when user starts typing
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-    try {
-      await login(formData)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+    const result = await login(formData.email, formData.password);
+    
+    if (result.success) {
+      navigate(from, { replace: true });
+    } else {
+      setError(result.error);
     }
-  }
+    
+    setLoading(false);
+  };
 
-  const handleOAuthLogin = (provider) => {
-    // OAuth implementation will be added later
-    console.log(`Logging in with ${provider}`)
-  }
+  const handleGoogleLogin = () => {
+    // Implement Google OAuth
+    console.log('Google login clicked');
+  };
+
+  const handleLinkedInLogin = () => {
+    // Implement LinkedIn OAuth
+    console.log('LinkedIn login clicked');
+  };
 
   return (
-    <Container component="main" maxWidth="sm">
-      <Box
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        p: 2
+      }}
+    >
+      <Card
         sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
+          maxWidth: 400,
+          width: '100%',
+          boxShadow: theme.shadows[10],
+          borderRadius: 2
         }}
       >
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Typography component="h1" variant="h4" gutterBottom>
-            Sign In
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Welcome back to CareerConnect
-          </Typography>
+        <CardContent sx={{ p: 4 }}>
+          {/* Header */}
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Welcome Back
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Sign in to your CareerConnect account
+            </Typography>
+          </Box>
 
+          {/* Error Alert */}
           {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 3 }}>
               {error}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+          {/* Login Form */}
+          <Box component="form" onSubmit={handleSubmit}>
             <TextField
-              margin="normal"
-              required
               fullWidth
-              id="email"
-              label="Email Address"
+              label="Email"
               name="email"
-              autoComplete="email"
-              autoFocus
+              type="email"
               value={formData.email}
               onChange={handleChange}
-            />
-            <TextField
-              margin="normal"
               required
+              sx={{ mb: 3 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Email color="action" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <TextField
               fullWidth
-              name="password"
               label="Password"
-              type="password"
-              id="password"
-              autoComplete="current-password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
               value={formData.password}
               onChange={handleChange}
+              required
+              sx={{ mb: 3 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Lock color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
+
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              size="large"
               disabled={loading}
+              sx={{
+                mb: 3,
+                py: 1.5,
+                textTransform: 'none',
+                fontSize: '1.1rem',
+                fontWeight: 'bold'
+              }}
             >
-              {loading ? <CircularProgress size={24} /> : 'Sign In'}
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </Box>
 
-          <Divider sx={{ width: '100%', my: 2 }}>
-            <Typography variant="body2" color="text.secondary">
+          {/* Divider */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Divider sx={{ flex: 1 }} />
+            <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>
               OR
             </Typography>
-          </Divider>
+            <Divider sx={{ flex: 1 }} />
+          </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, width: '100%', mb: 2 }}>
+          {/* Social Login Buttons */}
+          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
             <Button
               fullWidth
               variant="outlined"
               startIcon={<Google />}
-              onClick={() => handleOAuthLogin('google')}
-              sx={{ borderColor: '#db4437', color: '#db4437' }}
+              onClick={handleGoogleLogin}
+              sx={{
+                textTransform: 'none',
+                borderColor: '#db4437',
+                color: '#db4437',
+                '&:hover': {
+                  borderColor: '#db4437',
+                  backgroundColor: 'rgba(219, 68, 55, 0.04)'
+                }
+              }}
             >
               Google
             </Button>
@@ -141,40 +214,47 @@ const LoginPage = () => {
               fullWidth
               variant="outlined"
               startIcon={<LinkedIn />}
-              onClick={() => handleOAuthLogin('linkedin')}
-              sx={{ borderColor: '#0077b5', color: '#0077b5' }}
+              onClick={handleLinkedInLogin}
+              sx={{
+                textTransform: 'none',
+                borderColor: '#0077b5',
+                color: '#0077b5',
+                '&:hover': {
+                  borderColor: '#0077b5',
+                  backgroundColor: 'rgba(0, 119, 181, 0.04)'
+                }
+              }}
             >
               LinkedIn
             </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<GitHub />}
-              onClick={() => handleOAuthLogin('github')}
-              sx={{ borderColor: '#333', color: '#333' }}
+          </Box>
+
+          {/* Links */}
+          <Box sx={{ textAlign: 'center' }}>
+            <Link
+              component={RouterLink}
+              to="/forgot-password"
+              variant="body2"
+              sx={{ display: 'block', mb: 2 }}
             >
-              GitHub
-            </Button>
-          </Box>
-
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Link component={RouterLink} to="/forgot-password" variant="body2">
-              Forgot password?
+              Forgot your password?
             </Link>
-          </Box>
-
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            
             <Typography variant="body2" color="text.secondary">
               Don't have an account?{' '}
-              <Link component={RouterLink} to="/register" variant="body2">
+              <Link
+                component={RouterLink}
+                to="/register"
+                sx={{ fontWeight: 'bold' }}
+              >
                 Sign up
               </Link>
             </Typography>
           </Box>
-        </Paper>
-      </Box>
-    </Container>
-  )
-}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};
 
-export default LoginPage
+export default LoginPage;

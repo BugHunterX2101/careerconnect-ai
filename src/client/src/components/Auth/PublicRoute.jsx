@@ -1,37 +1,19 @@
-import React from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
-import { Box, CircularProgress, Typography } from '@mui/material'
-import { useAuth } from '../../contexts/AuthContext'
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const PublicRoute = ({ children }) => {
-  const { user, loading, isAuthenticated } = useAuth()
-  const location = useLocation()
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <Box
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        gap={2}
-      >
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary">
-          Loading...
-        </Typography>
-      </Box>
-    )
+    return null; // or a loading spinner
   }
 
-  if (isAuthenticated) {
-    // Redirect to dashboard or the intended page
-    const from = location.state?.from?.pathname || '/dashboard'
-    return <Navigate to={from} replace />
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return children
-}
+  return children;
+};
 
-export default PublicRoute
+export default PublicRoute;

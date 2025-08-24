@@ -54,6 +54,14 @@ try {
   logger.warn('Resume model not available:', error.message);
 }
 
+// Try to import GPT-OSS service
+let gptOssService = null;
+try {
+  gptOssService = require('../services/gptOssService');
+} catch (error) {
+  logger.warn('GPT-OSS service not available:', error.message);
+}
+
 try {
   const { getRedisClient } = require('../database/redis');
   redisClient = getRedisClient;
@@ -583,22 +591,53 @@ const processJobRecommendationsSynchronously = async (userId, resumeId, options 
   try {
     logger.info(`Generating job recommendations for user ${userId}, resume ${resumeId} synchronously`);
     
-    // Get job recommendations if ML service is available
+    // Get resume data
+    let resumeData = null;
+    if (Resume) {
+      resumeData = await Resume.findByPk(resumeId);
+      if (!resumeData) {
+        throw new Error(`Resume ${resumeId} not found`);
+      }
+    } else {
+      logger.warn('Resume model not available, using mock data');
+      resumeData = {
+        id: resumeId,
+        skills: [],
+        experience: [],
+        education: [],
+        summary: '',
+        personalInfo: {}
+      };
+    }
+    
+    // Get job recommendations using GPT-OSS if available
     let recommendations = null;
-    if (jobRecommender) {
+    if (gptOssService && options.useGPTOSS) {
+      logger.info('Using GPT-OSS-120B for job recommendations');
+      const gptRecommendations = await gptOssService.generateJobRecommendations(resumeData, options);
+      recommendations = {
+        recommendations: gptRecommendations,
+        total: gptRecommendations.length,
+        page: 1,
+        totalPages: 1,
+        source: 'gpt-oss-120b'
+      };
+    } else if (jobRecommender) {
+      logger.info('Using traditional ML for job recommendations');
       recommendations = await jobRecommender.getJobRecommendations(
         userId,
         resumeId,
         options
       );
     } else {
-      logger.warn('Job recommender not available, using basic fallback');
+      logger.warn('No recommendation service available, using basic fallback');
       // Basic fallback - return empty recommendations
       recommendations = {
         recommendations: [],
         total: 0,
         page: 1,
-        totalPages: 0
+        totalPages: 0,
+        source: 'fallback'
       };
     }
 

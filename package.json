@@ -4,7 +4,7 @@
   "description": "AI-powered resume parsing and job recommendation platform with BERT integration",
   "main": "src/server/index.js",
   "scripts": {
-    "start": "node src/server/index.js",
+    "start": "node scripts/start.js",
     "dev": "nodemon src/server/index.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:client\"",
     "dev:client": "cd src/client && npm run dev",
@@ -15,18 +15,15 @@
     "railway-deploy": "railway up",
     "vercel-build": "npm run build:client",
     "setup": "node scripts/setup.js",
+    "setup:db": "node scripts/setup-database.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:integration": "node scripts/test-integration.js",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "docker:build": "docker build -t careerconnect-ai .",
-    "docker:run": "docker run -p 3000:3000 careerconnect-ai",
-    "docker:compose": "docker-compose up -d",
+
     "redis:start": "redis-server",
     "queue:worker": "node src/workers/jobQueue.js",
-    "ml:train": "node src/ml/trainModel.js",
-    "ml:predict": "node src/ml/predict.js",
     "clean": "rm -rf node_modules package-lock.json && cd src/client && rm -rf node_modules package-lock.json",
     "install:all": "npm install && cd src/client && npm install"
   },
@@ -54,7 +51,8 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.0",
-    "mongoose": "^8.0.3",
+    "sqlite3": "^5.1.6",
+    "sequelize": "^6.35.2",
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^1.1.1",
     "redis": "^4.6.11",
@@ -76,7 +74,8 @@
     "nodemailer": "^6.9.5",
     "uuid": "^9.0.0",
     "moment": "^2.29.4",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "openai": "^4.20.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

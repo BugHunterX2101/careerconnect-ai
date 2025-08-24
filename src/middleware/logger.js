@@ -1,5 +1,4 @@
 const winston = require('winston');
-const { getRedisClient } = require('../database/redis');
 
 // Create logger instance
 const logger = winston.createLogger({
@@ -11,8 +10,6 @@ const logger = winston.createLogger({
   ),
   defaultMeta: { service: 'careerconnect-api' },
   transports: [
-    new winston.transports.File({ filename: 'logs/requests.log' }),
-    new winston.transports.File({ filename: 'logs/performance.log', level: 'info' }),
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
@@ -70,9 +67,6 @@ const requestLogger = (req, res, next) => {
       });
     }
 
-    // Track API metrics
-    trackAPIMetrics(req, res, duration);
-
     // Call original end method
     originalEnd.call(this, chunk, encoding);
   };
@@ -85,256 +79,191 @@ const generateRequestId = () => {
   return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
-// Track API metrics
-const trackAPIMetrics = async (req, res, duration) => {
-  try {
-    const redisClient = getRedisClient();
-    const timestamp = Math.floor(Date.now() / 60000) * 60000; // Round to minute
-    const endpoint = `${req.method} ${req.route?.path || req.path}`;
+// Performance logger middleware
+const performanceLogger = (req, res, next) => {
+  const startTime = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
     
-    // Increment request count
-    const requestKey = `api:requests:${timestamp}:${endpoint}`;
-    await redisClient.incr(requestKey);
-    await redisClient.expire(requestKey, 3600); // Expire after 1 hour
-
-    // Track response times
-    const responseTimeKey = `api:response_time:${timestamp}:${endpoint}`;
-    await redisClient.lpush(responseTimeKey, duration);
-    await redisClient.ltrim(responseTimeKey, 0, 999); // Keep last 1000 requests
-    await redisClient.expire(responseTimeKey, 3600);
-
-    // Track status codes
-    const statusKey = `api:status:${timestamp}:${endpoint}:${res.statusCode}`;
-    await redisClient.incr(statusKey);
-    await redisClient.expire(statusKey, 3600);
-
-    // Track user activity
-    if (req.user?.id) {
-      const userActivityKey = `user:activity:${req.user.id}:${timestamp}`;
-      await redisClient.incr(userActivityKey);
-      await redisClient.expire(userActivityKey, 86400); // Expire after 24 hours
-    }
-
-  } catch (error) {
-    logger.error('Error tracking API metrics:', error);
-  }
+    logger.info('Performance metric', {
+      method: req.method,
+      url: req.originalUrl,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  next();
 };
 
-// Performance logger for specific operations
-const performanceLogger = (operation, startTime, metadata = {}) => {
-  const duration = Date.now() - startTime;
-  
-  logger.info('Performance metric', {
-    operation,
-    duration: `${duration}ms`,
-    ...metadata,
+// Error logger middleware
+const errorLogger = (error, req, res, next) => {
+  logger.error('Error occurred', {
+    error: error.message,
+    stack: error.stack,
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userId: req.user?.id || 'anonymous',
     timestamp: new Date().toISOString()
   });
+  
+  next(error);
+};
 
-  return duration;
+// Security logger middleware
+const securityLogger = (req, res, next) => {
+  // Log potential security issues
+  const suspiciousPatterns = [
+    /<script/i,
+    /javascript:/i,
+    /on\w+\s*=/i,
+    /union\s+select/i,
+    /drop\s+table/i,
+    /delete\s+from/i
+  ];
+  
+  const requestBody = JSON.stringify(req.body);
+  const requestQuery = JSON.stringify(req.query);
+  const requestParams = JSON.stringify(req.params);
+  
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(requestBody) || pattern.test(requestQuery) || pattern.test(requestParams)) {
+      logger.warn('Potential security threat detected', {
+        method: req.method,
+        url: req.originalUrl,
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        pattern: pattern.toString(),
+        timestamp: new Date().toISOString()
+      });
+      break;
+    }
+  }
+  
+  next();
+};
+
+// API usage logger
+const apiUsageLogger = (req, res, next) => {
+  const endpoint = `${req.method} ${req.route?.path || req.path}`;
+  
+  logger.info('API usage', {
+    endpoint,
+    method: req.method,
+    url: req.originalUrl,
+    userId: req.user?.id || 'anonymous',
+    timestamp: new Date().toISOString()
+  });
+  
+  next();
 };
 
 // Database query logger
-const dbQueryLogger = (operation, query, duration, metadata = {}) => {
+const dbQueryLogger = (query, duration) => {
   logger.info('Database query', {
-    operation,
-    query: typeof query === 'string' ? query : JSON.stringify(query),
+    query: query.sql || query,
     duration: `${duration}ms`,
-    ...metadata,
     timestamp: new Date().toISOString()
   });
+};
 
-  // Log slow queries
-  if (duration > 100) {
-    logger.warn('Slow database query detected', {
-      operation,
-      query: typeof query === 'string' ? query : JSON.stringify(query),
-      duration: `${duration}ms`,
-      ...metadata
-    });
+// File operation logger
+const fileOperationLogger = (operation, filePath, duration) => {
+  logger.info('File operation', {
+    operation,
+    filePath,
+    duration: `${duration}ms`,
+    timestamp: new Date().toISOString()
+  });
+};
+
+// Email logger
+const emailLogger = (to, subject, status, error = null) => {
+  const logData = {
+    to,
+    subject,
+    status,
+    timestamp: new Date().toISOString()
+  };
+  
+  if (error) {
+    logData.error = error.message;
+    logger.error('Email operation failed', logData);
+  } else {
+    logger.info('Email operation', logData);
   }
 };
 
-// Error logger with context
-const errorLogger = (error, context = {}) => {
-  logger.error('Application error', {
-    message: error.message,
-    stack: error.stack,
-    ...context,
+// Job queue logger
+const jobQueueLogger = (jobType, jobId, status, duration = null, error = null) => {
+  const logData = {
+    jobType,
+    jobId,
+    status,
     timestamp: new Date().toISOString()
-  });
+  };
+  
+  if (duration) {
+    logData.duration = `${duration}ms`;
+  }
+  
+  if (error) {
+    logData.error = error.message;
+    logger.error('Job queue operation failed', logData);
+  } else {
+    logger.info('Job queue operation', logData);
+  }
 };
 
-// Security event logger
-const securityLogger = (event, details = {}) => {
-  logger.warn('Security event', {
-    event,
-    ...details,
-    timestamp: new Date().toISOString()
-  });
-};
-
-// Business logic logger
-const businessLogger = (action, details = {}) => {
-  logger.info('Business action', {
+// Authentication logger
+const authLogger = (action, userId, status, ip, userAgent) => {
+  logger.info('Authentication event', {
     action,
-    ...details,
+    userId: userId || 'anonymous',
+    status,
+    ip,
+    userAgent,
     timestamp: new Date().toISOString()
   });
 };
 
-// Get API metrics
-const getAPIMetrics = async (timeRange = '1h') => {
-  try {
-    const redisClient = getRedisClient();
-    const now = Date.now();
-    let startTime;
-
-    switch (timeRange) {
-      case '1h':
-        startTime = now - (60 * 60 * 1000);
-        break;
-      case '24h':
-        startTime = now - (24 * 60 * 60 * 1000);
-        break;
-      case '7d':
-        startTime = now - (7 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startTime = now - (60 * 60 * 1000); // Default to 1 hour
-    }
-
-    const metrics = {
-      totalRequests: 0,
-      averageResponseTime: 0,
-      statusCodes: {},
-      topEndpoints: [],
-      errors: 0
-    };
-
-    // Get request counts
-    const requestPattern = 'api:requests:*';
-    const requestKeys = await redisClient.keys(requestPattern);
-    
-    for (const key of requestKeys) {
-      const parts = key.split(':');
-      const timestamp = parseInt(parts[2]);
-      
-      if (timestamp >= startTime) {
-        const count = await redisClient.get(key);
-        const endpoint = parts.slice(3).join(':');
-        
-        metrics.totalRequests += parseInt(count) || 0;
-        
-        // Track top endpoints
-        const existingEndpoint = metrics.topEndpoints.find(e => e.endpoint === endpoint);
-        if (existingEndpoint) {
-          existingEndpoint.count += parseInt(count) || 0;
-        } else {
-          metrics.topEndpoints.push({
-            endpoint,
-            count: parseInt(count) || 0
-          });
-        }
-      }
-    }
-
-    // Get response times
-    const responseTimePattern = 'api:response_time:*';
-    const responseTimeKeys = await redisClient.keys(responseTimePattern);
-    let totalResponseTime = 0;
-    let responseTimeCount = 0;
-
-    for (const key of responseTimeKeys) {
-      const parts = key.split(':');
-      const timestamp = parseInt(parts[2]);
-      
-      if (timestamp >= startTime) {
-        const times = await redisClient.lrange(key, 0, -1);
-        const numericTimes = times.map(t => parseInt(t)).filter(t => !isNaN(t));
-        
-        totalResponseTime += numericTimes.reduce((sum, time) => sum + time, 0);
-        responseTimeCount += numericTimes.length;
-      }
-    }
-
-    if (responseTimeCount > 0) {
-      metrics.averageResponseTime = Math.round(totalResponseTime / responseTimeCount);
-    }
-
-    // Get status codes
-    const statusPattern = 'api:status:*';
-    const statusKeys = await redisClient.keys(statusPattern);
-    
-    for (const key of statusKeys) {
-      const parts = key.split(':');
-      const timestamp = parseInt(parts[2]);
-      
-      if (timestamp >= startTime) {
-        const statusCode = parts[4];
-        const count = await redisClient.get(key);
-        
-        metrics.statusCodes[statusCode] = (metrics.statusCodes[statusCode] || 0) + (parseInt(count) || 0);
-        
-        if (statusCode.startsWith('4') || statusCode.startsWith('5')) {
-          metrics.errors += parseInt(count) || 0;
-        }
-      }
-    }
-
-    // Sort top endpoints
-    metrics.topEndpoints.sort((a, b) => b.count - a.count);
-    metrics.topEndpoints = metrics.topEndpoints.slice(0, 10);
-
-    return metrics;
-  } catch (error) {
-    logger.error('Error getting API metrics:', error);
-    return null;
-  }
+// Rate limiting logger
+const rateLimitLogger = (ip, endpoint, limit, remaining) => {
+  logger.info('Rate limit check', {
+    ip,
+    endpoint,
+    limit,
+    remaining,
+    timestamp: new Date().toISOString()
+  });
 };
 
-// Clean up old metrics
-const cleanupOldMetrics = async () => {
-  try {
-    const redisClient = getRedisClient();
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    
-    const patterns = [
-      'api:requests:*',
-      'api:response_time:*',
-      'api:status:*',
-      'user:activity:*'
-    ];
-
-    for (const pattern of patterns) {
-      const keys = await redisClient.keys(pattern);
-      
-      for (const key of keys) {
-        const parts = key.split(':');
-        const timestamp = parseInt(parts[2]);
-        
-        if (timestamp < oneDayAgo) {
-          await redisClient.del(key);
-        }
-      }
-    }
-
-    logger.info('Cleaned up old metrics');
-  } catch (error) {
-    logger.error('Error cleaning up old metrics:', error);
-  }
+// Health check logger
+const healthCheckLogger = (status, duration, checks) => {
+  logger.info('Health check', {
+    status,
+    duration: `${duration}ms`,
+    checks,
+    timestamp: new Date().toISOString()
+  });
 };
 
-// Schedule cleanup every hour
-setInterval(cleanupOldMetrics, 60 * 60 * 1000);
-
+// Export all logging functions
 module.exports = {
+  logger,
   requestLogger,
   performanceLogger,
-  dbQueryLogger,
   errorLogger,
   securityLogger,
-  businessLogger,
-  getAPIMetrics,
-  cleanupOldMetrics
+  apiUsageLogger,
+  dbQueryLogger,
+  fileOperationLogger,
+  emailLogger,
+  jobQueueLogger,
+  authLogger,
+  rateLimitLogger,
+  healthCheckLogger
 };

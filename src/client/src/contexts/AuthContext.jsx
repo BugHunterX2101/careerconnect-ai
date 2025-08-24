@@ -1,215 +1,145 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { authService } from '../services/authService'
-import toast from 'react-hot-toast'
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const AuthContext = createContext()
+const AuthContext = createContext();
 
-const initialState = {
-  user: null,
-  token: localStorage.getItem('token'),
-  loading: true,
-  error: null,
-}
-
-const authReducer = (state, action) => {
-  switch (action.type) {
-    case 'AUTH_START':
-      return { ...state, loading: true, error: null }
-    case 'AUTH_SUCCESS':
-      return {
-        ...state,
-        user: action.payload.user,
-        token: action.payload.token,
-        loading: false,
-        error: null,
-      }
-    case 'AUTH_FAILURE':
-      return {
-        ...state,
-        user: null,
-        token: null,
-        loading: false,
-        error: action.payload,
-      }
-    case 'LOGOUT':
-      return {
-        ...state,
-        user: null,
-        token: null,
-        loading: false,
-        error: null,
-      }
-    case 'UPDATE_USER':
-      return {
-        ...state,
-        user: { ...state.user, ...action.payload },
-      }
-    case 'CLEAR_ERROR':
-      return {
-        ...state,
-        error: null,
-      }
-    default:
-      return state
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-}
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, initialState)
-  const navigate = useNavigate()
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem('token'));
 
-  // Check if user is authenticated on app load
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('token')
+    const initializeAuth = async () => {
       if (token) {
         try {
-          dispatch({ type: 'AUTH_START' })
-          const response = await authService.verifyToken()
-          dispatch({
-            type: 'AUTH_SUCCESS',
-            payload: { user: response.user, token },
-          })
+          // Verify token with backend
+          const response = await fetch('http://localhost:3000/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData.user);
+          } else {
+            // Token is invalid, remove it
+            localStorage.removeItem('token');
+            setToken(null);
+          }
         } catch (error) {
-          localStorage.removeItem('token')
-          dispatch({
-            type: 'AUTH_FAILURE',
-            payload: error.message,
-          })
+          console.error('Auth initialization error:', error);
+          localStorage.removeItem('token');
+          setToken(null);
         }
-      } else {
-        dispatch({ type: 'AUTH_FAILURE', payload: null })
       }
-    }
+      setLoading(false);
+    };
 
-    checkAuth()
-  }, [])
+    initializeAuth();
+  }, [token]);
 
-  const login = async (credentials) => {
+  const login = async (email, password) => {
     try {
-      dispatch({ type: 'AUTH_START' })
-      const response = await authService.login(credentials)
-      localStorage.setItem('token', response.token)
-      dispatch({
-        type: 'AUTH_SUCCESS',
-        payload: { user: response.user, token: response.token },
-      })
-      toast.success('Login successful!')
-      navigate('/dashboard')
-      return response
+      const response = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        // Handle non-JSON responses (like rate limit messages)
+        if (response.status === 429) {
+          return { success: false, error: 'Too many requests. Please wait a moment and try again.' };
+        }
+        return { success: false, error: 'Server error. Please try again.' };
+      }
+
+      if (response.ok) {
+        setUser(data.user);
+        setToken(data.token);
+        localStorage.setItem('token', data.token);
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Login failed' };
+      }
     } catch (error) {
-      dispatch({
-        type: 'AUTH_FAILURE',
-        payload: error.message,
-      })
-      toast.error(error.message || 'Login failed')
-      throw error
+      console.error('Login error:', error);
+      return { success: false, error: 'Network error' };
     }
-  }
+  };
 
   const register = async (userData) => {
     try {
-      dispatch({ type: 'AUTH_START' })
-      const response = await authService.register(userData)
-      localStorage.setItem('token', response.token)
-      dispatch({
-        type: 'AUTH_SUCCESS',
-        payload: { user: response.user, token: response.token },
-      })
-      toast.success('Registration successful!')
-      navigate('/dashboard')
-      return response
+      const response = await fetch('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        // Handle non-JSON responses (like rate limit messages)
+        if (response.status === 429) {
+          return { success: false, error: 'Too many requests. Please wait a moment and try again.' };
+        }
+        return { success: false, error: 'Server error. Please try again.' };
+      }
+
+      if (response.ok) {
+        setUser(data.user);
+        setToken(data.token);
+        localStorage.setItem('token', data.token);
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Registration failed' };
+      }
     } catch (error) {
-      dispatch({
-        type: 'AUTH_FAILURE',
-        payload: error.message,
-      })
-      toast.error(error.message || 'Registration failed')
-      throw error
+      console.error('Registration error:', error);
+      return { success: false, error: 'Network error' };
     }
-  }
+  };
 
   const logout = () => {
-    localStorage.removeItem('token')
-    dispatch({ type: 'LOGOUT' })
-    toast.success('Logged out successfully')
-    navigate('/')
-  }
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+  };
 
-  const updateProfile = async (profileData) => {
-    try {
-      const response = await authService.updateProfile(profileData)
-      dispatch({
-        type: 'UPDATE_USER',
-        payload: response.user,
-      })
-      toast.success('Profile updated successfully')
-      return response
-    } catch (error) {
-      toast.error(error.message || 'Profile update failed')
-      throw error
-    }
-  }
-
-  const changePassword = async (passwordData) => {
-    try {
-      await authService.changePassword(passwordData)
-      toast.success('Password changed successfully')
-    } catch (error) {
-      toast.error(error.message || 'Password change failed')
-      throw error
-    }
-  }
-
-  const forgotPassword = async (email) => {
-    try {
-      await authService.forgotPassword(email)
-      toast.success('Password reset email sent')
-    } catch (error) {
-      toast.error(error.message || 'Failed to send reset email')
-      throw error
-    }
-  }
-
-  const resetPassword = async (token, password) => {
-    try {
-      await authService.resetPassword(token, password)
-      toast.success('Password reset successfully')
-      navigate('/login')
-    } catch (error) {
-      toast.error(error.message || 'Password reset failed')
-      throw error
-    }
-  }
-
-  const clearError = () => {
-    dispatch({ type: 'CLEAR_ERROR' })
-  }
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+  };
 
   const value = {
-    user: state.user,
-    token: state.token,
-    loading: state.loading,
-    error: state.error,
-    isAuthenticated: !!state.token && !!state.user,
+    user,
+    loading,
     login,
     register,
     logout,
-    updateProfile,
-    changePassword,
-    forgotPassword,
-    resetPassword,
-    clearError,
-  }
+    updateUser,
+    isAuthenticated: !!user
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};

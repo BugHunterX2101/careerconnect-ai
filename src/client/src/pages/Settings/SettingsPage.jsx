@@ -1,15 +1,28 @@
-import React from 'react'
-import { Box, Typography, Container } from '@mui/material'
+import React from 'react';
+import { Box, Typography, Card, CardContent } from '@mui/material';
 
 const SettingsPage = () => {
   return (
-    <Container>
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h4">Settings</Typography>
-        <Typography variant="body1">Application settings will be implemented here.</Typography>
-      </Box>
-    </Container>
-  )
-}
+    <Box>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+        Settings
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+        Manage your account settings and preferences
+      </Typography>
+      
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Account Settings
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            This page will include account settings, privacy controls, notification preferences, and other configuration options.
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};
 
-export default SettingsPage
+export default SettingsPage;
