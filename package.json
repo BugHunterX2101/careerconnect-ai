@@ -4,7 +4,7 @@
   "description": "AI-powered resume parsing and job recommendation platform with BERT integration",
   "main": "src/server/index.js",
   "scripts": {
-    "start": "node scripts/start.js",
+    "start": "node scripts/start-production.js",
     "dev": "nodemon src/server/index.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:client\"",
     "dev:client": "cd src/client && npm run dev",
@@ -24,7 +24,7 @@
 
     "redis:start": "redis-server",
     "queue:worker": "node src/workers/jobQueue.js",
-    "clean": "rm -rf node_modules package-lock.json && cd src/client && rm -rf node_modules package-lock.json",
+    "clean": "rm -rf node_modules package-lock.json && cd src/client && npm install",
     "install:all": "npm install && cd src/client && npm install"
   },
   "keywords": [

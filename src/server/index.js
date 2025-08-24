@@ -296,20 +296,42 @@ app.use((error, req, res, next) => {
   });
 });
 
-// 404 handler - serve frontend for non-API routes
-app.use('*', (req, res) => {
-  // If it's an API route, return 404 JSON
-  if (req.originalUrl.startsWith('/api/')) {
-    return res.status(404).json({ 
-      error: 'Route not found',
-      path: req.originalUrl,
-      availableRoutes: ['/health', '/api/status']
-    });
-  }
+// Serve static files from the built React app
+const frontendPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(frontendPath)) {
+  app.use(express.static(frontendPath));
   
-  // For non-API routes, serve the frontend
-  res.sendFile(path.join(__dirname, '../../public/index.html'));
-});
+  // 404 handler - serve frontend for non-API routes
+  app.use('*', (req, res) => {
+    // If it's an API route, return 404 JSON
+    if (req.originalUrl.startsWith('/api/')) {
+      return res.status(404).json({ 
+        error: 'Route not found',
+        path: req.originalUrl,
+        availableRoutes: ['/health', '/api/status']
+      });
+    }
+    
+    // For non-API routes, serve the frontend index.html
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // Fallback if frontend is not built
+  app.use('*', (req, res) => {
+    if (req.originalUrl.startsWith('/api/')) {
+      return res.status(404).json({ 
+        error: 'Route not found',
+        path: req.originalUrl,
+        availableRoutes: ['/health', '/api/status']
+      });
+    }
+    
+    res.status(404).json({ 
+      error: 'Frontend not built',
+      message: 'Please build the frontend before starting the server'
+    });
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
