@@ -1,0 +1,5 @@
+[33mf36e9af[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Security fix: Remove API keys from documentation files
+[33m77dc65d[m Major refactor: Fix rate limiting, error handling, and database migration to SQLite
+[33m5c48aab[m[33m ([m[1;31morigin/main[m[33m)[m Fix jobQueue.js to handle optional ML services and models for Railway deployment
+[33m91aed86[m Fix model imports in routes - make User and Resume models optional with proper error handling
+[33m35dd981[m Fix module import issues - make Resume model and Redis client optional with proper error handling
