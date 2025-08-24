@@ -68,7 +68,7 @@ if (fs.existsSync(frontendPath)) {
   console.log('📁 Frontend files:', fs.readdirSync(frontendPath));
 } else {
   console.log('⚠️  Frontend build not found at:', frontendPath);
-  console.log('🔍 Checking if we need to build the frontend...');
+  console.log('🔍 Attempting to build frontend...');
   
   // Try to build the frontend if it doesn't exist
   const clientPackagePath = path.join(__dirname, '../src/client/package.json');
@@ -76,12 +76,22 @@ if (fs.existsSync(frontendPath)) {
     console.log('📦 Client package.json found, attempting to build...');
     try {
       const { execSync } = require('child_process');
-      console.log('🔨 Building frontend with increased memory...');
-      execSync('npm run build', { 
+      console.log('🔨 Building frontend...');
+      
+      // First install client dependencies
+      console.log('📥 Installing client dependencies...');
+      execSync('npm install', { 
         cwd: path.join(__dirname, '../src/client'),
-        env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=4096' },
         stdio: 'inherit'
       });
+      
+      // Then build the frontend
+      console.log('🔨 Building frontend...');
+      execSync('npm run build', { 
+        cwd: path.join(__dirname, '../src/client'),
+        stdio: 'inherit'
+      });
+      
       console.log('✅ Frontend built successfully');
     } catch (error) {
       console.log('❌ Frontend build failed:', error.message);
