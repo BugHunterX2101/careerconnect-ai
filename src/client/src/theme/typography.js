@@ -1,0 +1,92 @@
+export const typography = {
+  fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontFamilyDisplay: '"Inter", sans-serif',
+  fontFamilyMono: '"JetBrains Mono", "Courier New", monospace',
+  
+  fontWeightLight: 300,
+  fontWeightRegular: 400,
+  fontWeightMedium: 500,
+  fontWeightSemiBold: 600,
+  fontWeightBold: 700,
+  
+  h1: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '5.5rem',
+    fontWeight: 800,
+    lineHeight: 1.15,
+    letterSpacing: '-0.02em',
+  },
+  h2: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '4.25rem',
+    fontWeight: 700,
+    lineHeight: 1.2,
+    letterSpacing: '-0.01em',
+  },
+  h3: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '3.25rem',
+    fontWeight: 700,
+    lineHeight: 1.3,
+  },
+  h4: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '2.5rem',
+    fontWeight: 600,
+    lineHeight: 1.4,
+  },
+  h5: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '2rem',
+    fontWeight: 600,
+    lineHeight: 1.5,
+  },
+  h6: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '1.75rem',
+    fontWeight: 600,
+    lineHeight: 1.5,
+  },
+  body1: {
+    fontSize: '1.375rem',
+    fontWeight: 400,
+    lineHeight: 1.8,
+  },
+  body2: {
+    fontSize: '1.25rem',
+    fontWeight: 400,
+    lineHeight: 1.7,
+  },
+  subtitle1: {
+    fontSize: '1.5rem',
+    fontWeight: 500,
+    lineHeight: 1.6,
+  },
+  subtitle2: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '1.375rem',
+    fontWeight: 500,
+    lineHeight: 1.6,
+  },
+  button: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '1.375rem',
+    fontWeight: 600,
+    lineHeight: 1.6,
+    letterSpacing: '0.01em',
+    textTransform: 'none',
+  },
+  caption: {
+    fontSize: '1.125rem',
+    fontWeight: 400,
+    lineHeight: 1.6,
+  },
+  overline: {
+    fontFamily: '"Inter", sans-serif',
+    fontSize: '1rem',
+    fontWeight: 600,
+    lineHeight: 1.6,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+  },
+};
