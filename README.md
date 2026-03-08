@@ -159,13 +159,13 @@ cp .env.example .env  # Configure your secrets
 
 ## What's New (v2.0)
 
- **Enhanced Employee Dashboard** - 5 major feature sets with AI analytics
- **Advanced Employer Dashboard** - Comprehensive hiring management
- **BERT Integration** - Semantic resume analysis and job matching
- **Real-time Features** - Live notifications and updates
- **Team Collaboration** - Role-based permissions and management
- **Advanced Analytics** - Performance KPIs and insights
- **Smart Recommendations** - AI-powered career and hiring guidance
+- **Enhanced Employee Dashboard** - 5 major feature sets with AI analytics
+- **Advanced Employer Dashboard** - Comprehensive hiring management
+- **BERT Integration** - Semantic resume analysis and job matching
+- **Real-time Features** - Live notifications and updates
+- **Team Collaboration** - Role-based permissions and management
+- **Advanced Analytics** - Performance KPIs and insights
+- **Smart Recommendations** - AI-powered career and hiring guidance
 
 ---
 
