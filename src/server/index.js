@@ -177,7 +177,8 @@ app.get('/', apiLimiter, (req, res) => {
       video: '/api/video/*',
       profile: '/api/profile/*',
       employer: '/api/employer/*',
-      employee: '/api/employee/*'
+      employee: '/api/employee/*',
+      bert: '/api/bert/*'
     },
     features: {
       gptOss: !!process.env.GPT_OSS_API_KEY,
@@ -220,6 +221,7 @@ const routeMappings = [
   { path: '/api/profile', module: '../routes/profile' },
   { path: '/api/employer', module: '../routes/employer' },
   { path: '/api/employee', module: '../routes/employee' },
+  { path: '/api/bert', module: '../routes/bertRoutes' },
 ];
 
 function loadRoutes() {
