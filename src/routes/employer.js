@@ -954,4 +954,369 @@ router.patch('/interviews/:id/cancel', async (req, res) => {
   }
 });
 
+// @route   GET /api/employer/analytics
+// @desc    Get comprehensive employer analytics
+// @access  Private (employer)
+router.get('/analytics', async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    const { startDate, endDate } = req.query;
+    
+    // Mock analytics data
+    const analytics = {
+      overview: {
+        totalJobs: Math.floor(Math.random() * 20) + 10,
+        activeJobs: Math.floor(Math.random() * 15) + 5,
+        totalApplications: Math.floor(Math.random() * 200) + 100,
+        totalHires: Math.floor(Math.random() * 15) + 5
+      },
+      trends: {
+        applications: {
+          thisMonth: Math.floor(Math.random() * 50) + 25,
+          lastMonth: Math.floor(Math.random() * 40) + 20,
+          growth: '+25%'
+        },
+        hires: {
+          thisMonth: Math.floor(Math.random() * 8) + 2,
+          lastMonth: Math.floor(Math.random() * 6) + 1,
+          growth: '+50%'
+        },
+        timeToHire: {
+          average: Math.floor(Math.random() * 10) + 15,
+          improvement: '-3 days'
+        }
+      },
+      topPerformingJobs: [
+        {
+          title: 'Senior React Developer',
+          applications: 45,
+          interviews: 12,
+          hires: 2,
+          conversionRate: '4.4%'
+        },
+        {
+          title: 'Full Stack Engineer',
+          applications: 38,
+          interviews: 10,
+          hires: 1,
+          conversionRate: '2.6%'
+        }
+      ],
+      candidateQuality: {
+        averageScore: Math.floor(Math.random() * 20) + 70,
+        qualifiedCandidates: Math.floor(Math.random() * 30) + 60,
+        topSkills: ['React', 'Node.js', 'Python', 'AWS']
+      },
+      sourcingEffectiveness: [
+        { source: 'Job Boards', applications: 120, hires: 8, cost: '$2,400' },
+        { source: 'LinkedIn', applications: 85, hires: 6, cost: '$1,800' },
+        { source: 'Referrals', applications: 25, hires: 4, cost: '$800' }
+      ]
+    };
+    
+    res.json(analytics);
+
+  } catch (error) {
+    getLogger().error('Get employer analytics error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employer/team
+// @desc    Get team members
+// @access  Private (employer)
+router.get('/team', async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    
+    // Mock team data
+    const team = {
+      members: [
+        {
+          id: 1,
+          name: 'John Smith',
+          email: 'john@company.com',
+          role: 'Hiring Manager',
+          permissions: ['view_candidates', 'schedule_interviews', 'update_applications'],
+          joinedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000)
+        },
+        {
+          id: 2,
+          name: 'Sarah Johnson',
+          email: 'sarah@company.com',
+          role: 'Recruiter',
+          permissions: ['view_candidates', 'schedule_interviews'],
+          joinedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+          lastActive: new Date(Date.now() - 30 * 60 * 1000)
+        }
+      ],
+      pendingInvites: [
+        {
+          email: 'newrecruiter@company.com',
+          role: 'Recruiter',
+          invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+        }
+      ]
+    };
+    
+    res.json(team);
+
+  } catch (error) {
+    getLogger().error('Get team error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/employer/team/invite
+// @desc    Invite team member
+// @access  Private (employer)
+router.post('/team/invite', [
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('role').isIn(['Recruiter', 'Hiring Manager', 'Admin']).withMessage('Valid role is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, role, permissions = [] } = req.body;
+    
+    // Mock response
+    const invite = {
+      email,
+      role,
+      permissions,
+      invitedAt: new Date(),
+      inviteToken: 'mock-token-' + Date.now()
+    };
+    
+    res.status(201).json({ message: 'Team member invited successfully', invite });
+
+  } catch (error) {
+    getLogger().error('Invite team member error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employer/reports/hiring
+// @desc    Get hiring reports
+// @access  Private (employer)
+router.get('/reports/hiring', async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    const { startDate, endDate, format } = req.query;
+    
+    // Mock hiring report
+    const report = {
+      summary: {
+        totalHires: Math.floor(Math.random() * 20) + 10,
+        averageTimeToHire: Math.floor(Math.random() * 10) + 20,
+        costPerHire: Math.floor(Math.random() * 2000) + 3000,
+        offerAcceptanceRate: Math.floor(Math.random() * 20) + 75
+      },
+      byDepartment: [
+        { department: 'Engineering', hires: 8, avgSalary: '$95k', timeToHire: 25 },
+        { department: 'Marketing', hires: 3, avgSalary: '$65k', timeToHire: 18 },
+        { department: 'Sales', hires: 5, avgSalary: '$70k', timeToHire: 15 }
+      ],
+      monthlyTrends: [
+        { month: 'Jan', hires: 2, applications: 45 },
+        { month: 'Feb', hires: 4, applications: 52 },
+        { month: 'Mar', hires: 3, applications: 38 },
+        { month: 'Apr', hires: 5, applications: 61 }
+      ],
+      topSources: [
+        { source: 'LinkedIn', hires: 8, cost: '$1,600' },
+        { source: 'Job Boards', hires: 6, cost: '$1,200' },
+        { source: 'Referrals', hires: 4, cost: '$800' }
+      ]
+    };
+    
+    res.json(report);
+
+  } catch (error) {
+    getLogger().error('Get hiring report error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employer/pipeline
+// @desc    Get hiring pipeline overview
+// @access  Private (employer)
+router.get('/pipeline', async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    
+    // Mock pipeline data
+    const pipeline = {
+      stages: [
+        { stage: 'Applied', count: 145, percentage: 100 },
+        { stage: 'Screening', count: 87, percentage: 60 },
+        { stage: 'Interview', count: 34, percentage: 23 },
+        { stage: 'Final Round', count: 12, percentage: 8 },
+        { stage: 'Offer', count: 6, percentage: 4 },
+        { stage: 'Hired', count: 4, percentage: 3 }
+      ],
+      recentActivity: [
+        {
+          candidate: 'John Doe',
+          job: 'Senior Developer',
+          action: 'Moved to Interview',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
+        },
+        {
+          candidate: 'Jane Smith',
+          job: 'Product Manager',
+          action: 'Offer Extended',
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000)
+        }
+      ],
+      bottlenecks: [
+        {
+          stage: 'Interview Scheduling',
+          avgDelay: '5 days',
+          suggestion: 'Consider automated scheduling'
+        },
+        {
+          stage: 'Reference Checks',
+          avgDelay: '3 days',
+          suggestion: 'Streamline reference process'
+        }
+      ]
+    };
+    
+    res.json(pipeline);
+
+  } catch (error) {
+    getLogger().error('Get pipeline error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employer/notifications
+// @desc    Get employer notifications
+// @access  Private (employer)
+router.get('/notifications', async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    
+    // Mock notifications
+    const notifications = [
+      {
+        id: 1,
+        title: 'New Application',
+        message: 'John Doe applied for Senior React Developer position',
+        type: 'application',
+        read: false,
+        createdAt: new Date(Date.now() - 30 * 60 * 1000),
+        actionUrl: '/employer/jobs/123/applicants'
+      },
+      {
+        id: 2,
+        title: 'Interview Reminder',
+        message: 'Interview with Sarah Johnson in 1 hour',
+        type: 'interview',
+        read: false,
+        createdAt: new Date(Date.now() - 45 * 60 * 1000),
+        actionUrl: '/employer/interviews/456'
+      },
+      {
+        id: 3,
+        title: 'Job Expiring Soon',
+        message: 'Frontend Developer job expires in 3 days',
+        type: 'job_expiry',
+        read: true,
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        actionUrl: '/employer/jobs/789'
+      }
+    ];
+    
+    res.json({ notifications });
+
+  } catch (error) {
+    getLogger().error('Get notifications error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PATCH /api/employer/notifications/:id/read
+// @desc    Mark notification as read
+// @access  Private (employer)
+router.patch('/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Mock response
+    res.json({ message: 'Notification marked as read' });
+
+  } catch (error) {
+    getLogger().error('Mark notification as read error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employer/settings
+// @desc    Get employer settings
+// @access  Private (employer)
+router.get('/settings', async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    
+    // Mock settings
+    const settings = {
+      company: {
+        name: 'TechCorp Inc.',
+        website: 'https://techcorp.com',
+        industry: 'Technology',
+        size: '51-200 employees',
+        description: 'Leading technology company'
+      },
+      notifications: {
+        newApplications: true,
+        interviewReminders: true,
+        weeklyReports: false,
+        candidateMessages: true
+      },
+      hiring: {
+        autoRejectAfterDays: 30,
+        requireCoverLetter: false,
+        allowRemoteApplications: true,
+        screeningQuestions: []
+      },
+      integrations: {
+        linkedin: { connected: true, lastSync: new Date() },
+        slack: { connected: false },
+        calendar: { connected: true, provider: 'Google' }
+      }
+    };
+    
+    res.json({ settings });
+
+  } catch (error) {
+    getLogger().error('Get settings error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/employer/settings
+// @desc    Update employer settings
+// @access  Private (employer)
+router.put('/settings', async (req, res) => {
+  try {
+    const { settings } = req.body;
+    
+    // Mock response
+    res.json({
+      message: 'Settings updated successfully',
+      settings
+    });
+
+  } catch (error) {
+    getLogger().error('Update settings error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

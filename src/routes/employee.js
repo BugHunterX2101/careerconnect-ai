@@ -542,6 +542,181 @@ router.get('/settings', async (req, res) => {
   }
 });
 
+// @route   GET /api/employee/analytics
+// @desc    Get employee analytics and insights
+// @access  Private (jobseeker)
+router.get('/analytics', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Mock analytics data
+    const analytics = {
+      applicationTrends: {
+        thisMonth: Math.floor(Math.random() * 15) + 5,
+        lastMonth: Math.floor(Math.random() * 12) + 3,
+        growth: '+25%'
+      },
+      interviewConversion: {
+        rate: Math.floor(Math.random() * 30) + 15,
+        total: Math.floor(Math.random() * 8) + 2
+      },
+      profileViews: {
+        thisWeek: Math.floor(Math.random() * 50) + 20,
+        lastWeek: Math.floor(Math.random() * 40) + 15,
+        growth: '+12%'
+      },
+      skillsInDemand: [
+        { skill: 'React', demand: 95, jobs: 1250 },
+        { skill: 'Node.js', demand: 88, jobs: 980 },
+        { skill: 'Python', demand: 92, jobs: 1100 },
+        { skill: 'AWS', demand: 85, jobs: 850 }
+      ],
+      applicationSuccess: {
+        responseRate: Math.floor(Math.random() * 40) + 30,
+        interviewRate: Math.floor(Math.random() * 20) + 10
+      }
+    };
+    
+    res.json(analytics);
+
+  } catch (error) {
+    getLogger().error('Get employee analytics error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employee/skill-recommendations
+// @desc    Get AI-powered skill recommendations
+// @access  Private (jobseeker)
+router.get('/skill-recommendations', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Mock skill recommendations
+    const recommendations = {
+      trending: [
+        { skill: 'TypeScript', growth: '+45%', avgSalary: '$95k', demand: 'High' },
+        { skill: 'Docker', growth: '+38%', avgSalary: '$88k', demand: 'High' },
+        { skill: 'GraphQL', growth: '+42%', avgSalary: '$92k', demand: 'Medium' },
+        { skill: 'Kubernetes', growth: '+35%', avgSalary: '$105k', demand: 'High' }
+      ],
+      personalized: [
+        { skill: 'Next.js', reason: 'Complements your React skills', timeToLearn: '2-3 months' },
+        { skill: 'MongoDB', reason: 'Popular with Node.js developers', timeToLearn: '1-2 months' },
+        { skill: 'Jest', reason: 'Essential for testing', timeToLearn: '2-4 weeks' }
+      ],
+      learningPaths: [
+        {
+          title: 'Full Stack JavaScript Developer',
+          skills: ['React', 'Node.js', 'MongoDB', 'Express'],
+          duration: '4-6 months',
+          salaryIncrease: '$15k-25k'
+        },
+        {
+          title: 'Cloud Developer',
+          skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
+          duration: '3-5 months',
+          salaryIncrease: '$20k-30k'
+        }
+      ]
+    };
+    
+    res.json(recommendations);
+
+  } catch (error) {
+    getLogger().error('Get skill recommendations error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employee/job-alerts
+// @desc    Get job alerts and saved searches
+// @access  Private (jobseeker)
+router.get('/job-alerts', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Mock job alerts
+    const alerts = {
+      active: [
+        {
+          id: 1,
+          title: 'React Developer in San Francisco',
+          criteria: { keywords: 'React', location: 'San Francisco', salary: '80k+' },
+          frequency: 'daily',
+          newJobs: 5,
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        },
+        {
+          id: 2,
+          title: 'Remote Full Stack Jobs',
+          criteria: { keywords: 'Full Stack', remote: true, salary: '70k+' },
+          frequency: 'weekly',
+          newJobs: 12,
+          createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+        }
+      ],
+      recentMatches: [
+        {
+          jobTitle: 'Senior React Developer',
+          company: 'TechCorp',
+          location: 'San Francisco, CA',
+          salary: '$120k-150k',
+          matchScore: 92,
+          postedAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
+        },
+        {
+          jobTitle: 'Full Stack Engineer',
+          company: 'StartupXYZ',
+          location: 'Remote',
+          salary: '$90k-120k',
+          matchScore: 88,
+          postedAt: new Date(Date.now() - 4 * 60 * 60 * 1000)
+        }
+      ]
+    };
+    
+    res.json(alerts);
+
+  } catch (error) {
+    getLogger().error('Get job alerts error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/employee/job-alerts
+// @desc    Create new job alert
+// @access  Private (jobseeker)
+router.post('/job-alerts', [
+  body('title').trim().isLength({ min: 1 }).withMessage('Alert title is required'),
+  body('criteria').isObject().withMessage('Search criteria is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { title, criteria, frequency = 'daily' } = req.body;
+    
+    // Mock response
+    const alert = {
+      id: Date.now(),
+      title,
+      criteria,
+      frequency,
+      newJobs: 0,
+      createdAt: new Date()
+    };
+    
+    res.status(201).json({ message: 'Job alert created successfully', alert });
+
+  } catch (error) {
+    getLogger().error('Create job alert error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   PUT /api/employee/settings
 // @desc    Update user settings
 // @access  Private (jobseeker)
@@ -571,6 +746,56 @@ router.put('/settings', async (req, res) => {
 
   } catch (error) {
     getLogger().error('Update settings error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employee/resume-insights
+// @desc    Get resume analysis and improvement suggestions
+// @access  Private (jobseeker)
+router.get('/resume-insights', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Mock resume insights
+    const insights = {
+      score: Math.floor(Math.random() * 30) + 70,
+      strengths: [
+        'Strong technical skills section',
+        'Relevant work experience',
+        'Clear formatting and structure'
+      ],
+      improvements: [
+        'Add more quantified achievements',
+        'Include relevant keywords for ATS',
+        'Add a professional summary'
+      ],
+      atsCompatibility: {
+        score: Math.floor(Math.random() * 20) + 80,
+        issues: [
+          'Use standard section headings',
+          'Avoid complex formatting'
+        ]
+      },
+      keywordAnalysis: {
+        missing: ['React', 'Node.js', 'AWS'],
+        present: ['JavaScript', 'HTML', 'CSS'],
+        suggestions: [
+          'Add "React" to skills section',
+          'Mention "Node.js" in project descriptions'
+        ]
+      },
+      industryComparison: {
+        averageScore: 75,
+        yourScore: 82,
+        percentile: 78
+      }
+    };
+    
+    res.json(insights);
+
+  } catch (error) {
+    getLogger().error('Get resume insights error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

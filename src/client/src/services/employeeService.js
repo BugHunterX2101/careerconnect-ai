@@ -295,6 +295,70 @@ export const employeeService = {
       console.error('Error updating settings:', error);
       throw error;
     }
+  },
+
+  // Analytics
+  getAnalytics: async () => {
+    try {
+      const response = await api.get('/employee/analytics');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      throw error;
+    }
+  },
+
+  // Skill Recommendations
+  getSkillRecommendations: async () => {
+    try {
+      const response = await api.get('/employee/skill-recommendations');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching skill recommendations:', error);
+      throw error;
+    }
+  },
+
+  // Job Alerts
+  getJobAlerts: async () => {
+    try {
+      const response = await api.get('/employee/job-alerts');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching job alerts:', error);
+      throw error;
+    }
+  },
+
+  createJobAlert: async (alertData) => {
+    try {
+      const response = await api.post('/employee/job-alerts', alertData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating job alert:', error);
+      throw error;
+    }
+  },
+
+  deleteJobAlert: async (alertId) => {
+    try {
+      const response = await api.delete(`/employee/job-alerts/${alertId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting job alert:', error);
+      throw error;
+    }
+  },
+
+  // Resume Insights
+  getResumeInsights: async () => {
+    try {
+      const response = await api.get('/employee/resume-insights');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching resume insights:', error);
+      throw error;
+    }
   }
 };
 
