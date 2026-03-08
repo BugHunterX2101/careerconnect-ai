@@ -1,25 +1,32 @@
-FROM node:18-alpine
+FROM node:22-alpine
 
-RUN apk add --no-cache curl
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production
 
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy application code
 COPY . .
 
-RUN npm run build:client
+# Create necessary directories
+RUN mkdir -p uploads logs
 
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3000
 
-USER nodejs
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
-
+# Expose port
 EXPOSE 3000
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start application
 CMD ["node", "src/server/index.js"]
