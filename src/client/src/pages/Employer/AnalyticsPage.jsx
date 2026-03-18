@@ -33,6 +33,8 @@ import {
 } from 'recharts';
 import { FixedSizeList } from 'react-window';
 import { ExecutiveTable, MetricChip, SignatureCard, TrendBadge } from '../../components/common';
+import { CountUpNumber } from '../../components/common';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const CHART_COLORS = {
   accent: '#0F5FCC',
@@ -44,7 +46,16 @@ const CHART_COLORS = {
   grid: '#D2DBE5',
 };
 
-const StatCard = React.memo(function StatCard({ title, value, icon, color = 'primary', subtitle }) {
+const StatCard = React.memo(function StatCard({
+  title,
+  value,
+  icon,
+  color = 'primary',
+  subtitle,
+  reducedMotion = false,
+  duration = 780,
+  suffix = '',
+}) {
   return (
     <SignatureCard>
       <CardContent>
@@ -54,7 +65,7 @@ const StatCard = React.memo(function StatCard({ title, value, icon, color = 'pri
               {title}
             </Typography>
             <Typography variant="h4" component="div">
-              {value}
+              <CountUpNumber value={value} duration={duration} suffix={suffix} reducedMotion={reducedMotion} />
             </Typography>
             {subtitle && (
               <Typography variant="body2" color="textSecondary">
@@ -90,21 +101,36 @@ const AnalyticsPage = () => {
     topPerformingJobs: []
   });
 
+  const reducedMotion = useReducedMotion();
+  const [chartIntroActive, setChartIntroActive] = useState(true);
+
   useEffect(() => {
     fetchAnalytics();
   }, []);
 
+  useEffect(() => {
+    if (reducedMotion) {
+      setChartIntroActive(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setChartIntroActive(false);
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [reducedMotion]);
+
   const isLowEndDevice = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     const lowCpu = typeof navigator !== 'undefined' && navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
-    return Boolean(prefersReducedMotion || lowCpu);
-  }, []);
+    return Boolean(reducedMotion || lowCpu);
+  }, [reducedMotion]);
 
   const chartAnimation = useMemo(() => ({
-    isAnimationActive: !isLowEndDevice,
-    animationDuration: isLowEndDevice ? 0 : 320,
-  }), [isLowEndDevice]);
+    isAnimationActive: !isLowEndDevice && chartIntroActive,
+    animationDuration: isLowEndDevice ? 0 : 650,
+  }), [chartIntroActive, isLowEndDevice]);
 
   const applicationTrendData = useMemo(() => analytics.applicationTrends.slice(-12), [analytics.applicationTrends]);
   const jobPerformanceData = useMemo(() => analytics.jobPerformance.slice(0, 8), [analytics.jobPerformance]);
@@ -235,13 +261,14 @@ const AnalyticsPage = () => {
       </Typography>
 
       {/* Overview Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} sx={{ mb: 4 }} className="page-choreo-sections">
         <Grid item xs={12} sm={6} md={2}>
           <StatCard
             title="Total Jobs"
             value={analytics.overview.totalJobs}
             icon={<Work />}
             color="primary"
+            reducedMotion={reducedMotion}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
@@ -250,6 +277,7 @@ const AnalyticsPage = () => {
             value={analytics.overview.activeJobs}
             icon={<TrendingUp />}
             color="success"
+            reducedMotion={reducedMotion}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
@@ -258,6 +286,7 @@ const AnalyticsPage = () => {
             value={analytics.overview.totalApplicants}
             icon={<People />}
             color="info"
+            reducedMotion={reducedMotion}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
@@ -266,6 +295,7 @@ const AnalyticsPage = () => {
             value={analytics.overview.interviewsScheduled}
             icon={<Schedule />}
             color="warning"
+            reducedMotion={reducedMotion}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
@@ -274,14 +304,17 @@ const AnalyticsPage = () => {
             value={analytics.overview.hiredCandidates}
             icon={<ThumbUp />}
             color="success"
+            reducedMotion={reducedMotion}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
           <StatCard
             title="Avg. Time to Hire"
-            value={`${analytics.overview.avgTimeToHire} days`}
+            value={analytics.overview.avgTimeToHire}
             icon={<Schedule />}
             color="secondary"
+            suffix=" days"
+            reducedMotion={reducedMotion}
           />
         </Grid>
       </Grid>

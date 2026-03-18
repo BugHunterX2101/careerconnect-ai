@@ -198,6 +198,7 @@ const LoginPage = () => {
           {/* Error Alert */}
           {displayError && (
             <CalmAlert
+              className="field-error-shake"
               severity="error" 
               sx={{ 
                 mb: 4,
@@ -236,6 +237,7 @@ const LoginPage = () => {
             }}
           >
             <TextField
+              className={fieldErrors.email ? 'field-error-shake' : formData.email ? 'field-success-pop' : ''}
               fullWidth
               label={t('email')}
               name="email"
@@ -255,6 +257,7 @@ const LoginPage = () => {
               }}
             />
             <TextField
+              className={fieldErrors.password ? 'field-error-shake' : formData.password ? 'field-success-pop' : ''}
               fullWidth
               label={t('password')}
               name="password"

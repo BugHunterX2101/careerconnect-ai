@@ -133,11 +133,12 @@ function App() {
 
   const renderProtectedRoute = (component, options = {}) => {
     const { withLayout = true, skeleton = 'content' } = options
+    const wrappedComponent = <Box className="content-reveal">{component}</Box>
 
     return (
       <ProtectedRoute>
-        <Suspense fallback={<RouteLoadingSkeleton variant={skeleton} />}>
-          {withLayout ? <Layout>{component}</Layout> : component}
+        <Suspense fallback={<Box className="skeleton-shell"><RouteLoadingSkeleton variant={skeleton} /></Box>}>
+          {withLayout ? <Layout>{wrappedComponent}</Layout> : wrappedComponent}
         </Suspense>
       </ProtectedRoute>
     )

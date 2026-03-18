@@ -51,6 +51,10 @@ import {
   SmartToy,
   CheckBox
 } from '@mui/icons-material';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+
+const MotionBox = motion(Box);
+
 const JobSearchPage = () => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -422,7 +426,7 @@ const JobSearchPage = () => {
   };
 
   const EnhancedJobCard = ({ job }) => (
-    <Card sx={{ mb: 2, '&:hover': { boxShadow: 3 } }}>
+    <Card className="hover-lift" sx={{ mb: 2 }}>
       <CardContent>
         <Grid container spacing={2}>
           <Grid item xs={12} md={8}>
@@ -535,7 +539,7 @@ const JobSearchPage = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+      <Typography variant="h4" gutterBottom className="page-choreo-heading" sx={{ fontWeight: 'bold' }}>
         Job Search
       </Typography>
       
@@ -587,9 +591,17 @@ const JobSearchPage = () => {
         </Grid>
         
         {/* Advanced Filters */}
-        {showFilters && (
-          <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-            <Grid container spacing={2}>
+        <AnimatePresence initial={false}>
+          {showFilters && (
+            <MotionBox
+              key="advanced-filters"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}
+            >
+              <Grid container spacing={2}>
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Job Type</InputLabel>
@@ -636,11 +648,12 @@ const JobSearchPage = () => {
                   />
                 </Grid>
               </Grid>
-            </Box>
+            </MotionBox>
           )}
+        </AnimatePresence>
         </Paper>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={3} className="page-choreo-sections">
         {/* Main Content */}
         <Grid item xs={12} md={8}>
           {/* Search Insights */}
@@ -693,40 +706,87 @@ const JobSearchPage = () => {
 
           {/* Tab Content */}
           {activeTab === 0 && (
-            <Box>
+            <LayoutGroup id="all-job-results">
+            <Box className="flip-list">
               <Typography variant="h5" sx={{ mb: 2 }}>
                 All Job Results ({jobs.length + linkedinJobs.length + gptJobs.length})
               </Typography>
-              {[...gptJobs, ...linkedinJobs, ...jobs].map((job) => (
-                <EnhancedJobCard key={`${job.source}_${job.id}`} job={job} />
-              ))}
+              <AnimatePresence initial={false}>
+                {[...gptJobs, ...linkedinJobs, ...jobs].map((job) => (
+                  <MotionBox
+                    key={`${job.source}_${job.id}`}
+                    layout
+                    className="flip-item"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <EnhancedJobCard job={job} />
+                  </MotionBox>
+                ))}
+              </AnimatePresence>
             </Box>
+            </LayoutGroup>
           )}
 
           {activeTab === 1 && (
-            <Box>
+            <LayoutGroup id="linkedin-job-results">
+            <Box className="flip-list">
               <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                 <Business sx={{ mr: 1 }} />
                 LinkedIn Jobs ({linkedinJobs.length})
                 {linkedinSearching && <CircularProgress size={20} sx={{ ml: 1 }} />}
               </Typography>
-              {linkedinJobs.map((job) => <EnhancedJobCard key={job.id} job={job} />)}
+              <AnimatePresence initial={false}>
+                {linkedinJobs.map((job) => (
+                  <MotionBox
+                    key={job.id}
+                    layout
+                    className="flip-item"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <EnhancedJobCard job={job} />
+                  </MotionBox>
+                ))}
+              </AnimatePresence>
             </Box>
+            </LayoutGroup>
           )}
 
           {activeTab === 2 && (
-            <Box>
+            <LayoutGroup id="gpt-job-results">
+            <Box className="flip-list">
               <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                 <SmartToy sx={{ mr: 1 }} />
                 AI-Enhanced Jobs ({gptJobs.length})
                 {gptSearching && <CircularProgress size={20} sx={{ ml: 1 }} />}
               </Typography>
-              {gptJobs.map((job) => <EnhancedJobCard key={job.id} job={job} />)}
+              <AnimatePresence initial={false}>
+                {gptJobs.map((job) => (
+                  <MotionBox
+                    key={job.id}
+                    layout
+                    className="flip-item"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <EnhancedJobCard job={job} />
+                  </MotionBox>
+                ))}
+              </AnimatePresence>
             </Box>
+            </LayoutGroup>
           )}
 
           {activeTab === 3 && (
-            <Box>
+            <LayoutGroup id="recommended-job-results">
+            <Box className="flip-list">
               <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
                 <Star sx={{ mr: 1 }} />
                 Recommended for You ({recommendedJobs.length})
@@ -743,7 +803,21 @@ const JobSearchPage = () => {
               ) : (
                 <>
                   {recommendedJobs.length > 0 ? (
-                    recommendedJobs.map((job) => <EnhancedJobCard key={job.id} job={job} />)
+                    <AnimatePresence initial={false}>
+                      {recommendedJobs.map((job) => (
+                        <MotionBox
+                          key={job.id}
+                          layout
+                          className="flip-item"
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        >
+                          <EnhancedJobCard job={job} />
+                        </MotionBox>
+                      ))}
+                    </AnimatePresence>
                   ) : (
                     <Alert severity="info">
                       Upload your resume to get personalized job recommendations!
@@ -752,6 +826,7 @@ const JobSearchPage = () => {
                 </>
               )}
             </Box>
+            </LayoutGroup>
           )}
         </Grid>
 

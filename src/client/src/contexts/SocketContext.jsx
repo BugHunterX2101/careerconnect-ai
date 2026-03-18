@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { API_ORIGIN } from '../config/appConfig';
@@ -13,6 +13,19 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const lastUserErrorRef = useRef({ key: '', ts: 0 });
+
+  const emitSocketUserError = (key, message, cooldownMs = 10000) => {
+    const now = Date.now();
+    const last = lastUserErrorRef.current;
+
+    if (last.key === key && now - last.ts < cooldownMs) {
+      return;
+    }
+
+    lastUserErrorRef.current = { key, ts: now };
+    emitUserError(message, 'socket');
+  };
 
   useEffect(() => {
     if (!user || !token) return;
@@ -29,6 +42,8 @@ export const SocketProvider = ({ children }) => {
 
     newSocket.on('connect', () => {
       console.log('Socket connected');
+      // Keep backward compatibility with event-based socket auth.
+      newSocket.emit('authenticate', token);
       setIsConnected(true);
       setReconnectAttempts(0);
       reportSocketEvent('connected', { userId: user?.id });
@@ -39,7 +54,7 @@ export const SocketProvider = ({ children }) => {
       setIsConnected(false);
       reportSocketEvent('disconnected', { reason });
       if (reason !== 'io client disconnect') {
-        emitUserError('Real-time connection dropped. Reconnecting...', 'socket');
+        emitSocketUserError('disconnect_reconnecting', 'Real-time connection dropped. Reconnecting...');
       }
       if (reason === 'io server disconnect') {
         newSocket.connect();
@@ -50,7 +65,7 @@ export const SocketProvider = ({ children }) => {
       console.error('Socket connection error:', error);
       setIsConnected(false);
       reportSocketEvent('connect_error', { message: error?.message || 'unknown' });
-      emitUserError('Unable to establish real-time connection.', 'socket');
+      emitSocketUserError('connect_error', 'Unable to establish real-time connection.');
     });
 
     newSocket.on('reconnect_attempt', (attempt) => {
@@ -68,7 +83,7 @@ export const SocketProvider = ({ children }) => {
     newSocket.on('auth_error', () => {
       console.error('Socket authentication error');
       reportSocketEvent('auth_error');
-      emitUserError('Real-time session authentication failed.', 'socket');
+      emitSocketUserError('auth_error', 'Real-time session authentication failed.', 15000);
       newSocket.disconnect();
     });
 

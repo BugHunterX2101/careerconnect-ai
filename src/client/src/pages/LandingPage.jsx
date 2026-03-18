@@ -15,6 +15,10 @@ import {
   IconButton,
   AppBar,
   Toolbar,
+  Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   alpha,
 } from '@mui/material'
 import {
@@ -35,66 +39,149 @@ import {
   Star,
   CheckCircle,
   Menu,
+  ExpandMore,
 } from '@mui/icons-material'
+import { keyframes } from '@mui/system'
 import { useNavigate } from 'react-router-dom'
+
+const orbitSpin = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+`
+
+const orbitCounterSpin = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+`
 
 const LandingPage = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
+  const [showMobileCta, setShowMobileCta] = useState(false)
+  const [enableMotion, setEnableMotion] = useState(false)
+  const [activeRole, setActiveRole] = useState('seeker')
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50)
+      setShowMobileCta(window.scrollY > 220 && window.innerWidth < theme.breakpoints.values.md)
     }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
-  const [visibleCards, setVisibleCards] = useState(new Set())
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const motionTimer = window.setTimeout(() => {
+      setEnableMotion(!prefersReducedMotion)
+    }, 450)
+
+    window.addEventListener('scroll', handleScroll)
+    handleScroll()
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.clearTimeout(motionTimer)
+    }
+  }, [theme.breakpoints.values.md])
 
   const features = [
     {
       icon: <Psychology sx={{ fontSize: 48 }} />,
-      title: 'AI-Powered Resume Analysis',
-      description: 'Advanced BERT-based parsing with intelligent skill extraction, gap analysis, and improvement suggestions.',
+      title: 'Get 3x More Relevant Jobs',
+      description: 'AI resume intelligence maps your experience to role requirements so you focus on openings you can actually win.',
       gradient: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
-      badge: 'BERT Engine',
+      badge: 'Higher Match Quality',
     },
     {
       icon: <AutoAwesome sx={{ fontSize: 48 }} />,
-      title: 'Smart Job Matching',
-      description: 'Machine learning algorithms that understand your career goals and match you with perfect opportunities.',
+      title: 'See Skill Gaps Instantly',
+      description: 'Spot missing keywords and capabilities in seconds, then get clear suggestions to improve interview shortlisting.',
       gradient: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
-      badge: 'ML Powered',
+      badge: 'Instant Feedback',
     },
     {
       icon: <TrendingUp sx={{ fontSize: 48 }} />,
-      title: 'Career Intelligence',
-      description: 'Real-time market insights, salary predictions, and personalized career roadmaps powered by AI.',
+      title: 'Prepare for Interviews Faster',
+      description: 'Personalized prep plans and role-specific insights help you move from application to interview-ready quickly.',
       gradient: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-      badge: 'Data Driven',
+      badge: 'Faster Readiness',
     },
     {
       icon: <Security sx={{ fontSize: 48 }} />,
-      title: 'Enterprise Security',
-      description: 'Bank-level security with OAuth 2.0, end-to-end encryption, and GDPR compliance.',
+      title: 'Keep Resume Data Private',
+      description: 'Your profile stays protected with enterprise controls while still helping recruiters discover your strengths.',
       gradient: 'linear-gradient(135deg, #1F2937 0%, #374151 100%)',
-      badge: 'Secure',
+      badge: 'Privacy First',
     },
     {
       icon: <Speed sx={{ fontSize: 48 }} />,
-      title: 'Lightning Fast',
-      description: 'Real-time processing with instant notifications, live chat, and seamless video interviews.',
+      title: 'Apply in Less Time',
+      description: 'Automated recommendations and one-click workflows reduce repetitive steps across your entire job hunt.',
       gradient: 'linear-gradient(135deg, #3A5A8C 0%, #4B7DBE 100%)',
-      badge: 'Real-time',
+      badge: 'Workflow Boost',
     },
     {
       icon: <Analytics sx={{ fontSize: 48 }} />,
-      title: 'Advanced Analytics',
-      description: 'Comprehensive dashboards with actionable insights for both job seekers and employers.',
+      title: 'Track What Improves Results',
+      description: 'Use simple performance analytics to see what changes increase response and interview rates over time.',
       gradient: 'linear-gradient(135deg, #0D9488 0%, #14B8A6 100%)',
-      badge: 'Insights',
+      badge: 'Outcome Analytics',
+    },
+  ]
+
+  const walkthroughSteps = [
+    {
+      title: 'Upload Resume',
+      description: 'Import your current resume in under a minute.',
+    },
+    {
+      title: 'Get AI Insights',
+      description: 'Receive match score, skill gaps, and optimized suggestions.',
+    },
+    {
+      title: 'Apply to Matched Jobs',
+      description: 'Target high-fit roles with confidence and speed.',
+    },
+  ]
+
+  const roleContent = {
+    seeker: {
+      heading: 'Built for Job Seekers',
+      description: 'Improve your resume, get better-fit roles, and increase interview callbacks with data-backed guidance.',
+      bullets: ['AI match scoring for each role', 'Skill-gap recommendations in seconds', 'Interview readiness checklists'],
+    },
+    hiring: {
+      heading: 'Built for Hiring Teams',
+      description: 'Prioritize qualified candidates faster with clearer fit signals and better applicant insights.',
+      bullets: ['Faster shortlist decisions', 'Candidate skill visibility at a glance', 'Structured evaluation workflows'],
+    },
+  }
+
+  const faqItems = [
+    {
+      question: 'How much does CareerConnect AI cost?',
+      answer: 'You can start free and upgrade when you need advanced workflows. Pricing is transparent and shown before any charge.',
+    },
+    {
+      question: 'How is my resume data used?',
+      answer: 'Your resume is used to generate match and improvement insights. We do not sell your personal profile data.',
+    },
+    {
+      question: 'Can I cancel anytime?',
+      answer: 'Yes. You can cancel directly from your account settings without support tickets or lock-in periods.',
+    },
+    {
+      question: 'Is my profile visible to recruiters automatically?',
+      answer: 'You control visibility settings. Recruiter discoverability can be turned on or off at any time.',
+    },
+    {
+      question: 'Do you support privacy and compliance needs?',
+      answer: 'Yes. CareerConnect AI follows modern security practices and supports privacy-focused data handling.',
     },
   ]
 
@@ -282,7 +369,7 @@ const LandingPage = () => {
                 },
               }}
             >
-              Start Free Trial
+              Start Free
             </Button>
           </Stack>
           <IconButton 
@@ -362,7 +449,7 @@ const LandingPage = () => {
                     textShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
                   }}
                 >
-                  Transform Your Career with{' '}
+                  Get matched to better jobs in{' '}
                   <Box
                     component="span"
                     sx={{
@@ -383,8 +470,9 @@ const LandingPage = () => {
                       },
                     }}
                   >
-                    AI Intelligence
+                    7 days
                   </Box>
+                  {' '}using AI resume intelligence.
                 </Typography>
                 <Typography
                   variant="h5"
@@ -398,16 +486,7 @@ const LandingPage = () => {
                     textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
                   }}
                 >
-                  Experience the future of job searching with{' '}
-                  <Box component="span" sx={{ fontWeight: 600, color: '#14B8A6' }}>
-                    BERT-powered resume analysis
-                  </Box>
-                  , intelligent job matching, and real-time career insights that help you land
-                  your dream role{' '}
-                  <Box component="span" sx={{ fontWeight: 600, color: '#10B981' }}>
-                    3x faster
-                  </Box>
-                  .
+                  Upload your resume once, get instant fit signals, and focus only on the roles where you have the highest chance of landing interviews.
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} sx={{ mb: 5 }}>
                   <Button
@@ -435,12 +514,13 @@ const LandingPage = () => {
                       },
                     }}
                   >
-                    Start Free Trial
+                    Start Free
                   </Button>
                   <Button
                     variant="outlined"
                     size="large"
                     startIcon={<PlayArrow />}
+                    onClick={() => navigate('/features')}
                     sx={{
                       borderColor: 'white',
                       color: 'white',
@@ -464,10 +544,10 @@ const LandingPage = () => {
                   </Button>
                 </Stack>
                 <Box sx={{ mt: 4 }}>
-                  <Typography variant="body2" sx={{ opacity: 0.8, mb: 2, fontSize: '0.95rem' }}>
-                    Trusted by professionals at:
+                  <Typography variant="body2" sx={{ opacity: 0.95, mb: 2, fontSize: '0.98rem', fontWeight: 600 }}>
+                    Trusted by 50,000+ users
                   </Typography>
-                  <Stack direction="row" spacing={3} alignItems="center">
+                  <Stack direction="row" spacing={3} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
                       <Google sx={{ mr: 1, fontSize: 24 }} />
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>Google</Typography>
@@ -479,6 +559,10 @@ const LandingPage = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
                       <GitHub sx={{ mr: 1, fontSize: 24 }} />
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>GitHub</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', opacity: 0.95 }}>
+                      <Star sx={{ mr: 0.5, fontSize: 18, color: '#FCD34D' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>4.8/5 from 3,200+ reviews</Typography>
                     </Box>
                   </Stack>
                 </Box>
@@ -581,47 +665,65 @@ const LandingPage = () => {
                           height: 200,
                           borderRadius: '50%',
                           border: '2px dashed rgba(255, 255, 255, 0.3)',
+                          animation: enableMotion ? `${orbitSpin} 16s linear infinite` : 'none',
+                          transformOrigin: '50% 50%',
+                          willChange: 'transform',
                         }}
                       >
-                        <Avatar
-                          sx={{
-                            position: 'absolute',
-                            top: -20,
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            width: 40,
-                            height: 40,
-                            background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-                          }}
-                        >
-                          <Work sx={{ fontSize: 20 }} />
-                        </Avatar>
-                        <Avatar
-                          sx={{
-                            position: 'absolute',
-                            bottom: -20,
-                            right: '50%',
-                            transform: 'translateX(50%)',
-                            width: 40,
-                            height: 40,
-                            background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
-                          }}
-                        >
-                          <TrendingUp sx={{ fontSize: 20 }} />
-                        </Avatar>
-                        <Avatar
-                          sx={{
-                            position: 'absolute',
-                            top: '50%',
-                            right: -20,
-                            transform: 'translateY(-50%)',
-                            width: 40,
-                            height: 40,
-                            background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
-                          }}
-                        >
-                          <Analytics sx={{ fontSize: 20 }} />
-                        </Avatar>
+                        <Tooltip title="Interview Ready" arrow placement="top">
+                          <Avatar
+                            sx={{
+                              position: 'absolute',
+                              top: -20,
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              width: 40,
+                              height: 40,
+                              background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
+                              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.25)',
+                              animation: enableMotion ? `${orbitCounterSpin} 16s linear infinite` : 'none',
+                              transformOrigin: '50% 50%',
+                            }}
+                          >
+                            <Work sx={{ fontSize: 20 }} />
+                          </Avatar>
+                        </Tooltip>
+                        <Tooltip title="Match Score" arrow placement="bottom">
+                          <Avatar
+                            sx={{
+                              position: 'absolute',
+                              bottom: -20,
+                              right: '50%',
+                              transform: 'translateX(50%)',
+                              width: 40,
+                              height: 40,
+                              background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
+                              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.25)',
+                              animation: enableMotion ? `${orbitCounterSpin} 16s linear infinite` : 'none',
+                              transformOrigin: '50% 50%',
+                            }}
+                          >
+                            <TrendingUp sx={{ fontSize: 20 }} />
+                          </Avatar>
+                        </Tooltip>
+                        <Tooltip title="Resume AI" arrow placement="right">
+                          <Avatar
+                            sx={{
+                              position: 'absolute',
+                              top: '50%',
+                              right: -20,
+                              transform: 'translateY(-50%)',
+                              width: 40,
+                              height: 40,
+                              background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
+                              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.25)',
+                              animation: enableMotion ? `${orbitCounterSpin} 16s linear infinite` : 'none',
+                              transformOrigin: '50% 50%',
+                            }}
+                          >
+                            <Analytics sx={{ fontSize: 20 }} />
+                          </Avatar>
+                        </Tooltip>
                       </Box>
                     </Box>
                     
@@ -689,6 +791,12 @@ const LandingPage = () => {
                         <Security sx={{ color: '#0D9488' }} />
                       </Avatar>
                     </Stack>
+
+                    <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <Chip size="small" label="Match Score" sx={{ backgroundColor: alpha('#ffffff', 0.2), color: 'white', fontWeight: 700 }} />
+                      <Chip size="small" label="Resume AI" sx={{ backgroundColor: alpha('#ffffff', 0.2), color: 'white', fontWeight: 700 }} />
+                      <Chip size="small" label="Interview Ready" sx={{ backgroundColor: alpha('#ffffff', 0.2), color: 'white', fontWeight: 700 }} />
+                    </Stack>
                   </Stack>
                 </Paper>
               </Box>
@@ -697,8 +805,114 @@ const LandingPage = () => {
         </Container>
       </Box>
 
+      {/* Quick Walkthrough Section */}
+      <Container
+        maxWidth="xl"
+        sx={{
+          py: { xs: 10, md: 12 },
+          contentVisibility: 'auto',
+          containIntrinsicSize: '1px 700px',
+        }}
+      >
+        <Box textAlign="center" sx={{ mb: 7 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '2rem', md: '2.7rem' } }}>
+            How It Works in 10 Seconds
+          </Typography>
+          <Typography variant="h6" sx={{ color: '#475569', maxWidth: 820, mx: 'auto', lineHeight: 1.7 }}>
+            A simple three-step flow from resume upload to high-fit applications.
+          </Typography>
+        </Box>
+        <Grid container spacing={{ xs: 3, md: 4 }}>
+          {walkthroughSteps.map((step, index) => (
+            <Grid item xs={12} md={4} key={step.title}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 4,
+                  height: '100%',
+                  borderRadius: 4,
+                  border: '1px solid rgba(15, 23, 42, 0.08)',
+                  background: '#ffffff',
+                  animation: enableMotion ? `slideUp 0.5s ease-out ${index * 0.08}s both` : 'none',
+                }}
+              >
+                <Chip
+                  label={`Step ${index + 1}`}
+                  sx={{ mb: 2, background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)', color: 'white', fontWeight: 700 }}
+                />
+                <Typography variant="h5" sx={{ fontWeight: 800, mb: 1.5 }}>
+                  {step.title}
+                </Typography>
+                <Typography variant="body1" sx={{ color: '#475569', lineHeight: 1.7 }}>
+                  {step.description}
+                </Typography>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+
+      {/* Role-Based Entry Section */}
+      <Box sx={{ py: { xs: 2, md: 4 } }}>
+        <Container maxWidth="lg">
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 3, md: 5 },
+              borderRadius: 4,
+              border: '1px solid rgba(15, 23, 42, 0.08)',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            }}
+          >
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
+              <Button
+                variant={activeRole === 'seeker' ? 'contained' : 'outlined'}
+                onClick={() => setActiveRole('seeker')}
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  borderRadius: 2.5,
+                  fontWeight: 700,
+                  background: activeRole === 'seeker' ? 'linear-gradient(135deg, #0D9488 0%, #047857 100%)' : 'transparent',
+                }}
+              >
+                I&apos;m a Job Seeker
+              </Button>
+              <Button
+                variant={activeRole === 'hiring' ? 'contained' : 'outlined'}
+                onClick={() => setActiveRole('hiring')}
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  borderRadius: 2.5,
+                  fontWeight: 700,
+                  background: activeRole === 'hiring' ? 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)' : 'transparent',
+                }}
+              >
+                I&apos;m Hiring
+              </Button>
+            </Stack>
+
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.5 }}>
+              {roleContent[activeRole].heading}
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#475569', mb: 2.5 }}>
+              {roleContent[activeRole].description}
+            </Typography>
+            <Stack spacing={1.25}>
+              {roleContent[activeRole].bullets.map((bullet) => (
+                <Box key={bullet} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CheckCircle sx={{ color: '#0D9488', fontSize: 20 }} />
+                  <Typography variant="body2" sx={{ color: '#334155', fontWeight: 500 }}>{bullet}</Typography>
+                </Box>
+              ))}
+            </Stack>
+          </Paper>
+        </Container>
+      </Box>
+
       {/* Stats Section */}
-      <Container maxWidth="xl" sx={{ py: { xs: 10, md: 14 } }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 10, md: 12 } }}>
         <Grid container spacing={{ xs: 3, md: 5 }}>
           {stats.map((stat, index) => (
             <Grid item xs={6} md={3} key={index}>
@@ -707,7 +921,7 @@ const LandingPage = () => {
                 className="animate-scale-in"
                 sx={{
                   transition: 'all 0.3s ease',
-                  animation: `slideUp 0.8s ease-out ${index * 0.1}s both`,
+                  animation: enableMotion ? `slideUp 0.8s ease-out ${index * 0.1}s both` : 'none',
                   '&:hover': {
                     transform: 'translateY(-10px) scale(1.05)',
                   },
@@ -739,7 +953,9 @@ const LandingPage = () => {
       {/* Features Section */}
       <Box sx={{ 
         backgroundColor: '#F9FAFB', 
-        py: { xs: 12, md: 16 },
+        py: { xs: 10, md: 12 },
+        contentVisibility: 'auto',
+        containIntrinsicSize: '1px 1000px',
         position: 'relative',
         overflow: 'hidden',
         '&::before': {
@@ -805,7 +1021,7 @@ const LandingPage = () => {
                     overflow: 'hidden',
                     position: 'relative',
                     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    animation: `slideUp 0.6s ease-out ${index * 0.1}s both`,
+                    animation: enableMotion ? `slideUp 0.6s ease-out ${index * 0.1}s both` : 'none',
                     '&:hover': {
                       transform: 'translateY(-12px) scale(1.02)',
                       boxShadow: '0 20px 60px rgba(58, 90, 140, 0.25)',
@@ -857,9 +1073,53 @@ const LandingPage = () => {
         </Container>
       </Box>
 
+      {/* Proof Block */}
+      <Container
+        maxWidth="lg"
+        sx={{
+          py: { xs: 10, md: 12 },
+          contentVisibility: 'auto',
+          containIntrinsicSize: '1px 600px',
+        }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 3, md: 5 },
+            borderRadius: 4,
+            background: 'linear-gradient(135deg, #ecfeff 0%, #f0f9ff 100%)',
+            border: '1px solid rgba(13, 148, 136, 0.2)',
+          }}
+        >
+          <Chip label="How It Works Proof" sx={{ mb: 2, fontWeight: 700, backgroundColor: '#0D9488', color: 'white' }} />
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.5 }}>
+            From 12% to 38% interview rate in 30 days.
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#334155', mb: 2 }}>
+            A mid-level product candidate used resume AI recommendations and fit-based targeting to increase interview conversion by 26 points within one month.
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4}>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: '#0D9488' }}>12%</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>Before optimization</Typography>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: '#0D9488' }}>38%</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>After 30 days</Typography>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: '#0D9488' }}>3.1x</Typography>
+              <Typography variant="body2" sx={{ color: '#475569' }}>Interview lift</Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Container>
+
       {/* Testimonials Section */}
       <Container maxWidth="xl" sx={{ 
-        py: { xs: 12, md: 16 },
+        py: { xs: 10, md: 12 },
+        contentVisibility: 'auto',
+        containIntrinsicSize: '1px 900px',
         position: 'relative',
         '&::before': {
           content: '""',
@@ -907,7 +1167,7 @@ const LandingPage = () => {
                   border: '2px solid',
                    borderColor: 'rgba(13, 148, 136, 0.2)',
                   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  animation: `fadeIn 0.8s ease-out ${index * 0.15}s both`,
+                  animation: enableMotion ? `fadeIn 0.8s ease-out ${index * 0.15}s both` : 'none',
                   '&:hover': {
                     transform: 'translateY(-8px)',
                      borderColor: 'rgba(13, 148, 136, 0.5)',
@@ -946,6 +1206,37 @@ const LandingPage = () => {
             </Grid>
           ))}
         </Grid>
+      </Container>
+
+      {/* FAQ Section */}
+      <Container
+        maxWidth="lg"
+        sx={{
+          py: { xs: 10, md: 12 },
+          contentVisibility: 'auto',
+          containIntrinsicSize: '1px 700px',
+        }}
+      >
+        <Box textAlign="center" sx={{ mb: 5 }}>
+          <Typography variant="h2" sx={{ fontWeight: 800, fontSize: { xs: '2rem', md: '2.6rem' }, mb: 1.5 }}>
+            Frequently Asked Questions
+          </Typography>
+          <Typography variant="h6" sx={{ color: '#64748b', fontWeight: 500 }}>
+            Quick answers to the top objections before users commit.
+          </Typography>
+        </Box>
+        <Box>
+          {faqItems.map((faq) => (
+            <Accordion key={faq.question} elevation={0} sx={{ mb: 1.5, border: '1px solid rgba(15, 23, 42, 0.1)', borderRadius: '12px !important' }}>
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Typography sx={{ fontWeight: 700 }}>{faq.question}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography sx={{ color: '#475569', lineHeight: 1.7 }}>{faq.answer}</Typography>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </Box>
       </Container>
 
       {/* CTA Section */}
@@ -1005,11 +1296,12 @@ const LandingPage = () => {
                   },
                 }}
               >
-                Start Free Trial
+                Start Free
               </Button>
               <Button
                 variant="outlined"
                 size="large"
+                onClick={() => navigate('/features')}
                 sx={{
                   borderColor: 'white',
                   color: 'white',
@@ -1027,7 +1319,7 @@ const LandingPage = () => {
                   },
                 }}
               >
-                Contact Sales
+                Watch Demo
               </Button>
             </Stack>
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -1038,6 +1330,40 @@ const LandingPage = () => {
             </Box>
           </Box>
         </Container>
+      </Box>
+
+      {/* Sticky Mobile CTA */}
+      <Box
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1300,
+          p: 1.5,
+          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.75) 24%, rgba(15, 23, 42, 0.85) 100%)',
+          transform: showMobileCta ? 'translateY(0)' : 'translateY(120%)',
+          transition: 'transform 0.25s ease-out',
+          pointerEvents: showMobileCta ? 'auto' : 'none',
+        }}
+      >
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={() => navigate('/register')}
+          sx={{
+            py: 1.5,
+            borderRadius: 2.5,
+            fontSize: '1rem',
+            fontWeight: 800,
+            background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
+            border: '2px solid #14B8A6',
+            textTransform: 'none',
+          }}
+        >
+          Start Free
+        </Button>
       </Box>
 
       {/* Footer */}

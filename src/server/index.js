@@ -236,6 +236,11 @@ app.get('/api/status', [apiLimiter, passport.authenticate('jwt', { session: fals
   });
 });
 
+// Optional telemetry endpoint for client web-vitals beacons.
+app.post('/api/perf/vitals', apiLimiter, (req, res) => {
+  res.status(204).end();
+});
+
 // Load routes immediately - don't wait for database
 let routesLoaded = false;
 const routeMappings = [
@@ -276,22 +281,50 @@ loadRoutes();
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
+
   let authenticated = false;
-  
-  // Authenticate socket connection
-  socket.on('authenticate', (token) => {
+  let eventsRegistered = false;
+
+  const registerSocketEventsOnce = () => {
+    if (eventsRegistered) return;
+    eventsRegistered = true;
+    registerSocketEvents(socket);
+  };
+
+  const authenticateSocket = (rawToken) => {
+    if (!rawToken) return false;
     try {
+      const normalizedToken = String(rawToken).replace(/^Bearer\s+/i, '');
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
-      const decoded = jwt.verify(token, jwtSecret);
-      socket.userId = decoded.userId;
-      socket.join(`user_${decoded.userId}`);
+      const decoded = jwt.verify(normalizedToken, jwtSecret);
+      const resolvedUserId = decoded.userId || decoded.id || decoded._id || decoded.sub;
+      if (!resolvedUserId) {
+        throw new Error('Missing user id in token payload');
+      }
+
+      socket.userId = resolvedUserId;
+      socket.join(`user_${resolvedUserId}`);
       authenticated = true;
       socket.emit('authenticated');
-      registerSocketEvents(socket);
+      registerSocketEventsOnce();
+      return true;
     } catch (error) {
       socket.emit('authentication_error', { message: 'Invalid token' });
+      return false;
+    }
+  };
+
+  // Try handshake auth first (socket.io-client auth: { token }).
+  const handshakeToken =
+    socket.handshake?.auth?.token ||
+    socket.handshake?.headers?.authorization ||
+    socket.handshake?.query?.token;
+  authenticateSocket(handshakeToken);
+
+  // Keep compatibility with event-based auth.
+  socket.on('authenticate', (token) => {
+    if (!authenticateSocket(token)) {
       socket.disconnect();
-      return;
     }
   });
 

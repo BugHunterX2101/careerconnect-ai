@@ -198,6 +198,7 @@ const RegisterPage = () => {
           {/* Error Alert */}
           {displayError && (
             <CalmAlert 
+              className="field-error-shake"
               severity="error" 
               sx={{ 
                 mb: 4,
@@ -237,6 +238,7 @@ const RegisterPage = () => {
           >
             <Box sx={{ display: 'flex', gap: 2, mb: 3.5 }}>
               <TextField
+                className={fieldErrors.firstName ? 'field-error-shake' : formData.firstName ? 'field-success-pop' : ''}
                 fullWidth
                 label="First Name"
                 name="firstName"
@@ -254,6 +256,7 @@ const RegisterPage = () => {
                 }}
               />
               <TextField
+                className={fieldErrors.lastName ? 'field-error-shake' : formData.lastName ? 'field-success-pop' : ''}
                 fullWidth
                 label="Last Name"
                 name="lastName"
@@ -265,6 +268,7 @@ const RegisterPage = () => {
               />
             </Box>
             <TextField
+              className={fieldErrors.email ? 'field-error-shake' : formData.email ? 'field-success-pop' : ''}
               fullWidth
               label={t('email')}
               name="email"
@@ -313,6 +317,7 @@ const RegisterPage = () => {
             </FormControl>
 
             <TextField
+              className={fieldErrors.password ? 'field-error-shake' : formData.password ? 'field-success-pop' : ''}
               fullWidth
               label="Password"
               name="password"
@@ -344,6 +349,7 @@ const RegisterPage = () => {
             />
 
             <TextField
+              className={fieldErrors.confirmPassword ? 'field-error-shake' : formData.confirmPassword ? 'field-success-pop' : ''}
               fullWidth
               label="Confirm Password"
               name="confirmPassword"

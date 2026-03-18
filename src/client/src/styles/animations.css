@@ -1,18 +1,21 @@
-/* Professional smooth motion system */
+/* Motion system: premium, calm, and accessible */
 
 :root {
   --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --motion-ease-bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --motion-fast: 150ms;
-  --motion-normal: 300ms;
-  --motion-slow: 450ms;
+  --motion-ease-emphasis: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-fast: 160ms;
+  --motion-enter: 220ms;
+  --motion-normal: 260ms;
+  --motion-slow: 420ms;
+  --motion-stagger-step: 40ms;
 }
 
 @keyframes pageEnter {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -23,7 +26,18 @@
 @keyframes sectionStagger {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sectionHeadingEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -43,7 +57,7 @@
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px);
   }
   to {
     opacity: 1;
@@ -54,7 +68,7 @@
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(10px);
   }
   to {
     opacity: 1;
@@ -62,15 +76,41 @@
   }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes subtleScale {
   from {
-    transform: scale(0.98);
+    transform: scale(0.992);
     opacity: 0;
   }
   to {
     transform: scale(1);
     opacity: 1;
   }
+}
+
+@keyframes fieldShake {
+  0%,
+  100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+@keyframes fieldPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.012); }
+  100% { transform: scale(1); }
 }
 
 @keyframes shimmer {
@@ -82,43 +122,124 @@
   }
 }
 
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Primary animation classes */
 .motion-page-enter,
 .animate-fade-in,
 .animate-fade-in-up {
-  animation: pageEnter var(--motion-slow) var(--motion-ease-standard) both;
+  animation: pageEnter var(--motion-normal) var(--motion-ease-out) both;
 }
 
 .motion-section-stagger,
 .animate-slide-up,
 .animate-slide-in-left {
-  animation: slideInLeft var(--motion-normal) var(--motion-ease-smooth) both;
+  animation: slideUp var(--motion-enter) var(--motion-ease-out) both;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight var(--motion-normal) var(--motion-ease-smooth) both;
+  animation: slideInRight var(--motion-enter) var(--motion-ease-out) both;
 }
 
 .motion-subtle-scale {
-  animation: subtleScale var(--motion-normal) var(--motion-ease-bounce) both;
+  animation: subtleScale var(--motion-enter) var(--motion-ease-standard) both;
 }
 
 .motion-feedback,
 .animate-pulse {
-  animation: smoothFadeIn var(--motion-fast) var(--motion-ease-smooth);
+  animation: smoothFadeIn var(--motion-fast) var(--motion-ease-out);
+}
+
+.page-choreo-heading {
+  animation: sectionHeadingEnter var(--motion-enter) var(--motion-ease-out) both;
+}
+
+.page-choreo-sections > * {
+  opacity: 0;
+  animation: sectionStagger var(--motion-normal) var(--motion-ease-out) both;
 }
 
 /* Staggered group animations */
 .stagger-group > * {
   opacity: 0;
-  animation: sectionStagger var(--motion-normal) var(--motion-ease-smooth) both;
+  animation: sectionStagger var(--motion-normal) var(--motion-ease-out) both;
 }
 
-.stagger-group > *:nth-child(1) { animation-delay: 30ms; }
-.stagger-group > *:nth-child(2) { animation-delay: 80ms; }
-.stagger-group > *:nth-child(3) { animation-delay: 130ms; }
-.stagger-group > *:nth-child(4) { animation-delay: 180ms; }
-.stagger-group > *:nth-child(5) { animation-delay: 230ms; }
+.stagger-group > *:nth-child(1),
+.page-choreo-sections > *:nth-child(1) { animation-delay: 30ms; }
+
+.stagger-group > *:nth-child(2),
+.page-choreo-sections > *:nth-child(2) { animation-delay: 70ms; }
+
+.stagger-group > *:nth-child(3),
+.page-choreo-sections > *:nth-child(3) { animation-delay: 110ms; }
+
+.stagger-group > *:nth-child(4),
+.page-choreo-sections > *:nth-child(4) { animation-delay: 150ms; }
+
+.stagger-group > *:nth-child(5),
+.page-choreo-sections > *:nth-child(5) { animation-delay: 190ms; }
+
+/* Premium card hover depth */
+.hover-lift {
+  transition: transform var(--motion-fast) var(--motion-ease-out), box-shadow var(--motion-fast) var(--motion-ease-out);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 14px 26px rgba(18, 30, 47, 0.12), 0 4px 10px rgba(18, 30, 47, 0.08);
+}
+
+/* Skeleton to content reveal */
+.skeleton-shell {
+  animation: smoothFadeIn var(--motion-fast) var(--motion-ease-standard) both;
+}
+
+.content-reveal {
+  animation: smoothFadeIn var(--motion-enter) var(--motion-ease-out) both;
+}
+
+/* FLIP-like list transitions */
+.flip-list {
+  position: relative;
+}
+
+.flip-item {
+  transition: transform var(--motion-normal) var(--motion-ease-out), opacity var(--motion-enter) var(--motion-ease-out), box-shadow var(--motion-fast) var(--motion-ease-out);
+  will-change: transform;
+}
+
+/* Drawer/sidebar polish */
+.drawer-content-enter {
+  animation: slideInLeft var(--motion-normal) var(--motion-ease-out) both;
+}
+
+.nav-active-indicator {
+  transition: transform var(--motion-enter) var(--motion-ease-out), opacity var(--motion-enter) var(--motion-ease-out), height var(--motion-enter) var(--motion-ease-out);
+}
+
+/* Form feedback motion */
+.field-error-shake {
+  animation: fieldShake var(--motion-fast) var(--motion-ease-standard) both;
+}
+
+.field-success-pop {
+  animation: fieldPop var(--motion-fast) var(--motion-ease-out) both;
+}
+
+/* Toast motion */
+.toast-motion {
+  animation: toastIn var(--motion-enter) var(--motion-ease-out) both;
+}
 
 /* Smooth transitions for interactive elements */
 button,
@@ -129,14 +250,14 @@ input[type="email"],
 input[type="password"],
 textarea,
 select {
-  transition: all var(--motion-fast) var(--motion-ease-smooth);
+  transition: all var(--motion-fast) var(--motion-ease-out);
 }
 
 /* Hover states */
 button:hover,
 a:hover,
 [role="button"]:hover {
-  transition: all var(--motion-fast) var(--motion-ease-smooth);
+  transition: all var(--motion-fast) var(--motion-ease-out);
 }
 
 /* Focus states */
@@ -145,7 +266,7 @@ a:focus-visible,
 input:focus,
 textarea:focus,
 select:focus {
-  transition: all var(--motion-fast) var(--motion-ease-smooth);
+  transition: all var(--motion-fast) var(--motion-ease-out);
 }
 
 /* Reduced motion support */
@@ -160,7 +281,22 @@ select:focus {
   .animate-slide-in-left,
   .animate-slide-in-right,
   .animate-pulse,
-  .stagger-group > * {
+  .stagger-group > *,
+  .page-choreo-sections > *,
+  .page-choreo-heading,
+  .skeleton-shell,
+  .content-reveal,
+  .field-error-shake,
+  .field-success-pop,
+  .toast-motion,
+  .drawer-content-enter {
     animation: none !important;
+  }
+
+  .hover-lift,
+  .flip-item,
+  .nav-active-indicator {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
   }
 }
