@@ -590,7 +590,7 @@ const ResumeAnalysisPage = () => {
       {tabValue === 3 && (
         <Box>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb: 3 }}>
-            🛠️ Complete Implementation Guide
+            Complete Implementation Guide
           </Typography>
           
           <Grid container spacing={3}>
@@ -812,14 +812,14 @@ const ResumeAnalysisPage = () => {
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={6}>
                         <Typography variant="subtitle2" gutterBottom color="error">
-                          🚨 Issue Identified
+                          Issue Identified
                         </Typography>
                         <Typography variant="body2" sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
                           {area.issue}
                         </Typography>
                         
                         <Typography variant="subtitle2" gutterBottom color="primary">
-                          💡 Recommended Solution
+                          Recommended Solution
                         </Typography>
                         <Typography variant="body2" sx={{ mb: 2, p: 2, bgcolor: 'primary.light', borderRadius: 1 }}>
                           {area.suggestion}
@@ -830,7 +830,7 @@ const ResumeAnalysisPage = () => {
                         {area.examples && area.examples.length > 0 && (
                           <Box sx={{ mb: 2 }}>
                             <Typography variant="subtitle2" gutterBottom color="success.main">
-                              ✨ Examples to Follow
+                              Examples to Follow
                             </Typography>
                             {area.examples.map((example, idx) => (
                               <Box key={idx} sx={{ mb: 1, p: 2, bgcolor: 'success.light', borderRadius: 1 }}>
@@ -843,7 +843,7 @@ const ResumeAnalysisPage = () => {
                         {area.implementationSteps && (
                           <Box>
                             <Typography variant="subtitle2" gutterBottom color="info.main">
-                              🛠️ Implementation Steps
+                              Implementation Steps
                             </Typography>
                             <Stepper orientation="vertical" sx={{ mt: 1 }}>
                               {area.implementationSteps.map((step, stepIndex) => (

@@ -7,7 +7,6 @@ import {
   TextField,
   Button,
   Link,
-  Alert,
   CircularProgress,
   InputAdornment,
   IconButton,
@@ -16,7 +15,12 @@ import {
   Select,
   MenuItem,
   Divider,
-  useTheme
+  Stack,
+  Grid,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import {
@@ -29,12 +33,17 @@ import {
   Work,
   Google,
   LinkedIn,
-  GitHub
+  GitHub,
+  CheckCircleOutline,
+  Bolt,
+  Security
 } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import useOAuthFlow from '../../hooks/useOAuthFlow';
+import { CalmAlert } from '../../components/common';
+
 const RegisterPage = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const { register, loginWithToken } = useAuth();
   const { t } = useTranslation();
@@ -51,6 +60,13 @@ const RegisterPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const { oauthState, statusFlags, startOAuth, retryOAuth } = useOAuthFlow({
+    loginWithToken,
+    navigate,
+    fallbackPath: '/dashboard'
+  });
 
   const handleChange = (e) => {
     setFormData({
@@ -58,31 +74,33 @@ const RegisterPage = () => {
       [e.target.name]: e.target.value
     });
     setError(''); // Clear error when user starts typing
+    setFieldErrors((prev) => ({ ...prev, [e.target.name]: '' }));
   };
 
   const validateForm = () => {
+    const nextErrors = {};
     if (!formData.firstName.trim()) {
-      setError('First name is required');
-      return false;
+      nextErrors.firstName = 'First name is required.';
     }
     if (!formData.lastName.trim()) {
-      setError('Last name is required');
-      return false;
+      nextErrors.lastName = 'Last name is required.';
     }
     if (!formData.email.trim()) {
-      setError('Email is required');
-      return false;
+      nextErrors.email = 'Email is required.';
     }
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setError('Please enter a valid email address');
-      return false;
+      nextErrors.email = 'Please enter a valid email address.';
     }
     if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return false;
+      nextErrors.password = 'Password must be at least 8 characters long.';
     }
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      nextErrors.confirmPassword = 'Passwords do not match.';
+    }
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setError('Please fix the highlighted fields and try again.');
       return false;
     }
     return true;
@@ -109,54 +127,17 @@ const RegisterPage = () => {
     setLoading(false);
   };
 
-  const handleGoogleSignup = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    window.location.href = `${apiUrl}/api/auth/google`;
-  };
+  const handleGoogleSignup = () => startOAuth('google', 'register');
+  const handleLinkedInSignup = () => startOAuth('linkedin', 'register');
+  const handleGitHubSignup = () => startOAuth('github', 'register');
 
-  const handleLinkedInSignup = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    window.location.href = `${apiUrl}/api/auth/linkedin`;
-  };
-
-  const handleGitHubSignup = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    window.location.href = `${apiUrl}/api/auth/github`;
-  };
-
-  // Handle OAuth callback
-  React.useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
-      const oauth = params.get('oauth');
-      const oauthError = params.get('error');
-      const provider = params.get('provider');
-
-      if (oauthError) {
-        setError(`${provider || 'OAuth'} authentication failed. Please try again.`);
-        // Clean up URL
-        window.history.replaceState({}, document.title, '/register');
-        return;
-      }
-
-      if (oauth === 'success' && token) {
-        setLoading(true);
-        const result = await loginWithToken(token);
-        
-        if (result.success) {
-          // Clean up URL before navigating
-          window.history.replaceState({}, document.title, '/register');
-          navigate('/dashboard', { replace: true });
-        } else {
-          setError('Authentication failed. Please try again.');
-          setLoading(false);
-        }
-      }
-    };
-
-    handleOAuthCallback();
-  }, [loginWithToken, navigate]);
+  const displayError = error || (statusFlags.hasError ? oauthState.message : '');
+  const isOAuthInProgress = statusFlags.isLoading;
+  const trustPoints = [
+    { icon: <Security />, text: 'Protected authentication and privacy-first profile handling' },
+    { icon: <Bolt />, text: 'Fast AI resume parsing and instant career signal analysis' },
+    { icon: <CheckCircleOutline />, text: 'One account for hiring, applying, and interview workflow' }
+  ];
 
   return (
     <Box
@@ -165,43 +146,34 @@ const RegisterPage = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 50%, #E8D4B8 100%)',
         p: { xs: 2, md: 4 },
         position: 'relative',
-        overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at 20% 50%, rgba(139, 111, 71, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(212, 186, 148, 0.1) 0%, transparent 50%)',
-          animation: 'gentleWave 15s ease-in-out infinite',
-          pointerEvents: 'none',
-        },
       }}
     >
-      <Card
-        className="animate-scale-in"
-        sx={{
-          maxWidth: 650,
-          width: '100%',
-          boxShadow: '0 25px 50px -12px rgba(61, 47, 35, 0.3)',
-          borderRadius: 5,
-          border: '2px solid rgba(139, 111, 71, 0.15)',
-          backdropFilter: 'blur(20px)',
-          background: 'rgba(255, 255, 255, 0.98)',
-          position: 'relative',
-          zIndex: 1,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            boxShadow: '0 30px 60px -12px rgba(61, 47, 35, 0.4)',
-            transform: 'translateY(-4px)',
-          },
-        }}
-      >
-        <CardContent sx={{ p: { xs: 5, md: 7 } }}>
+      <Box className="auth-mesh" />
+      <Grid className="auth-editorial-shell motion-page-enter" sx={{ width: '100%', maxWidth: 1200 }}>
+        <Box className="auth-trust-panel" sx={{ order: { xs: 2, lg: 1 } }}>
+          <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.82)', mb: 1, display: 'block' }}>
+            Join CareerConnect AI
+          </Typography>
+          <Typography variant="h2" sx={{ color: 'white', mb: 2 }}>
+            Build your advantage from day one.
+          </Typography>
+          <Typography sx={{ color: 'rgba(245, 249, 255, 0.9)', mb: 4 }}>
+            Create your workspace, connect your profile, and get a professionally guided path through opportunities and talent.
+          </Typography>
+          <List className="stagger-group" sx={{ '& .MuiListItem-root': { px: 0 } }}>
+            {trustPoints.map((point) => (
+              <ListItem key={point.text}>
+                <ListItemIcon sx={{ color: '#e9f2ff', minWidth: 34 }}>{point.icon}</ListItemIcon>
+                <ListItemText primary={point.text} primaryTypographyProps={{ sx: { color: 'rgba(255,255,255,0.92)', fontWeight: 500 } }} />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+
+        <Card className="signature-card" sx={{ width: '100%', borderRadius: 4, order: { xs: 1, lg: 2 } }}>
+          <CardContent sx={{ p: { xs: 3.5, md: 5 } }}>
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 5 }}>
             <Typography 
@@ -209,40 +181,60 @@ const RegisterPage = () => {
               sx={{ 
                 fontWeight: 800, 
                 mb: 2,
-                fontSize: { xs: '2.25rem', md: '2.75rem' },
-                background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+                fontSize: { xs: '1.9rem', md: '2.25rem' },
+                background: 'linear-gradient(135deg, #0F5FCC 0%, #1F73F2 70%, #F57A2E 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 letterSpacing: '-0.02em',
               }}
             >
-              Join CareerConnect AI 🚀
+              Join CareerConnect AI
             </Typography>
-            <Typography variant="body1" sx={{ fontSize: { xs: '1.125rem', md: '1.375rem' }, color: '#6B5544', fontWeight: 500, lineHeight: 1.5 }}>
+            <Typography variant="body1" sx={{ fontSize: { xs: '1rem', md: '1.05rem' }, color: 'text.secondary', fontWeight: 500, lineHeight: 1.5 }}>
               Start your AI-powered career journey today
             </Typography>
           </Box>
 
           {/* Error Alert */}
-          {error && (
-            <Alert 
+          {displayError && (
+            <CalmAlert 
               severity="error" 
               sx={{ 
                 mb: 4,
-                fontSize: '1.125rem',
+                fontSize: '1rem',
                 py: 2,
                 borderRadius: 3,
                 '& .MuiAlert-icon': {
-                  fontSize: '1.5rem',
+                  fontSize: '1.05rem',
                 },
               }}
             >
-              {error}
-            </Alert>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                <Typography component="span" sx={{ fontSize: 'inherit' }}>{displayError}</Typography>
+                {statusFlags.hasError && oauthState.provider && (
+                  <Button size="small" onClick={() => retryOAuth(oauthState.provider)} sx={{ minWidth: 96 }}>
+                    Retry
+                  </Button>
+                )}
+              </Stack>
+            </CalmAlert>
+          )}
+
+          {statusFlags.isLoading && oauthState.message && (
+            <CalmAlert severity="info" sx={{ mb: 3, borderRadius: 3 }}>
+              {oauthState.message}
+            </CalmAlert>
           )}
 
           {/* Registration Form */}
-          <Box component="form" onSubmit={handleSubmit}>
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{
+              '& .MuiInputBase-root': { minHeight: { xs: 50, sm: 56 } },
+              '& .MuiInputAdornment-root .MuiSvgIcon-root': { fontSize: { xs: 22, sm: 26 } }
+            }}
+          >
             <Box sx={{ display: 'flex', gap: 2, mb: 3.5 }}>
               <TextField
                 fullWidth
@@ -250,6 +242,8 @@ const RegisterPage = () => {
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
+                error={!!fieldErrors.firstName}
+                helperText={fieldErrors.firstName}
                 required
                 InputProps={{
                   startAdornment: (
@@ -265,6 +259,8 @@ const RegisterPage = () => {
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
+                error={!!fieldErrors.lastName}
+                helperText={fieldErrors.lastName}
                 required
               />
             </Box>
@@ -275,6 +271,8 @@ const RegisterPage = () => {
               type="email"
               value={formData.email}
               onChange={handleChange}
+              error={!!fieldErrors.email}
+              helperText={fieldErrors.email || 'We use this for account security and notifications.'}
               required
               sx={{ mb: 3.5 }}
               InputProps={{
@@ -321,6 +319,8 @@ const RegisterPage = () => {
               type={showPassword ? 'text' : 'password'}
               value={formData.password}
               onChange={handleChange}
+              error={!!fieldErrors.password}
+              helperText={fieldErrors.password || 'Use 8+ characters with a mix of letters and numbers.'}
               required
               sx={{ mb: 3.5 }}
               InputProps={{
@@ -350,6 +350,8 @@ const RegisterPage = () => {
               type={showConfirmPassword ? 'text' : 'password'}
               value={formData.confirmPassword}
               onChange={handleChange}
+              error={!!fieldErrors.confirmPassword}
+              helperText={fieldErrors.confirmPassword}
               required
               sx={{ mb: 3.5 }}
               InputProps={{
@@ -377,12 +379,12 @@ const RegisterPage = () => {
               fullWidth
               variant="contained"
               size="large"
-              disabled={loading}
+              disabled={loading || isOAuthInProgress}
               sx={{
                 mb: 4,
                 py: 2.5,
                 textTransform: 'none',
-                fontSize: { xs: '1.25rem', md: '1.5rem' },
+                fontSize: { xs: '1.05rem', md: '1.05rem' },
                 fontWeight: 700,
                 borderRadius: 3,
                 background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
@@ -410,7 +412,7 @@ const RegisterPage = () => {
           {/* Divider */}
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <Divider sx={{ flex: 1, borderColor: 'rgba(139, 111, 71, 0.3)' }} />
-            <Typography variant="body2" sx={{ px: 3, fontSize: '1.125rem', color: '#8B6F47', fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ px: 3, fontSize: '1rem', color: '#8B6F47', fontWeight: 600 }}>
               OR
             </Typography>
             <Divider sx={{ flex: 1, borderColor: 'rgba(139, 111, 71, 0.3)' }} />
@@ -423,20 +425,21 @@ const RegisterPage = () => {
               variant="outlined"
               startIcon={<Google sx={{ fontSize: 26 }} />}
               onClick={handleGoogleSignup}
+              disabled={isOAuthInProgress}
               sx={{
-                py: 2,
+                py: { xs: 1.35, sm: 1.8 },
                 textTransform: 'none',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1rem' },
                 fontWeight: 600,
                 borderRadius: 3,
-                borderColor: '#db4437',
+                borderColor: '#c4d2e1',
                 color: '#db4437',
-                borderWidth: 2,
+                borderWidth: 1,
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#db4437',
+                  borderColor: '#0F5FCC',
                   backgroundColor: 'rgba(219, 68, 55, 0.1)',
-                  borderWidth: 2,
+                  borderWidth: 1,
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 16px rgba(219, 68, 55, 0.2)',
                 }
@@ -449,20 +452,21 @@ const RegisterPage = () => {
               variant="outlined"
               startIcon={<LinkedIn sx={{ fontSize: 26 }} />}
               onClick={handleLinkedInSignup}
+              disabled={isOAuthInProgress}
               sx={{
-                py: 2,
+                py: { xs: 1.35, sm: 1.8 },
                 textTransform: 'none',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1rem' },
                 fontWeight: 600,
                 borderRadius: 3,
-                borderColor: '#0077b5',
+                borderColor: '#c4d2e1',
                 color: '#0077b5',
-                borderWidth: 2,
+                borderWidth: 1,
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#0077b5',
+                  borderColor: '#0F5FCC',
                   backgroundColor: 'rgba(0, 119, 181, 0.1)',
-                  borderWidth: 2,
+                  borderWidth: 1,
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 16px rgba(0, 119, 181, 0.2)',
                 }
@@ -475,20 +479,21 @@ const RegisterPage = () => {
               variant="outlined"
               startIcon={<GitHub sx={{ fontSize: 26 }} />}
               onClick={handleGitHubSignup}
+              disabled={isOAuthInProgress}
               sx={{
-                py: 2,
+                py: { xs: 1.35, sm: 1.8 },
                 textTransform: 'none',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1rem' },
                 fontWeight: 600,
                 borderRadius: 3,
-                borderColor: '#3D2F23',
-                color: '#3D2F23',
-                borderWidth: 2,
+                borderColor: '#c4d2e1',
+                color: '#1B2B3B',
+                borderWidth: 1,
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#3D2F23',
+                  borderColor: '#0F5FCC',
                   backgroundColor: 'rgba(61, 47, 35, 0.1)',
-                  borderWidth: 2,
+                  borderWidth: 1,
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 16px rgba(61, 47, 35, 0.2)',
                 }
@@ -514,14 +519,14 @@ const RegisterPage = () => {
 
           {/* Login Link */}
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ fontSize: '1.125rem', color: '#6B5544' }}>
+            <Typography variant="body2" sx={{ fontSize: '1rem', color: '#6B5544' }}>
               Already have an account?{' '}
               <Link
                 component={RouterLink}
                 to="/login"
                 sx={{ 
                   fontWeight: 700,
-                  fontSize: '1.25rem',
+                  fontSize: '1.05rem',
                   color: '#8B6F47',
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
@@ -536,9 +541,11 @@ const RegisterPage = () => {
             </Typography>
           </Box>
         </CardContent>
-      </Card>
+        </Card>
+      </Grid>
     </Box>
   );
 };
 
 export default RegisterPage;
+

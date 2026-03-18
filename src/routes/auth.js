@@ -32,10 +32,6 @@ const csrfProtection = csrf({ cookie: true });
 let UserModelModule = null;
 try {
   UserModelModule = require('../models/User');
-  // Initialize the User model when auth routes load
-  if (UserModelModule && UserModelModule.initializeUserModel) {
-    UserModelModule.initializeUserModel();
-  }
 } catch (error) {
   console.warn('User model not available:', error.message);
 }
@@ -57,6 +53,18 @@ function getUser() {
 }
 
 const router = express.Router();
+
+
+const providerConfigMap = {
+  google: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+  linkedin: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'],
+  github: ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET']
+};
+
+const isProviderConfigured = (provider) => {
+  const vars = providerConfigMap[provider] || [];
+  return vars.every((key) => !!process.env[key]);
+};
 
 // Test endpoint to verify auth routes are working
 router.get('/test', (req, res) => {
@@ -358,16 +366,27 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// OAuth headers middleware - permits OAuth flows
+const oauthHeaders = (req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', process.env.CLIENT_URL || 'http://localhost:3000');
+  next();
+};
+
 // OAuth: Google
-router.get('/google', (req, res, next) => {
+router.get('/google', oauthHeaders, (req, res, next) => {
   console.log('Google OAuth initiated');
+  if (!isProviderConfigured('google')) {
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=google_not_configured`);
+  }
   passport.authenticate('google', { 
     scope: ['profile', 'email'],
     failureRedirect: `${process.env.CLIENT_URL}/login?error=google_auth_failed`
   })(req, res, next);
 });
 
-router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: '/login' }), async (req, res) => {
+router.get('/google/callback', oauthHeaders, passport.authenticate('google', { session: false, failureRedirect: '/login' }), async (req, res) => {
   try {
     const user = req.user;
     const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -389,17 +408,20 @@ router.get('/google/callback', passport.authenticate('google', { session: false,
         algorithm: 'HS512'
       }
     );
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:5179'}/login?oauth=success&token=${token}`;
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}`;
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Google OAuth error:', err);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5179'}/login?oauth=error`);
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error`);
   }
 });
 
 // OAuth: LinkedIn
-router.get('/linkedin', (req, res) => {
+router.get('/linkedin', oauthHeaders, (req, res) => {
   console.log('🔵 LinkedIn OAuth route hit');
+  if (!isProviderConfigured('linkedin')) {
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=linkedin_not_configured`);
+  }
   
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const redirectUri = process.env.LINKEDIN_CALLBACK_URL || 'http://localhost:3000/api/auth/linkedin/callback';
@@ -419,28 +441,31 @@ router.get('/linkedin', (req, res) => {
   res.redirect(authUrl);
 });
 
-router.get('/linkedin/callback', async (req, res) => {
+router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
   const { code, error } = req.query;
   
   if (error) {
     console.error('❌ LinkedIn OAuth error:', error);
-    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5179'}/login?oauth=error&provider=linkedin&reason=${error}`);
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=linkedin&reason=${error}`);
   }
   
   if (!code) {
     console.error('❌ No authorization code received');
-    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5179'}/login?oauth=error&provider=linkedin&reason=no_code`);
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=linkedin&reason=no_code`);
   }
   
   try {
-    // Exchange code for access token
-    const tokenResponse = await axios.post('https://www.linkedin.com/oauth/v2/accessToken', {
+    const linkedinCallbackUrl = process.env.LINKEDIN_CALLBACK_URL || 'http://localhost:3000/api/auth/linkedin/callback';
+    const linkedinTokenPayload = new URLSearchParams({
       grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: process.env.LINKEDIN_CALLBACK_URL || 'http://localhost:3000/api/auth/linkedin/callback',
+      code: String(code),
+      redirect_uri: linkedinCallbackUrl,
       client_id: process.env.LINKEDIN_CLIENT_ID,
       client_secret: process.env.LINKEDIN_CLIENT_SECRET
-    }, {
+    });
+
+    // Exchange code for access token
+    const tokenResponse = await axios.post('https://www.linkedin.com/oauth/v2/accessToken', linkedinTokenPayload.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     
@@ -497,27 +522,30 @@ router.get('/linkedin/callback', async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:5179'}/login?oauth=success&token=${token}&provider=linkedin`;
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}&provider=linkedin`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('❌ LinkedIn OAuth callback error:', error.response?.data || error.message);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5179'}/login?oauth=error&provider=linkedin&reason=token_exchange_failed`);
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=linkedin&reason=token_exchange_failed`);
   }
 });
 
 // OAuth: GitHub
-router.get('/github', (req, res) => {
+router.get('/github', oauthHeaders, (req, res) => {
   console.log('🔵 GitHub OAuth initiated');
+  if (!isProviderConfigured('github')) {
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=github_not_configured`);
+  }
   
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = 'http://localhost:3000/api/auth/github/callback';
+  const redirectUri = process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/api/auth/github/callback';
   const scope = 'user:email';
   
   if (!clientId) {
     console.error('❌ GitHub Client ID missing');
-    return res.redirect(`${process.env.CLIENT_URL}/login?error=github_not_configured`);
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?error=github_not_configured`);
   }
   
   const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
@@ -526,27 +554,32 @@ router.get('/github', (req, res) => {
   res.redirect(authUrl);
 });
 
-router.get('/github/callback', async (req, res) => {
+router.get('/github/callback', oauthHeaders, async (req, res) => {
   const { code, error } = req.query;
   
   if (error) {
     console.error('❌ GitHub OAuth error:', error);
-    return res.redirect(`${process.env.CLIENT_URL}/login?oauth=error&provider=github&reason=${error}`);
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=github&reason=${error}`);
   }
   
   if (!code) {
     console.error('❌ No authorization code received');
-    return res.redirect(`${process.env.CLIENT_URL}/login?oauth=error&provider=github&reason=no_code`);
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=github&reason=no_code`);
   }
   
   try {
-    // Exchange code for access token
-    const tokenResponse = await axios.post('https://github.com/login/oauth/access_token', {
+    const githubTokenPayload = new URLSearchParams({
       client_id: process.env.GITHUB_CLIENT_ID,
       client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code: code
-    }, {
-      headers: { 'Accept': 'application/json' }
+      code: String(code)
+    });
+
+    // Exchange code for access token
+    const tokenResponse = await axios.post('https://github.com/login/oauth/access_token', githubTokenPayload.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
     });
     
     const accessToken = tokenResponse.data.access_token;
@@ -596,13 +629,13 @@ router.get('/github/callback', async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL}/login?oauth=success&token=${token}&provider=github`;
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}&provider=github`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('❌ GitHub OAuth callback error:', error.response?.data || error.message);
-    res.redirect(`${process.env.CLIENT_URL}/login?oauth=error&provider=github&reason=token_exchange_failed`);
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=github&reason=token_exchange_failed`);
   }
 });
 

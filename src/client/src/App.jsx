@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { Suspense, lazy, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Box } from '@mui/material'
+import { Box, Card, CardContent, Skeleton } from '@mui/material'
 import { useAuth } from './contexts/AuthContext'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 
@@ -19,42 +19,129 @@ import RegisterPage from './pages/Auth/RegisterPage'
 import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage'
 import ResetPasswordPage from './pages/Auth/ResetPasswordPage'
 
-// Protected Pages
-import DashboardPage from './pages/Dashboard/DashboardPage'
-import ResumeUploadPage from './pages/Resume/ResumeUploadPage'
-import ResumeAnalysisPage from './pages/Resume/ResumeAnalysisPage'
-import ResumeEditPage from './pages/Resume/ResumeEditPage'
-import JobRecommendationsPage from './pages/Jobs/JobRecommendationsPage'
-import JobSearchPage from './pages/Jobs/JobSearchPage'
-import JobDetailsPage from './pages/Jobs/JobDetailsPage'
-import ProfilePage from './pages/Profile/ProfilePage'
-import SettingsPage from './pages/Settings/SettingsPage'
+// Lazily loaded protected pages
+const ResumeUploadPage = lazy(() => import('./pages/Resume/ResumeUploadPage'))
+const ResumeAnalysisPage = lazy(() => import('./pages/Resume/ResumeAnalysisPage'))
+const ResumeEditPage = lazy(() => import('./pages/Resume/ResumeEditPage'))
+const JobRecommendationsPage = lazy(() => import('./pages/Jobs/JobRecommendationsPage'))
+const JobSearchPage = lazy(() => import('./pages/Jobs/JobSearchPage'))
+const JobDetailsPage = lazy(() => import('./pages/Jobs/JobDetailsPage'))
+const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'))
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'))
 
-// Employee Pages
-import EmployeeDashboardPage from './pages/Employee/EmployeeDashboardPage'
-import ApplicationsPage from './pages/Employee/ApplicationsPage'
-import InterviewsPage from './pages/Employee/InterviewsPage'
+// Employee and employer pages
+const EmployeeDashboardPage = lazy(() => import('./pages/Employee/EmployeeDashboardPage'))
+const ApplicationsPage = lazy(() => import('./pages/Employee/ApplicationsPage'))
+const InterviewsPage = lazy(() => import('./pages/Employee/InterviewsPage'))
+const EmployerDashboardPage = lazy(() => import('./pages/Employer/EmployerDashboardPage'))
+const JobPostingPage = lazy(() => import('./pages/Employer/JobPostingPage'))
+const JobManagementPage = lazy(() => import('./pages/Employer/JobManagementPage'))
+const ApplicantsPage = lazy(() => import('./pages/Employer/ApplicantsPage'))
+const AnalyticsPage = lazy(() => import('./pages/Employer/AnalyticsPage'))
+const CandidateSearchPage = lazy(() => import('./pages/Employer/CandidateSearchPage'))
+const CandidateDetailsPage = lazy(() => import('./pages/Employer/CandidateDetailsPage'))
+const InterviewSchedulerPage = lazy(() => import('./pages/Employer/InterviewSchedulerPage'))
 
-// Employer Pages
-import EmployerDashboardPage from './pages/Employer/EmployerDashboardPage'
-import JobPostingPage from './pages/Employer/JobPostingPage'
-import JobManagementPage from './pages/Employer/JobManagementPage'
-import ApplicantsPage from './pages/Employer/ApplicantsPage'
-import AnalyticsPage from './pages/Employer/AnalyticsPage'
-import CandidateSearchPage from './pages/Employer/CandidateSearchPage'
-import CandidateDetailsPage from './pages/Employer/CandidateDetailsPage'
-import InterviewSchedulerPage from './pages/Employer/InterviewSchedulerPage'
-
-// Chat and Video Pages
-import ChatPage from './pages/Chat/ChatPage'
-import VideoCallPage from './pages/Video/VideoCallPage'
+// Communication pages
+const ChatPage = lazy(() => import('./pages/Chat/ChatPage'))
+const VideoCallPage = lazy(() => import('./pages/Video/VideoCallPage'))
 
 // Error Pages
 import NotFoundPage from './pages/Error/NotFoundPage'
 import ErrorPage from './pages/Error/ErrorPage'
 
+const RouteLoadingSkeleton = ({ variant = 'content' }) => {
+  if (variant === 'dashboard') {
+    return (
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' } }}>
+        {[1, 2, 3].map((item) => (
+          <Card key={item} className="dashboard-card">
+            <CardContent>
+              <Skeleton variant="text" width="45%" height={28} />
+              <Skeleton variant="text" width="75%" height={44} />
+            </CardContent>
+          </Card>
+        ))}
+        <Card sx={{ gridColumn: { xs: '1', md: 'span 3' } }} className="dashboard-card">
+          <CardContent>
+            <Skeleton variant="text" width="25%" height={30} />
+            <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 2 }} />
+          </CardContent>
+        </Card>
+      </Box>
+    )
+  }
+
+  if (variant === 'communication') {
+    return (
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '320px 1fr' } }}>
+        <Skeleton variant="rectangular" height={520} sx={{ borderRadius: 2 }} />
+        <Skeleton variant="rectangular" height={520} sx={{ borderRadius: 2 }} />
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ display: 'grid', gap: 2 }}>
+      <Skeleton variant="text" width="35%" height={38} />
+      <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 2 }} />
+      <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 2 }} />
+    </Box>
+  )
+}
+
 function App() {
   const { user, loading } = useAuth()
+
+  useEffect(() => {
+    let warmed = false
+    const warmNonCriticalRoutes = () => {
+      if (warmed) return
+      warmed = true
+
+      // Prefetch only opt-in tooling routes after the app is interactive.
+      Promise.allSettled([
+        import('./pages/Resume/ResumeEditPage')
+      ])
+    }
+
+    const handleFirstInteraction = () => {
+      warmNonCriticalRoutes()
+      window.removeEventListener('pointerdown', handleFirstInteraction)
+      window.removeEventListener('keydown', handleFirstInteraction)
+    }
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { once: true })
+    window.addEventListener('keydown', handleFirstInteraction, { once: true })
+
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(warmNonCriticalRoutes, { timeout: 2500 })
+      return () => {
+        window.cancelIdleCallback(id)
+        window.removeEventListener('pointerdown', handleFirstInteraction)
+        window.removeEventListener('keydown', handleFirstInteraction)
+      }
+    }
+
+    const timeoutId = window.setTimeout(warmNonCriticalRoutes, 2500)
+    return () => {
+      window.clearTimeout(timeoutId)
+      window.removeEventListener('pointerdown', handleFirstInteraction)
+      window.removeEventListener('keydown', handleFirstInteraction)
+    }
+  }, [])
+
+  const renderProtectedRoute = (component, options = {}) => {
+    const { withLayout = true, skeleton = 'content' } = options
+
+    return (
+      <ProtectedRoute>
+        <Suspense fallback={<RouteLoadingSkeleton variant={skeleton} />}>
+          {withLayout ? <Layout>{component}</Layout> : component}
+        </Suspense>
+      </ProtectedRoute>
+    )
+  }
 
   if (loading) {
     return (
@@ -112,303 +199,146 @@ function App() {
       {/* Protected Routes */}
       <Route
         path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              {user?.role === 'employer' ? <EmployerDashboardPage /> : <EmployeeDashboardPage />}
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(
+          user?.role === 'employer' ? <EmployerDashboardPage /> : <EmployeeDashboardPage />,
+          { skeleton: 'dashboard' }
+        )}
       />
 
       {/* Resume Routes */}
       <Route
         path="/resume/upload"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ResumeUploadPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ResumeUploadPage />)}
       />
       
       <Route
         path="/resume/:id"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ResumeAnalysisPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ResumeAnalysisPage />)}
       />
       
       <Route
         path="/resume/:id/analysis"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ResumeAnalysisPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ResumeAnalysisPage />)}
       />
       
       <Route
         path="/resume/:id/edit"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ResumeEditPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ResumeEditPage />)}
       />
       
       <Route
         path="/resume/analysis"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ResumeAnalysisPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ResumeAnalysisPage />)}
       />
 
       {/* Job Routes */}
       <Route
         path="/jobs/recommendations"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JobRecommendationsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<JobRecommendationsPage />)}
       />
       
       <Route
         path="/jobs/search"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JobSearchPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<JobSearchPage />)}
       />
       
       <Route
         path="/jobs/:id"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JobDetailsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<JobDetailsPage />)}
       />
 
       {/* Profile Routes */}
       <Route
         path="/profile"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ProfilePage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ProfilePage />)}
       />
       
       <Route
         path="/settings"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <SettingsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<SettingsPage />)}
       />
 
       {/* Employee Routes */}
       <Route
         path="/employee/dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <EmployeeDashboardPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<EmployeeDashboardPage />, { skeleton: 'dashboard' })}
       />
       
       <Route
         path="/employee/applications"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ApplicationsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ApplicationsPage />)}
       />
       
       <Route
         path="/employee/interviews"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <InterviewsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<InterviewsPage />)}
       />
 
       {/* Employer Routes */}
       <Route
         path="/employer/dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <EmployerDashboardPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<EmployerDashboardPage />, { skeleton: 'dashboard' })}
       />
       
       <Route
         path="/employer/jobs"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JobManagementPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<JobManagementPage />)}
       />
       
       <Route
         path="/employer/jobs/post"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JobPostingPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<JobPostingPage />)}
       />
       
       <Route
         path="/employer/jobs/:jobId"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <JobManagementPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<JobManagementPage />)}
       />
       
       <Route
         path="/employer/jobs/:jobId/applicants"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ApplicantsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ApplicantsPage />)}
       />
       
       <Route
         path="/employer/analytics"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <AnalyticsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<AnalyticsPage />, { skeleton: 'dashboard' })}
       />
       
       <Route
         path="/employer/candidates/search"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CandidateSearchPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<CandidateSearchPage />)}
       />
       
       <Route
         path="/employer/applications"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ApplicantsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ApplicantsPage />)}
       />
       
       <Route
         path="/employer/interviews"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <InterviewSchedulerPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<InterviewSchedulerPage />)}
       />
       
       <Route
         path="/employer/candidates/:id"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CandidateDetailsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<CandidateDetailsPage />)}
       />
       
       <Route
         path="/employer/interviews/schedule"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <InterviewSchedulerPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<InterviewSchedulerPage />)}
       />
 
       {/* Communication Routes */}
       <Route
         path="/chat"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <ChatPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<ChatPage />, { skeleton: 'communication' })}
       />
       
       <Route
         path="/video/:roomId"
-        element={
-          <ProtectedRoute>
-            <VideoCallPage />
-          </ProtectedRoute>
-        }
+        element={renderProtectedRoute(<VideoCallPage />, { withLayout: false, skeleton: 'communication' })}
       />
 
       {/* Error Routes */}

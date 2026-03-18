@@ -181,124 +181,82 @@ async function generateRealtimeJobRecommendations(keywords, parsedData) {
 
 // Generate GPT-enhanced job recommendations
 async function generateGPTRecommendations(keywords, parsedData) {
-  const gptJobs = [
-    {
-      id: 'gpt_rec_1',
-      title: `Senior ${keywords.technical[0] || 'Software'} Developer`,
-      company: 'AI-Powered Solutions Inc.',
-      location: 'Remote',
-      salary: '$130,000 - $170,000',
-      type: 'Full-time',
-      remote: true,
-      matchScore: 95,
-      source: 'GPT Enhanced',
-      description: `Lead development using ${keywords.technical.slice(0, 3).join(', ')} in a cutting-edge AI environment.`,
-      skills: keywords.technical.slice(0, 5),
-      gptReasoning: `Perfect match for your ${keywords.technical.slice(0, 2).join(' and ')} expertise with ${keywords.experience}+ years experience.`,
-      posted: 'Just posted',
-      applicants: Math.floor(Math.random() * 50) + 10
-    },
-    {
-      id: 'gpt_rec_2', 
-      title: `${keywords.roles[0] || 'Software'} Engineer - FinTech`,
-      company: 'NextGen Financial',
-      location: 'New York, NY',
-      salary: '$140,000 - $180,000',
-      type: 'Full-time',
-      remote: false,
-      matchScore: 92,
-      source: 'GPT Enhanced',
-      description: `Build scalable financial applications using ${keywords.technical.slice(0, 2).join(' and ')}.`,
-      skills: [...keywords.technical.slice(0, 3), 'GraphQL', 'Microservices'],
-      gptReasoning: 'FinTech offers 25% higher salaries. Your skills are in high demand in financial sector.',
-      posted: '2 hours ago',
-      applicants: Math.floor(Math.random() * 30) + 5
+  try {
+    const Job = require('../models/Job');
+    if (!Job || typeof Job.find !== 'function') {
+      return [];
     }
-  ];
-  
-  // Add more GPT jobs based on different skill combinations
-  if (keywords.technical.length > 2) {
-    gptJobs.push({
-      id: 'gpt_rec_3',
-      title: 'Full Stack Developer - Healthcare Tech',
-      company: 'MedTech Innovations',
-      location: 'San Francisco, CA',
-      salary: '$125,000 - $165,000',
-      type: 'Full-time',
-      remote: true,
-      matchScore: 89,
-      source: 'GPT Enhanced',
-      description: `Revolutionary healthcare platform using ${keywords.technical.slice(1, 4).join(', ')}.`,
-      skills: keywords.technical.slice(1, 6),
-      gptReasoning: 'Healthcare tech is growing 40% YoY. Your technical stack is perfect for this emerging field.',
-      posted: '1 day ago',
-      applicants: Math.floor(Math.random() * 40) + 15
+
+    const skillPattern = keywords.technical?.length
+      ? keywords.technical.join('|')
+      : null;
+
+    const query = { status: 'active' };
+    if (skillPattern) {
+      query.$or = [
+        { title: { $regex: skillPattern, $options: 'i' } },
+        { 'requirements.skills.name': { $regex: skillPattern, $options: 'i' } }
+      ];
+    }
+
+    const jobs = await Job.find(query).sort({ createdAt: -1 }).limit(7);
+    return jobs.map((job) => {
+      const skills = Array.isArray(job?.requirements?.skills)
+        ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
+        : [];
+      const minSalary = job?.benefits?.salary?.min;
+      const maxSalary = job?.benefits?.salary?.max;
+      return {
+        id: String(job._id),
+        title: job.title,
+        company: job?.company?.name || 'Unknown Company',
+        location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ') || 'Remote',
+        salary: Number.isFinite(minSalary) || Number.isFinite(maxSalary)
+          ? `$${(minSalary || 0).toLocaleString()} - $${(maxSalary || 0).toLocaleString()}`
+          : null,
+        type: job.employmentType || 'full-time',
+        remote: Boolean(job?.location?.isRemote),
+        matchScore: 0,
+        source: 'GPT Enhanced',
+        description: job.description || '',
+        skills,
+        gptReasoning: `Matched against your current technical profile (${keywords.technical.slice(0, 3).join(', ') || 'general skills'}).`,
+        posted: job.createdAt,
+        applicants: job.applications?.length || 0
+      };
     });
+  } catch (error) {
+    console.error('GPT recommendations data source error:', error);
+    return [];
   }
-  
-  return gptJobs;
 }
 
 // Fetch LinkedIn API recommendations
 async function fetchLinkedInRecommendations(keywords, parsedData) {
   try {
-    // Mock LinkedIn API integration (replace with actual LinkedIn API calls)
-    const linkedinJobs = [
-      {
-        id: 'li_rec_1',
-        title: `${keywords.technical[0] || 'Software'} Engineer`,
-        company: 'Google',
-        location: 'Mountain View, CA',
-        salary: '$150,000 - $200,000',
-        type: 'Full-time',
-        remote: false,
-        matchScore: 94,
-        source: 'LinkedIn',
-        description: `Join Google's engineering team working with ${keywords.technical.slice(0, 3).join(', ')}.`,
-        skills: keywords.technical.slice(0, 4),
-        posted: '3 hours ago',
-        applicants: Math.floor(Math.random() * 200) + 100,
-        url: 'https://linkedin.com/jobs/view/123456789'
-      },
-      {
-        id: 'li_rec_2',
-        title: 'Senior Developer',
-        company: 'Microsoft',
-        location: 'Seattle, WA',
-        salary: '$140,000 - $185,000',
-        type: 'Full-time',
-        remote: true,
-        matchScore: 91,
-        source: 'LinkedIn',
-        description: `Microsoft Azure team seeks ${keywords.roles[0] || 'developer'} with ${keywords.technical[0]} experience.`,
-        skills: [...keywords.technical.slice(0, 3), 'Azure', 'Cloud'],
-        posted: '5 hours ago',
-        applicants: Math.floor(Math.random() * 150) + 80,
-        url: 'https://linkedin.com/jobs/view/987654321'
-      }
-    ];
-    
-    // Add more LinkedIn jobs based on skills
-    if (keywords.technical.includes('react')) {
-      linkedinJobs.push({
-        id: 'li_rec_3',
-        title: 'React Developer',
-        company: 'Meta',
-        location: 'Menlo Park, CA',
-        salary: '$135,000 - $175,000',
-        type: 'Full-time',
-        remote: false,
-        matchScore: 88,
-        source: 'LinkedIn',
-        description: 'Build the future of social technology with React and cutting-edge tools.',
-        skills: ['React', 'JavaScript', 'TypeScript', 'GraphQL'],
-        posted: '1 day ago',
-        applicants: Math.floor(Math.random() * 300) + 150,
-        url: 'https://linkedin.com/jobs/view/456789123'
-      });
-    }
-    
-    return linkedinJobs;
+    const { linkedinService } = require('../services/linkedinService');
+    const jobs = await linkedinService.searchJobs({
+      keywords: keywords.technical.join(' ') || keywords.roles.join(' '),
+      location: parsedData.location || undefined,
+      limit: 7
+    });
+
+    return (jobs || []).map((job) => ({
+      id: job.id,
+      title: job.title,
+      company: job?.company?.name || job.company || 'Unknown Company',
+      location: job?.location?.name || job.location || 'Unknown',
+      salary: job.salary || null,
+      type: job.type || 'full-time',
+      remote: Boolean(job.remote),
+      matchScore: 0,
+      source: 'LinkedIn',
+      description: job.description || '',
+      skills: job.skills || [],
+      posted: job.postedAt || null,
+      applicants: job.applicants || 0,
+      url: job.applicationUrl || null
+    }));
     
   } catch (error) {
     console.error('LinkedIn API error:', error);
@@ -309,41 +267,48 @@ async function fetchLinkedInRecommendations(keywords, parsedData) {
 // Fetch internal database recommendations
 async function fetchInternalRecommendations(keywords, parsedData) {
   try {
-    // Mock internal job recommendations
-    const internalJobs = [
-      {
-        id: 'int_rec_1',
-        title: `${keywords.technical[0] || 'Software'} Developer`,
-        company: 'TechStart Solutions',
-        location: 'Austin, TX',
-        salary: '$110,000 - $140,000',
-        type: 'Full-time',
-        remote: true,
-        matchScore: 85,
+    const Job = require('../models/Job');
+    if (!Job || typeof Job.find !== 'function') {
+      return [];
+    }
+
+    const skillPattern = keywords.technical?.length
+      ? keywords.technical.join('|')
+      : null;
+
+    const query = { status: 'active' };
+    if (skillPattern) {
+      query.$or = [
+        { title: { $regex: skillPattern, $options: 'i' } },
+        { 'requirements.skills.name': { $regex: skillPattern, $options: 'i' } }
+      ];
+    }
+
+    const jobs = await Job.find(query).sort({ createdAt: -1 }).limit(5);
+    return jobs.map((job) => {
+      const skills = Array.isArray(job?.requirements?.skills)
+        ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
+        : [];
+      const minSalary = job?.benefits?.salary?.min;
+      const maxSalary = job?.benefits?.salary?.max;
+      return {
+        id: String(job._id),
+        title: job.title,
+        company: job?.company?.name || 'Unknown Company',
+        location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ') || 'Unknown',
+        salary: Number.isFinite(minSalary) || Number.isFinite(maxSalary)
+          ? `$${(minSalary || 0).toLocaleString()} - $${(maxSalary || 0).toLocaleString()}`
+          : null,
+        type: job.employmentType || 'full-time',
+        remote: Boolean(job?.location?.isRemote),
+        matchScore: 0,
         source: 'Internal',
-        description: `Growing startup needs ${keywords.roles[0] || 'developer'} with ${keywords.technical.slice(0, 2).join(' and ')} skills.`,
-        skills: keywords.technical.slice(0, 4),
-        posted: '2 days ago',
-        applicants: Math.floor(Math.random() * 25) + 5
-      },
-      {
-        id: 'int_rec_2',
-        title: 'Full Stack Engineer',
-        company: 'Innovation Labs',
-        location: 'Denver, CO',
-        salary: '$105,000 - $135,000',
-        type: 'Full-time',
-        remote: true,
-        matchScore: 82,
-        source: 'Internal',
-        description: `Build next-generation applications using modern ${keywords.technical[0]} stack.`,
-        skills: keywords.technical.slice(0, 5),
-        posted: '3 days ago',
-        applicants: Math.floor(Math.random() * 20) + 3
-      }
-    ];
-    
-    return internalJobs;
+        description: job.description || '',
+        skills,
+        posted: job.createdAt,
+        applicants: job.applications?.length || 0
+      };
+    });
     
   } catch (error) {
     console.error('Internal recommendations error:', error);
@@ -634,16 +599,63 @@ router.get('/market-insights', authenticateToken, mlLimiter, async (req, res) =>
   try {
     const { skill, location } = req.query;
 
-    // Mock market insights (would use real data in production)
+    let topCompanies = [];
+    let relatedSkills = [];
+    let jobOpenings = 0;
+    try {
+      const Job = require('../models/Job');
+      if (Job && typeof Job.find === 'function') {
+        const query = { status: 'active' };
+        if (location) {
+          query.$or = [
+            { 'location.city': { $regex: location, $options: 'i' } },
+            { 'location.state': { $regex: location, $options: 'i' } },
+            { 'location.country': { $regex: location, $options: 'i' } }
+          ];
+        }
+        if (skill) {
+          query.$or = [
+            ...(query.$or || []),
+            { 'requirements.skills.name': { $regex: skill, $options: 'i' } },
+            { title: { $regex: skill, $options: 'i' } }
+          ];
+        }
+
+        const jobs = await Job.find(query).limit(200);
+        jobOpenings = jobs.length;
+
+        const companySet = new Set();
+        const skillCounts = new Map();
+        jobs.forEach((job) => {
+          const companyName = job?.company?.name;
+          if (companyName) companySet.add(companyName);
+          const skills = Array.isArray(job?.requirements?.skills) ? job.requirements.skills : [];
+          skills.forEach((entry) => {
+            const name = String(entry?.name || '').trim();
+            if (!name) return;
+            skillCounts.set(name, (skillCounts.get(name) || 0) + 1);
+          });
+        });
+
+        topCompanies = Array.from(companySet).slice(0, 5);
+        relatedSkills = Array.from(skillCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name]) => name);
+      }
+    } catch (dbError) {
+      console.warn('Market insights job query unavailable:', dbError.message);
+    }
+
     const insights = {
       skill: skill || 'general',
       location: location || 'global',
-      demand: Math.floor(Math.random() * 100) + 1,
-      growth: Math.floor(Math.random() * 20) - 10,
-      averageSalary: Math.floor(Math.random() * 100000) + 50000,
-      topCompanies: ['Google', 'Microsoft', 'Amazon', 'Apple', 'Meta'],
-      relatedSkills: ['JavaScript', 'Python', 'React', 'Node.js', 'AWS'],
-      jobOpenings: Math.floor(Math.random() * 1000) + 100
+      demand: 0,
+      growth: 0,
+      averageSalary: null,
+      topCompanies,
+      relatedSkills,
+      jobOpenings
     };
 
     res.json({

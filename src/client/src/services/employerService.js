@@ -24,10 +24,12 @@ export const employerService = {
   },
 
   // Job Management
-  getJobs: async (filters = {}) => {
+  getJobs: async (filters = {}, options = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/employer/jobs?${params}`);
+      const response = await api.get(`/employer/jobs?${params}`, {
+        signal: options.signal,
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -86,10 +88,12 @@ export const employerService = {
   },
 
   // Applicant Management
-  getJobApplicants: async (jobId, filters = {}) => {
+  getJobApplicants: async (jobId, filters = {}, options = {}) => {
     try {
       const params = new URLSearchParams(filters);
-      const response = await api.get(`/employer/jobs/${jobId}/applicants?${params}`);
+      const response = await api.get(`/employer/jobs/${jobId}/applicants?${params}`, {
+        signal: options.signal,
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching job applicants:', error);
@@ -188,10 +192,12 @@ export const employerService = {
   },
 
   // Candidate Search
-  searchCandidates: async (searchParams) => {
+  searchCandidates: async (searchParams, options = {}) => {
     try {
       const params = new URLSearchParams(searchParams);
-      const response = await api.get(`/employer/candidates/search?${params}`);
+      const response = await api.get(`/employer/candidates/search?${params}`, {
+        signal: options.signal,
+      });
       return response.data;
     } catch (error) {
       console.error('Error searching candidates:', error);

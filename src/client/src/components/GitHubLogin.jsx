@@ -1,9 +1,9 @@
 import React from 'react';
+import { beginOAuthFlow } from '../utils/oauth';
 
 const GitHubLogin = ({ onSuccess, onError }) => {
   const handleGitHubLogin = () => {
-    localStorage.setItem('preOAuthUrl', window.location.pathname);
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/github`;
+    beginOAuthFlow({ provider: 'github', returnPath: window.location.pathname, flow: 'login' });
   };
 
   return (

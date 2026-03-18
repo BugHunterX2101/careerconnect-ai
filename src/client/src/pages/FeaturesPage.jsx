@@ -150,7 +150,7 @@ const FeaturesPage = () => {
         <Container maxWidth="lg">
           <Box textAlign="center" sx={{ mb: 8 }}>
             <Chip
-              label="🚀 AI-Powered Features"
+              label="AI-Powered Features"
               sx={{
                 mb: 3,
                 backgroundColor: alpha('#ffffff', 0.2),
@@ -162,7 +162,7 @@ const FeaturesPage = () => {
               variant="h1"
               sx={{
                 fontWeight: 800,
-                fontSize: { xs: '2.5rem', md: '4rem' },
+                fontSize: { xs: '2rem', md: '2.8rem' },
                 mb: 3,
                 textShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
               }}
@@ -177,6 +177,7 @@ const FeaturesPage = () => {
                 mx: 'auto',
                 lineHeight: 1.6,
                 mb: 4,
+                fontSize: { xs: '1rem', md: '1.1rem' },
               }}
             >
               Discover how our cutting-edge artificial intelligence transforms every aspect
@@ -192,12 +193,11 @@ const FeaturesPage = () => {
                 color: 'white',
                 px: 6,
                 py: 2,
-                fontSize: '1.375rem',
+                fontSize: '1.05rem',
                 fontWeight: 700,
                 borderRadius: 3,
                 border: '3px solid #FBBF24',
                 boxShadow: '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 40px rgba(251, 191, 36, 0.4)',
-                animation: 'subtleGlow 2s ease-in-out infinite',
                 transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
@@ -392,10 +392,10 @@ const FeaturesPage = () => {
       >
         <Container maxWidth="md">
           <Box textAlign="center">
-            <Typography variant="h3" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h3" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.3rem' } }}>
               Ready to Experience AI-Powered Career Growth?
             </Typography>
-            <Typography variant="h6" paragraph sx={{ opacity: 0.9, mb: 4 }}>
+            <Typography variant="h6" paragraph sx={{ opacity: 0.9, mb: 4, fontSize: { xs: '1rem', md: '1.1rem' } }}>
               Join thousands of professionals who have transformed their careers with our AI platform.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
@@ -408,12 +408,11 @@ const FeaturesPage = () => {
                   color: 'white',
                   px: 6,
                   py: 2,
-                  fontSize: '1.375rem',
+                  fontSize: '1.05rem',
                   fontWeight: 700,
                   borderRadius: 3,
                   border: '3px solid #FBBF24',
                   boxShadow: '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 40px rgba(251, 191, 36, 0.4)',
-                  animation: 'subtleGlow 2s ease-in-out infinite',
                   transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
@@ -434,7 +433,7 @@ const FeaturesPage = () => {
                   color: 'white',
                   px: 5,
                   py: 2,
-                  fontSize: '1.375rem',
+                  fontSize: '1.05rem',
                   fontWeight: 600,
                   borderWidth: 3,
                   borderRadius: 3,

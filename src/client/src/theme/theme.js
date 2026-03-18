@@ -13,10 +13,10 @@ const theme = createTheme({
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: colors.accent[600],
-      light: colors.accent[400],
-      dark: colors.accent[800],
-      contrastText: colors.text.primary,
+      main: colors.neutral[700],
+      light: colors.neutral[500],
+      dark: colors.neutral[900],
+      contrastText: '#FFFFFF',
     },
     success: {
       main: colors.success[600],
@@ -41,12 +41,23 @@ const theme = createTheme({
     background: colors.background,
     text: colors.text,
     divider: colors.neutral[200],
+    surface: {
+      panel: '#FFFFFF',
+      section: colors.background.subtle,
+      elevated: '#FFFFFF',
+      highlight: '#ECF3FF',
+    },
+    emphasis: {
+      soft: colors.primary[50],
+      medium: colors.primary[200],
+      strong: colors.primary[600],
+    },
   },
   
   typography,
   
   shape: {
-    borderRadius: 14,
+    borderRadius: 16,
   },
   
   shadows: [
@@ -82,6 +93,45 @@ const theme = createTheme({
   },
   
   components,
+
+  customTokens: {
+    surface: {
+      page: colors.background.default,
+      panel: colors.background.paper,
+      subtle: colors.background.subtle,
+      highlight: '#EEF9F7',
+    },
+    text: {
+      primary: colors.text.primary,
+      secondary: colors.text.secondary,
+      muted: colors.text.disabled,
+    },
+    border: {
+      subtle: colors.neutral[200],
+      strong: colors.accent[300],
+    },
+    state: {
+      success: { fg: colors.success[700], bg: '#F0FDF4' },
+      warning: { fg: colors.warning[700], bg: '#FFF7E6' },
+      error: { fg: colors.error[700], bg: '#FEF2F2' },
+    },
+    density: {
+      compact: { controlHeight: 36, tableY: 8, cardPadding: 14 },
+      standard: { controlHeight: 42, tableY: 12, cardPadding: 18 },
+      relaxed: { controlHeight: 48, tableY: 16, cardPadding: 24 },
+    },
+    elevation: {
+      soft: '0 10px 30px rgba(27, 43, 59, 0.08)',
+      medium: '0 14px 32px rgba(27, 43, 59, 0.12)',
+      elevated: '0 18px 42px rgba(27, 43, 59, 0.14)',
+    },
+    motion: {
+      easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
+      fast: 140,
+      normal: 260,
+      slow: 420,
+    },
+  },
 });
 
 export default theme;

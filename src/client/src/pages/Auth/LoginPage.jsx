@@ -8,14 +8,18 @@ import {
   TextField,
   Button,
   Link,
-  Alert,
   CircularProgress,
   InputAdornment,
   IconButton,
   Divider,
-  useTheme,
   Fade,
-  Slide
+  Slide,
+  Stack,
+  Grid,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import {
   Email,
@@ -25,12 +29,17 @@ import {
   Google,
   LinkedIn,
   GitHub,
-  WorkOutline
+  WorkOutline,
+  CheckCircleOutline,
+  VerifiedUser,
+  Insights
 } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import useOAuthFlow from '../../hooks/useOAuthFlow';
+import { CalmAlert } from '../../components/common';
+
 const LoginPage = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { login, loginWithToken } = useAuth();
@@ -43,42 +52,15 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
 
   const from = location.state?.from?.pathname || '/dashboard';
 
-  // Handle OAuth callback
-  React.useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
-      const oauth = params.get('oauth');
-      const oauthError = params.get('error');
-      const provider = params.get('provider');
-
-      if (oauthError) {
-        setError(`${provider || 'OAuth'} authentication failed. Please try again.`);
-        // Clean up URL
-        window.history.replaceState({}, document.title, '/login');
-        return;
-      }
-
-      if (oauth === 'success' && token) {
-        setLoading(true);
-        const result = await loginWithToken(token);
-        
-        if (result.success) {
-          // Clean up URL before navigating
-          window.history.replaceState({}, document.title, '/login');
-          navigate(from, { replace: true });
-        } else {
-          setError('Authentication failed. Please try again.');
-          setLoading(false);
-        }
-      }
-    };
-
-    handleOAuthCallback();
-  }, [loginWithToken, navigate, from]);
+  const { oauthState, statusFlags, startOAuth, retryOAuth } = useOAuthFlow({
+    loginWithToken,
+    navigate,
+    fallbackPath: from
+  });
 
   const handleChange = (e) => {
     setFormData({
@@ -86,10 +68,31 @@ const LoginPage = () => {
       [e.target.name]: e.target.value
     });
     setError(''); // Clear error when user starts typing
+    setFieldErrors((prev) => ({ ...prev, [e.target.name]: '' }));
+  };
+
+  const validateLoginForm = () => {
+    const nextErrors = { email: '', password: '' };
+
+    if (!formData.email.trim()) {
+      nextErrors.email = 'Email is required.';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      nextErrors.email = 'Enter a valid email address.';
+    }
+
+    if (!formData.password) {
+      nextErrors.password = 'Password is required.';
+    }
+
+    setFieldErrors(nextErrors);
+    return !nextErrors.email && !nextErrors.password;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateLoginForm()) {
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -104,27 +107,17 @@ const LoginPage = () => {
     setLoading(false);
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:3000/api/auth/google';
-  };
+  const handleGoogleLogin = () => startOAuth('google');
+  const handleLinkedInLogin = () => startOAuth('linkedin');
+  const handleGitHubLogin = () => startOAuth('github');
 
-  const handleLinkedInLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    window.location.href = `${apiUrl}/api/auth/linkedin`;
-  };
-
-  const handleGitHubLogin = () => {
-    console.log('GitHub button clicked');
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const githubUrl = `${apiUrl}/api/auth/github`;
-    console.log('Redirecting to:', githubUrl);
-    try {
-      window.location.href = githubUrl;
-    } catch (error) {
-      console.error('Redirect failed:', error);
-      window.open(githubUrl, '_self');
-    }
-  };
+  const displayError = error || (statusFlags.hasError ? oauthState.message : '');
+  const isOAuthInProgress = statusFlags.isLoading;
+  const trustPoints = [
+    { icon: <VerifiedUser />, text: 'Enterprise-grade security and compliant OAuth flow' },
+    { icon: <Insights />, text: 'AI-driven job insights and personalized recommendations' },
+    { icon: <CheckCircleOutline />, text: 'Used by recruiters and candidates in one workspace' }
+  ];
 
   return (
     <Box
@@ -133,43 +126,35 @@ const LoginPage = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 50%, #E8D4B8 100%)',
         p: { xs: 2, md: 4 },
         position: 'relative',
-        overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at 20% 50%, rgba(139, 111, 71, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(212, 186, 148, 0.1) 0%, transparent 50%)',
-          animation: 'gentleWave 15s ease-in-out infinite',
-          pointerEvents: 'none',
-        },
       }}
     >
-      <Fade in timeout={800}>
-        <Card
-          sx={{
-            maxWidth: 650,
-            width: '100%',
-            boxShadow: '0 32px 64px -12px rgba(61, 47, 35, 0.3)',
-            borderRadius: 5,
-            border: '2px solid rgba(139, 111, 71, 0.15)',
-            backdropFilter: 'blur(24px)',
-            background: 'rgba(255, 255, 255, 0.98)',
-            position: 'relative',
-            zIndex: 1,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0 40px 80px -12px rgba(61, 47, 35, 0.4)',
-            },
-          }}
-        >
-          <CardContent sx={{ p: { xs: 5, md: 7 } }}>
+      <Box className="auth-mesh" />
+      <Fade in timeout={700}>
+        <Grid className="auth-editorial-shell motion-page-enter" sx={{ width: '100%', maxWidth: 1200 }}>
+          <Box className="auth-trust-panel">
+            <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.82)', mb: 1, display: 'block' }}>
+              CareerConnect AI
+            </Typography>
+            <Typography variant="h2" sx={{ color: 'white', mb: 2 }}>
+              A smarter way to navigate careers.
+            </Typography>
+            <Typography sx={{ color: 'rgba(245, 249, 255, 0.88)', fontSize: '1rem', mb: 4, maxWidth: 500 }}>
+              Sign in to access hiring intelligence, role-fit analytics, and a unified collaboration workspace for candidates and employers.
+            </Typography>
+            <List className="stagger-group" sx={{ '& .MuiListItem-root': { px: 0 } }}>
+              {trustPoints.map((point) => (
+                <ListItem key={point.text}>
+                  <ListItemIcon sx={{ color: '#e9f2ff', minWidth: 34 }}>{point.icon}</ListItemIcon>
+                  <ListItemText primary={point.text} primaryTypographyProps={{ sx: { color: 'rgba(255,255,255,0.92)', fontWeight: 500 } }} />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+
+          <Card className="signature-card" sx={{ width: '100%', borderRadius: 4, position: 'relative', zIndex: 1 }}>
+            <CardContent sx={{ p: { xs: 3.5, md: 5 } }}>
           {/* Header */}
           <Slide direction="down" in timeout={600}>
             <Box sx={{ textAlign: 'center', mb: 5 }}>
@@ -193,10 +178,10 @@ const LoginPage = () => {
               <Typography 
                 variant="h3" 
                 sx={{ 
-                  fontWeight: 800, 
+                  fontWeight: 700, 
                   mb: 2,
-                  fontSize: { xs: '2.25rem', md: '2.75rem' },
-                  background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+                  fontSize: { xs: '1.9rem', md: '2.3rem' },
+                  background: 'linear-gradient(135deg, #0F5FCC 0%, #1F73F2 70%, #F57A2E 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   letterSpacing: '-0.02em',
@@ -204,32 +189,52 @@ const LoginPage = () => {
               >
                 CareerConnect
               </Typography>
-              <Typography variant="body1" sx={{ fontSize: { xs: '1.125rem', md: '1.375rem' }, color: '#6B5544', fontWeight: 600, lineHeight: 1.5 }}>
+              <Typography variant="body1" sx={{ fontSize: { xs: '1rem', md: '1.05rem' }, color: 'text.secondary', fontWeight: 500, lineHeight: 1.5 }}>
                 Sign in to your professional dashboard
               </Typography>
             </Box>
           </Slide>
 
           {/* Error Alert */}
-          {error && (
-            <Alert 
+          {displayError && (
+            <CalmAlert
               severity="error" 
               sx={{ 
                 mb: 4,
-                fontSize: '1.125rem',
+                fontSize: '1rem',
                 py: 2,
                 borderRadius: 3,
                 '& .MuiAlert-icon': {
-                  fontSize: '1.5rem',
+                  fontSize: '1.05rem',
                 },
               }}
             >
-              {error}
-            </Alert>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                <Typography component="span" sx={{ fontSize: 'inherit' }}>{displayError}</Typography>
+                {statusFlags.hasError && oauthState.provider && (
+                  <Button size="small" onClick={() => retryOAuth(oauthState.provider)} sx={{ minWidth: 96 }}>
+                    Retry
+                  </Button>
+                )}
+              </Stack>
+            </CalmAlert>
+          )}
+
+          {statusFlags.isLoading && oauthState.message && (
+            <CalmAlert severity="info" sx={{ mb: 3, borderRadius: 3 }}>
+              {oauthState.message}
+            </CalmAlert>
           )}
 
           {/* Login Form */}
-          <Box component="form" onSubmit={handleSubmit}>
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{
+              '& .MuiInputBase-root': { minHeight: { xs: 50, sm: 56 } },
+              '& .MuiInputAdornment-root .MuiSvgIcon-root': { fontSize: { xs: 22, sm: 26 } }
+            }}
+          >
             <TextField
               fullWidth
               label={t('email')}
@@ -237,6 +242,8 @@ const LoginPage = () => {
               type="email"
               value={formData.email}
               onChange={handleChange}
+              error={!!fieldErrors.email}
+              helperText={fieldErrors.email || 'Use your work or primary account email.'}
               required
               sx={{ mb: 3.5 }}
               InputProps={{
@@ -254,6 +261,8 @@ const LoginPage = () => {
               type={showPassword ? 'text' : 'password'}
               value={formData.password}
               onChange={handleChange}
+              error={!!fieldErrors.password}
+              helperText={fieldErrors.password || 'Minimum 8 characters recommended for account safety.'}
               required
               sx={{ mb: 2.5 }}
               InputProps={{
@@ -283,7 +292,7 @@ const LoginPage = () => {
               sx={{ 
                 display: 'block', 
                 mb: 3.5,
-                fontSize: '1.125rem',
+                fontSize: '1rem',
                 color: '#8B6F47',
                 fontWeight: 600,
                 textDecoration: 'none',
@@ -303,12 +312,12 @@ const LoginPage = () => {
               fullWidth
               variant="contained"
               size="large"
-              disabled={loading}
+              disabled={loading || isOAuthInProgress}
               sx={{
                 mb: 4,
                 py: 2.5,
                 textTransform: 'none',
-                fontSize: { xs: '1.25rem', md: '1.5rem' },
+                fontSize: { xs: '1.05rem', md: '1.05rem' },
                 fontWeight: 700,
                 background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
                 boxShadow: '0 10px 25px rgba(139, 111, 71, 0.3)',
@@ -336,7 +345,7 @@ const LoginPage = () => {
           {/* Divider */}
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <Divider sx={{ flex: 1, borderColor: 'rgba(139, 111, 71, 0.3)' }} />
-            <Typography variant="body2" sx={{ px: 3, fontSize: '1.125rem', color: '#8B6F47', fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ px: 3, fontSize: '1rem', color: '#8B6F47', fontWeight: 600 }}>
               OR
             </Typography>
             <Divider sx={{ flex: 1, borderColor: 'rgba(139, 111, 71, 0.3)' }} />
@@ -349,20 +358,21 @@ const LoginPage = () => {
               variant="outlined"
               startIcon={<Google sx={{ fontSize: 26 }} />}
               onClick={handleGoogleLogin}
+              disabled={isOAuthInProgress}
               sx={{
-                py: 2,
+                py: { xs: 1.35, sm: 1.8 },
                 textTransform: 'none',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1rem' },
                 fontWeight: 600,
                 borderRadius: 3,
-                borderColor: '#db4437',
+                borderColor: '#c4d2e1',
                 color: '#db4437',
-                borderWidth: 2,
+                borderWidth: 1,
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#db4437',
+                  borderColor: '#0F5FCC',
                   backgroundColor: 'rgba(219, 68, 55, 0.1)',
-                  borderWidth: 2,
+                  borderWidth: 1,
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 16px rgba(219, 68, 55, 0.2)',
                 }
@@ -375,20 +385,21 @@ const LoginPage = () => {
               variant="outlined"
               startIcon={<LinkedIn sx={{ fontSize: 26 }} />}
               onClick={handleLinkedInLogin}
+              disabled={isOAuthInProgress}
               sx={{
-                py: 2,
+                py: { xs: 1.35, sm: 1.8 },
                 textTransform: 'none',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1rem' },
                 fontWeight: 600,
                 borderRadius: 3,
-                borderColor: '#0077b5',
+                borderColor: '#c4d2e1',
                 color: '#0077b5',
-                borderWidth: 2,
+                borderWidth: 1,
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#0077b5',
+                  borderColor: '#0F5FCC',
                   backgroundColor: 'rgba(0, 119, 181, 0.1)',
-                  borderWidth: 2,
+                  borderWidth: 1,
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 16px rgba(0, 119, 181, 0.2)',
                 }
@@ -401,21 +412,22 @@ const LoginPage = () => {
               variant="outlined"
               startIcon={<GitHub sx={{ fontSize: 26 }} />}
               onClick={handleGitHubLogin}
+              disabled={isOAuthInProgress}
               sx={{
-                py: 2,
+                py: { xs: 1.35, sm: 1.8 },
                 textTransform: 'none',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1rem' },
                 fontWeight: 600,
                 borderRadius: 3,
-                borderColor: '#3D2F23',
-                color: '#3D2F23',
-                borderWidth: 2,
+                borderColor: '#c4d2e1',
+                color: '#1B2B3B',
+                borderWidth: 1,
                 textDecoration: 'none',
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#3D2F23',
+                  borderColor: '#0F5FCC',
                   backgroundColor: 'rgba(61, 47, 35, 0.1)',
-                  borderWidth: 2,
+                  borderWidth: 1,
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 16px rgba(61, 47, 35, 0.2)',
                 }
@@ -427,14 +439,14 @@ const LoginPage = () => {
 
           {/* Links */}
           <Box sx={{ textAlign: 'center' }}>            
-            <Typography variant="body2" sx={{ fontSize: '1.125rem', color: '#6B5544' }}>
+            <Typography variant="body2" sx={{ fontSize: '1rem', color: '#6B5544' }}>
               Don't have an account?{' '}
               <Link
                 component={RouterLink}
                 to="/register"
                 sx={{ 
                   fontWeight: 700,
-                  fontSize: '1.25rem',
+                  fontSize: '1.05rem',
                   color: '#8B6F47',
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
@@ -449,10 +461,12 @@ const LoginPage = () => {
             </Typography>
           </Box>
         </CardContent>
-        </Card>
+          </Card>
+        </Grid>
       </Fade>
     </Box>
   );
 };
 
 export default LoginPage;
+

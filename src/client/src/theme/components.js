@@ -60,8 +60,8 @@ export const components = {
     styleOverrides: {
       root: {
         borderRadius: 14,
-        padding: '16px 40px',
-        fontSize: '1.25rem',
+        padding: '10px 22px',
+        fontSize: '0.95rem',
         fontWeight: 600,
         letterSpacing: '0.02em',
         textTransform: 'none',
@@ -126,9 +126,9 @@ export const components = {
         borderRadius: 24,
         fontFamily: '"Inter", sans-serif',
         fontWeight: 600,
-        fontSize: '0.875rem',
+        fontSize: '0.8rem',
         letterSpacing: '0.02em',
-        padding: '10px 18px',
+        padding: '6px 12px',
         transition: 'all 0.3s ease',
         '&:hover': {
           transform: 'scale(1.05)',
@@ -156,7 +156,7 @@ export const components = {
       root: {
         borderRadius: 14,
         fontFamily: '"Inter", sans-serif',
-        fontSize: '1.25rem',
+        fontSize: '0.95rem',
         backgroundColor: colors.background.elevated,
         transition: 'all 0.3s ease',
         
@@ -185,8 +185,8 @@ export const components = {
         transition: 'all 0.3s ease',
       },
       input: {
-        padding: '16px 18px',
-        fontSize: '1.25rem',
+        padding: '12px 14px',
+        fontSize: '0.95rem',
       },
     },
   },
@@ -194,7 +194,7 @@ export const components = {
   MuiInputLabel: {
     styleOverrides: {
       root: {
-        fontSize: '1.25rem',
+        fontSize: '0.95rem',
         fontWeight: 500,
         color: colors.text.secondary,
         '&.Mui-focused': {
@@ -253,8 +253,8 @@ export const components = {
       root: {
         borderRadius: 10,
         margin: '4px 8px',
-        fontSize: '1.25rem',
-        padding: '12px 16px',
+        fontSize: '0.95rem',
+        padding: '10px 14px',
         transition: 'all 0.25s ease',
         '&:hover': {
           backgroundColor: alpha(colors.accent[200], 0.5),
@@ -267,12 +267,12 @@ export const components = {
   MuiTableCell: {
     styleOverrides: {
       root: {
-        fontSize: '1.125rem',
-        padding: '16px',
+        fontSize: '0.92rem',
+        padding: '12px',
         borderColor: colors.neutral[200],
       },
       head: {
-        fontSize: '1.25rem',
+        fontSize: '0.95rem',
         fontWeight: 600,
         color: colors.text.primary,
         backgroundColor: alpha(colors.accent[100], 0.3),
@@ -283,9 +283,9 @@ export const components = {
   MuiChip: {
     styleOverrides: {
       root: {
-        fontSize: '1.125rem',
+        fontSize: '0.8rem',
         height: 'auto',
-        padding: '8px 4px',
+        padding: '4px 2px',
       },
     },
   },

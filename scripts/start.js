@@ -19,7 +19,7 @@ if (!fs.existsSync(envPath)) {
     const basicEnv = `# CareerConnect AI Environment Variables
 NODE_ENV=development
 PORT=3000
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=http://localhost:3000
 
 # JWT Configuration
 JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
@@ -35,7 +35,7 @@ GPT_OSS_MODEL=gpt-oss-120b
 # Application Configuration
 NODE_ENV=development
 PORT=3000
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=http://localhost:3000
 `;
     fs.writeFileSync(envPath, basicEnv);
     console.log('✅ Basic .env file created');

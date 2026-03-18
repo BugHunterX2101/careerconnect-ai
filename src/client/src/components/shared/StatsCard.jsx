@@ -39,10 +39,10 @@ const StatsCard = ({
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Avatar 
             sx={{ 
-              bgcolor: 'rgba(255, 255, 255, 0.2)', 
+              bgcolor: 'rgba(255, 255, 255, 0.18)', 
               width: 56, 
               height: 56,
-              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
             }}
           >
             {icon}

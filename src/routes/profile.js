@@ -88,25 +88,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/activities', authenticateToken, async (req, res) => {
   try {
-    // Mock activities for now; can be replaced with real tables
-    const activities = [
-      {
-        id: 1,
-        type: 'resume_upload',
-        title: 'Resume uploaded successfully',
-        description: 'Your resume was processed with AI analysis',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        status: 'completed'
-      },
-      {
-        id: 2,
-    type: 'job_application',
-    title: 'Application submitted',
-    description: 'Applied for Software Engineer at Tech Corp',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    status: 'pending'
-      }
-    ];
+    const activities = [];
     res.json({ activities });
   } catch (error) {
     logger.error('Get activities error:', error);
@@ -599,13 +581,12 @@ router.get('/stats', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Mock stats for now - can be replaced with real database queries
     const stats = {
-      resumes: 2,
-      applications: 15,
-      interviews: 3,
-      recommendations: 8,
-      profile_completion: 85,
+      resumes: 0,
+      applications: 0,
+      interviews: 0,
+      recommendations: 0,
+      profile_completion: calculateProfileCompletionFromUser(user),
       skills_count: user.skills ? user.skills.length : 0,
       last_activity: new Date().toISOString()
     };
@@ -631,7 +612,6 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Mock dashboard data
     const dashboardData = {
       user: {
         id: user.id,
@@ -640,32 +620,15 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
         email: user.email,
         role: user.role,
         profilePicture: user.profilePicture,
-        profile_completion: 85
+        profile_completion: calculateProfileCompletionFromUser(user)
       },
       stats: {
-        resumes: 2,
-        applications: 15,
-        interviews: 3,
-        recommendations: 8
+        resumes: 0,
+        applications: 0,
+        interviews: 0,
+        recommendations: 0
       },
-      recent_activities: [
-        {
-          id: 1,
-          type: 'resume_upload',
-          title: 'Resume uploaded successfully',
-          description: 'Your resume was processed with AI analysis',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          status: 'completed'
-        },
-        {
-          id: 2,
-          type: 'job_application',
-          title: 'Application submitted',
-          description: 'Applied for Software Engineer at Tech Corp',
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          status: 'pending'
-        }
-      ],
+      recent_activities: [],
     quick_actions: user.role === 'employer' ? [
       { title: 'Post New Job', action: 'post_job', icon: 'add' },
       { title: 'Search Candidates', action: 'search_candidates', icon: 'search' },
@@ -683,29 +646,21 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-// Helper function to calculate profile completion percentage
-function calculateProfileCompletion(user) {
-  const fields = [
-    'firstName', 'lastName', 'phone', 'location', 'bio',
-    'skills', 'experience', 'education', 'avatar'
+function calculateProfileCompletionFromUser(user) {
+  const checks = [
+    Boolean(user?.firstName),
+    Boolean(user?.lastName),
+    Boolean(user?.phone),
+    Boolean(user?.location),
+    Boolean(user?.bio),
+    Array.isArray(user?.skills) && user.skills.length > 0,
+    Array.isArray(user?.experience) && user.experience.length > 0,
+    Array.isArray(user?.education) && user.education.length > 0,
+    Boolean(user?.profilePicture)
   ];
 
-  let completed = 0;
-  fields.forEach(field => {
-    if (field === 'skills' || field === 'experience' || field === 'education') {
-      if (user.profile[field] && user.profile[field].length > 0) {
-        completed++;
-      }
-    } else if (field === 'avatar') {
-      if (user.profile.avatar) {
-        completed++;
-      }
-    } else if (user.profile[field] && user.profile[field].trim()) {
-      completed++;
-    }
-  });
-
-  return Math.round((completed / fields.length) * 100);
+  const completed = checks.filter(Boolean).length;
+  return Math.round((completed / checks.length) * 100);
 }
 
 module.exports = router;

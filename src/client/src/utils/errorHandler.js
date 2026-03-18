@@ -1,4 +1,5 @@
 // Global error handler for browser extension conflicts and other errors
+import { reportClientEvent } from './observability';
 
 export const initializeErrorHandling = () => {
   // Handle browser extension errors
@@ -12,6 +13,13 @@ export const initializeErrorHandling = () => {
       event.preventDefault();
       return false;
     }
+
+    reportClientEvent('window_error', {
+      message: event.message,
+      filename: event.filename,
+      line: event.lineno,
+      column: event.colno
+    });
   });
 
   // Handle unhandled promise rejections
@@ -22,6 +30,10 @@ export const initializeErrorHandling = () => {
       event.preventDefault();
       return false;
     }
+
+    reportClientEvent('unhandled_rejection', {
+      message: event.reason?.message || String(event.reason || 'unknown')
+    });
   });
 
   // Suppress console errors from browser extensions and WebSocket
@@ -30,11 +42,11 @@ export const initializeErrorHandling = () => {
     const message = args.join(' ');
     if (message.includes('Could not establish connection') ||
         message.includes('Receiving end does not exist') ||
-        message.includes('content-all.js') ||
-        message.includes('WebSocket connection') ||
-        message.includes('socket.io')) {
+        message.includes('content-all.js')) {
       return; // Suppress extension and WebSocket errors
     }
+
+    reportClientEvent('console_error', { message });
     originalConsoleError.apply(console, args);
   };
 };

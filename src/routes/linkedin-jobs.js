@@ -50,17 +50,14 @@ router.post('/search', authenticateToken, linkedinLimiter, async (req, res) => {
 
   } catch (error) {
     console.error('LinkedIn job search error:', error);
-    
-    // Fallback to mock LinkedIn-style jobs
-    const mockJobs = generateLinkedInMockJobs(req.body);
-    
+
     res.json({
       success: true,
-      jobs: mockJobs,
-      total: mockJobs.length,
+      jobs: [],
+      total: 0,
       searchParams: req.body,
       timestamp: new Date().toISOString(),
-      fallback: true
+      fallback: false
     });
   }
 });
@@ -83,15 +80,13 @@ router.get('/trending', authenticateToken, linkedinLimiter, async (req, res) => 
 
   } catch (error) {
     console.error('LinkedIn trending jobs error:', error);
-    
-    const mockTrendingJobs = generateTrendingMockJobs();
-    
+
     res.json({
       success: true,
-      jobs: mockTrendingJobs,
+      jobs: [],
       location: req.query.location || 'United States',
       timestamp: new Date().toISOString(),
-      fallback: true
+      fallback: false
     });
   }
 });
@@ -140,15 +135,21 @@ router.get('/salary-insights', authenticateToken, linkedinLimiter, async (req, r
 
   } catch (error) {
     console.error('LinkedIn salary insights error:', error);
-    
-    // Fallback to mock salary data
-    const mockSalaryInsights = generateMockSalaryInsights(req.query.jobTitle, req.query.location);
-    
+
     res.json({
       success: true,
-      insights: mockSalaryInsights,
+      insights: {
+        jobTitle: req.query.jobTitle,
+        location: req.query.location || 'unknown',
+        averageSalary: null,
+        salaryRange: { min: null, max: null },
+        demandLevel: null,
+        topCompanies: [],
+        dataPoints: 0,
+        lastUpdated: new Date().toISOString()
+      },
       timestamp: new Date().toISOString(),
-      fallback: true
+      fallback: false
     });
   }
 });
@@ -185,15 +186,12 @@ router.post('/recommendations', authenticateToken, linkedinLimiter, async (req, 
 
     } catch (error) {
       console.error('User model error:', error);
-      
-      // Fallback without user data
-      const mockRecommendations = generateMockRecommendations();
-      
+
       res.json({
         success: true,
-        recommendations: mockRecommendations,
+        recommendations: [],
         timestamp: new Date().toISOString(),
-        fallback: true
+        fallback: false
       });
     }
 
@@ -237,133 +235,6 @@ function calculateRelevance(job, searchParams) {
   }
   
   return Math.min(relevanceScore, 100);
-}
-
-function generateLinkedInMockJobs(searchParams) {
-  const companies = ['LinkedIn', 'Microsoft', 'Google', 'Amazon', 'Meta', 'Apple', 'Netflix', 'Uber', 'Airbnb', 'Spotify'];
-  const jobTitles = [
-    'Senior Software Engineer',
-    'Full Stack Developer',
-    'Frontend Engineer',
-    'Backend Developer',
-    'DevOps Engineer',
-    'Product Manager',
-    'Data Scientist',
-    'UX Designer'
-  ];
-
-  return Array.from({ length: Math.min(parseInt(searchParams.limit) || 20, 50) }, (_, index) => {
-    const company = companies[Math.floor(Math.random() * companies.length)];
-    const title = jobTitles[Math.floor(Math.random() * jobTitles.length)];
-    
-    return {
-      id: `li_mock_${Date.now()}_${index}`,
-      title: searchParams.keywords ? `${title} (${searchParams.keywords})` : title,
-      company: { name: company },
-      location: { name: searchParams.location || 'San Francisco, CA' },
-      description: `Join ${company} as a ${title}. We're looking for talented individuals to help us build the future.`,
-      requirements: ['JavaScript', 'React', 'Node.js', 'TypeScript'],
-      salary: {
-        min: 100000 + Math.floor(Math.random() * 50000),
-        max: 150000 + Math.floor(Math.random() * 50000),
-        currency: 'USD'
-      },
-      employmentStatus: 'full-time',
-      postedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      applicationUrl: `https://www.linkedin.com/jobs/view/${Math.floor(Math.random() * 1000000000)}/`,
-      remote: searchParams.remote !== undefined ? searchParams.remote : Math.random() > 0.5,
-      experienceLevel: searchParams.experienceLevel || ['entry', 'mid', 'senior'][Math.floor(Math.random() * 3)],
-      skills: ['JavaScript', 'React', 'Node.js', 'TypeScript'],
-      source: 'LinkedIn',
-      isExternal: true,
-      matchScore: Math.floor(Math.random() * 30) + 70,
-      applicants: Math.floor(Math.random() * 200) + 50,
-      companyLogo: `https://logo.clearbit.com/${company.toLowerCase().replace(' ', '')}.com`
-    };
-  });
-}
-
-function generateTrendingMockJobs() {
-  const trendingCompanies = ['OpenAI', 'Anthropic', 'Stripe', 'Figma', 'Notion', 'Discord'];
-  const trendingRoles = [
-    'AI Engineer',
-    'Machine Learning Engineer',
-    'Blockchain Developer',
-    'Cloud Architect',
-    'DevSecOps Engineer',
-    'Product Designer'
-  ];
-
-  return trendingRoles.map((role, index) => ({
-    id: `trending_${index}`,
-    title: role,
-    company: { name: trendingCompanies[index] },
-    location: { name: 'Remote' },
-    description: `Trending opportunity in ${role} at ${trendingCompanies[index]}`,
-    salary: {
-      min: 120000 + Math.floor(Math.random() * 30000),
-      max: 180000 + Math.floor(Math.random() * 50000),
-      currency: 'USD'
-    },
-    remote: true,
-    trending: true,
-    trendingReason: 'High growth sector',
-    applicants: Math.floor(Math.random() * 100) + 200,
-    postedAt: new Date(Date.now() - Math.random() * 3 * 24 * 60 * 60 * 1000).toISOString()
-  }));
-}
-
-function generateMockSalaryInsights(jobTitle, location) {
-  const basesalary = 85000;
-  const locationMultiplier = location?.toLowerCase().includes('san francisco') ? 1.4 : 
-                           location?.toLowerCase().includes('new york') ? 1.3 :
-                           location?.toLowerCase().includes('seattle') ? 1.2 : 1.0;
-  
-  const averageSalary = Math.floor(basesalary * locationMultiplier);
-  
-  return {
-    jobTitle,
-    location: location || 'United States',
-    averageSalary,
-    salaryRange: {
-      min: Math.floor(averageSalary * 0.7),
-      max: Math.floor(averageSalary * 1.4)
-    },
-    currency: 'USD',
-    dataPoints: Math.floor(Math.random() * 500) + 100,
-    lastUpdated: new Date().toISOString(),
-    percentiles: {
-      p25: Math.floor(averageSalary * 0.8),
-      p50: averageSalary,
-      p75: Math.floor(averageSalary * 1.2),
-      p90: Math.floor(averageSalary * 1.35)
-    }
-  };
-}
-
-function generateMockRecommendations() {
-  return [
-    {
-      id: 'rec_1',
-      title: 'Senior React Developer',
-      company: 'TechCorp',
-      location: 'Remote',
-      matchScore: 92,
-      reason: 'Strong match for your React and JavaScript skills',
-      salary: '$110,000 - $140,000',
-      remote: true
-    },
-    {
-      id: 'rec_2',
-      title: 'Full Stack Engineer',
-      company: 'StartupXYZ',
-      location: 'San Francisco, CA',
-      matchScore: 88,
-      reason: 'Perfect fit for your full-stack experience',
-      salary: '$120,000 - $160,000',
-      remote: false
-    }
-  ];
 }
 
 module.exports = router;

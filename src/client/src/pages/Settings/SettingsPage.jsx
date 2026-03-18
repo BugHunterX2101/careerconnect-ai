@@ -104,7 +104,7 @@ const SettingsPage = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', mb: 4 }}>
-        Settings ⚙️
+        Settings
       </Typography>
 
       <Grid container spacing={3}>

@@ -34,61 +34,12 @@ class LinkedInService {
   // Search jobs on LinkedIn using Job Search API
   async searchJobs({ keywords, location, limit = 10, start = 0 }) {
     try {
-      // LinkedIn Job Search API requires different authentication
-      // For now, return realistic mock data based on LinkedIn job patterns
-      return this.generateLinkedInStyleJobs({ keywords, location, limit });
+      // LinkedIn Job Search API integration is unavailable in this environment.
+      return [];
     } catch (error) {
       logger.error('LinkedIn job search error:', error);
       return [];
     }
-  }
-
-  // Generate LinkedIn-style job data
-  generateLinkedInStyleJobs({ keywords, location, limit }) {
-    const linkedInCompanies = [
-      'Microsoft', 'Google', 'Amazon', 'Meta', 'Apple', 'Netflix',
-      'Uber', 'Airbnb', 'Spotify', 'Tesla', 'Salesforce', 'Adobe'
-    ];
-
-    const jobs = [];
-    for (let i = 0; i < limit; i++) {
-      const company = linkedInCompanies[Math.floor(Math.random() * linkedInCompanies.length)];
-      jobs.push({
-        id: `li_${Date.now()}_${i}`,
-        title: this.generateJobTitle(keywords),
-        company: { name: company },
-        location: { name: location || 'Remote' },
-        description: `Join ${company} and work on innovative projects. ${keywords ? `Experience with ${keywords} required.` : ''}`,
-        requirements: keywords ? keywords.split(' ').slice(0, 3) : ['JavaScript', 'React'],
-        salary: {
-          min: Math.floor(Math.random() * 50000) + 80000,
-          max: Math.floor(Math.random() * 50000) + 130000,
-          currency: 'USD'
-        },
-        employmentStatus: 'full-time',
-        postedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        applicationUrl: `https://www.linkedin.com/jobs/view/${Math.floor(Math.random() * 1000000000)}/`,
-        remote: location === 'Remote' || Math.random() > 0.6,
-        experienceLevel: ['entry', 'mid', 'senior'][Math.floor(Math.random() * 3)],
-        skills: keywords ? keywords.split(' ').slice(0, 4) : ['JavaScript', 'React', 'Node.js']
-      });
-    }
-    return this.formatJobResults(jobs);
-  }
-
-  generateJobTitle(keywords) {
-    const titles = [
-      'Software Engineer', 'Senior Developer', 'Full Stack Developer',
-      'Frontend Engineer', 'Backend Developer', 'DevOps Engineer'
-    ];
-    
-    if (keywords) {
-      if (keywords.toLowerCase().includes('react')) return 'React Developer';
-      if (keywords.toLowerCase().includes('python')) return 'Python Developer';
-      if (keywords.toLowerCase().includes('java')) return 'Java Developer';
-    }
-    
-    return titles[Math.floor(Math.random() * titles.length)];
   }
 
   // Post a job to LinkedIn
@@ -292,20 +243,7 @@ class LinkedInService {
   // Get salary insights for a job title
   async getSalaryInsights(jobTitle, location) {
     try {
-      // This would require LinkedIn's Salary Insights API
-      // For now, return mock data
-      return {
-        jobTitle,
-        location,
-        averageSalary: 75000,
-        salaryRange: {
-          min: 50000,
-          max: 100000
-        },
-        currency: 'USD',
-        dataPoints: 150,
-        lastUpdated: new Date().toISOString()
-      };
+      return null;
     } catch (error) {
       logger.error('LinkedIn salary insights error:', error);
       return null;

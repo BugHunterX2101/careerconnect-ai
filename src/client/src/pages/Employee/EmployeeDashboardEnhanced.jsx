@@ -125,10 +125,10 @@ const EmployeeDashboardEnhanced = () => {
       {/* Header Section */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: '2.75rem', color: '#6B5544', letterSpacing: '-0.5px' }}>
-            Welcome back, {user?.firstName}! 🚀
+          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: '2.2rem', color: '#6B5544', letterSpacing: '-0.5px' }}>
+            Welcome back, {user?.firstName}!
           </Typography>
-          <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.25rem', lineHeight: 1.6, maxWidth: '650px' }}>
+          <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1rem', lineHeight: 1.6, maxWidth: '650px' }}>
             Your AI-powered career command center with advanced analytics, personalized insights, and smart recommendations
           </Typography>
         </Box>
@@ -186,7 +186,7 @@ const EmployeeDashboardEnhanced = () => {
                 <Work sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Applications</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.totalApplications || 0}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -224,7 +224,7 @@ const EmployeeDashboardEnhanced = () => {
                 <Schedule sx={{ mr: 1.5, color: '#6B5544', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Interviews</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.totalInterviews || 0}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -258,7 +258,7 @@ const EmployeeDashboardEnhanced = () => {
                 <Assessment sx={{ mr: 1.5, color: '#A67C52', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Profile Views</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.profileViews || 0}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -296,7 +296,7 @@ const EmployeeDashboardEnhanced = () => {
                 <Speed sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Match Score</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {resumeInsights?.score || 0}%
               </Typography>
               <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '1rem' }}>
@@ -316,8 +316,8 @@ const EmployeeDashboardEnhanced = () => {
         borderRadius: 2,
         boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
       }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 2.5 }}>
-          🎯 Smart Actions
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 2.5 }}>
+          Smart Actions
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={2.4}>
@@ -496,7 +496,7 @@ const EmployeeDashboardEnhanced = () => {
             <Grid container spacing={4}>
               {/* Recent Applications */}
               <Grid item xs={12} md={6}>
-                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
                   <Work sx={{ mr: 2, fontSize: 28 }} />
                   Recent Applications
                 </Typography>
@@ -509,7 +509,7 @@ const EmployeeDashboardEnhanced = () => {
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', color: '#6B5544' }}>{application.job?.title}</Typography>}
+                        primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#6B5544' }}>{application.job?.title}</Typography>}
                         secondary={
                           <Box>
                             <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem', mt: 0.5 }}>
@@ -557,7 +557,7 @@ const EmployeeDashboardEnhanced = () => {
 
               {/* Profile & Resume Insights */}
               <Grid item xs={12} md={6}>
-                <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+                <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
                   Profile & Resume Insights
                 </Typography>
                 
@@ -565,7 +565,7 @@ const EmployeeDashboardEnhanced = () => {
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#6B5544', fontWeight: 600 }}>Profile Strength</Typography>
-                    <Typography variant="body1" sx={{ fontSize: '1.25rem', color: '#8B6F47', fontWeight: 700 }}>{stats?.profileCompletion || 0}%</Typography>
+                    <Typography variant="body1" sx={{ fontSize: '1rem', color: '#8B6F47', fontWeight: 700 }}>{stats?.profileCompletion || 0}%</Typography>
                   </Box>
                   <LinearProgress 
                     variant="determinate" 
@@ -586,7 +586,7 @@ const EmployeeDashboardEnhanced = () => {
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#6B5544', fontWeight: 600 }}>Resume Score</Typography>
-                    <Typography variant="body1" sx={{ fontSize: '1.25rem', color: '#8B6F47', fontWeight: 700 }}>{resumeInsights?.score || 0}%</Typography>
+                    <Typography variant="body1" sx={{ fontSize: '1rem', color: '#8B6F47', fontWeight: 700 }}>{resumeInsights?.score || 0}%</Typography>
                   </Box>
                   <LinearProgress 
                     variant="determinate" 
@@ -640,7 +640,7 @@ const EmployeeDashboardEnhanced = () => {
         {/* Job Recommendations Tab */}
         {tabValue === 1 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
               AI-Powered Job Recommendations
             </Typography>
             <List>
@@ -664,7 +664,7 @@ const EmployeeDashboardEnhanced = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={<Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.375rem', color: '#6B5544' }}>{job.title}</Typography>}
+                    primary={<Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#6B5544' }}>{job.title}</Typography>}
                     secondary={
                       <Box>
                         <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#8B6F47', mt: 1 }}>{job.company}</Typography>
@@ -718,12 +718,12 @@ const EmployeeDashboardEnhanced = () => {
         {/* Skill Development Tab */}
         {tabValue === 2 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
               Skill Development Recommendations
             </Typography>
             
             {/* Trending Skills */}
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>🔥 Trending Skills</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>Trending Skills</Typography>
             <Grid container spacing={2} sx={{ mb: 4 }}>
               {skillRecommendations?.trending?.map((skill, index) => (
                 <Grid item xs={12} sm={6} md={3} key={index}>
@@ -738,7 +738,7 @@ const EmployeeDashboardEnhanced = () => {
             </Grid>
 
             {/* Personalized Recommendations */}
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>🎯 Personalized for You</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>Personalized for You</Typography>
             <List>
               {skillRecommendations?.personalized?.map((skill, index) => (
                 <ListItem key={index} sx={{ border: '1px solid rgba(139, 111, 71, 0.2)', borderRadius: 2, mb: 2 }}>
@@ -761,7 +761,7 @@ const EmployeeDashboardEnhanced = () => {
             </List>
 
             {/* Learning Paths */}
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>🛤️ Learning Paths</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>Learning Paths</Typography>
             <Grid container spacing={3}>
               {skillRecommendations?.learningPaths?.map((path, index) => (
                 <Grid item xs={12} md={6} key={index}>
@@ -785,12 +785,12 @@ const EmployeeDashboardEnhanced = () => {
         {/* Career Insights Tab */}
         {tabValue === 3 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
               Career Insights & Market Intelligence
             </Typography>
             
             {/* Job Alerts */}
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>🔔 Active Job Alerts</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>Active Job Alerts</Typography>
             <List sx={{ mb: 4 }}>
               {jobAlerts?.active?.map((alert) => (
                 <ListItem key={alert.id} sx={{ border: '1px solid rgba(139, 111, 71, 0.2)', borderRadius: 2, mb: 2 }}>
@@ -818,7 +818,7 @@ const EmployeeDashboardEnhanced = () => {
             </List>
 
             {/* Recent Matches */}
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>⚡ Recent Matches</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5544', mb: 2 }}>Recent Matches</Typography>
             <List>
               {jobAlerts?.recentMatches?.map((match, index) => (
                 <ListItem key={index} sx={{ border: '1px solid rgba(139, 111, 71, 0.2)', borderRadius: 2, mb: 2 }}>
@@ -850,7 +850,7 @@ const EmployeeDashboardEnhanced = () => {
         {/* Analytics Tab */}
         {tabValue === 4 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
               Career Analytics Dashboard
             </Typography>
             

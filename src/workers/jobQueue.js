@@ -54,12 +54,12 @@ try {
   logger.warn('Resume model not available:', error.message);
 }
 
-// Try to import GPT-OSS service
+// Try to import LLM recommendation service
 let gptOssService = null;
 try {
   gptOssService = require('../services/gptOssService');
 } catch (error) {
-  logger.warn('GPT-OSS service not available:', error.message);
+  logger.warn('LLM recommendation service not available:', error.message);
 }
 
 try {
@@ -665,17 +665,17 @@ const processJobRecommendationsSynchronously = async (userId, resumeId, options 
       };
     }
     
-    // Get job recommendations using GPT-OSS if available
+    // Get job recommendations using Groq/LLM service if available
     let recommendations = null;
-    if (gptOssService && options.useGPTOSS) {
-      logger.info('Using GPT-OSS-120B for job recommendations');
+    if (gptOssService && (options.useGroq || options.useGPTOSS)) {
+      logger.info('Using Groq LLM for job recommendations');
       const gptRecommendations = await gptOssService.generateJobRecommendations(resumeData, options);
       recommendations = {
         recommendations: gptRecommendations,
         total: gptRecommendations.length,
         page: 1,
         totalPages: 1,
-        source: 'gpt-oss-120b'
+        source: 'groq-llm'
       };
     } else if (jobRecommender) {
       logger.info('Using traditional ML for job recommendations');

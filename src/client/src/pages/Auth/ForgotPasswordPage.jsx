@@ -57,7 +57,6 @@ const ForgotPasswordPage = () => {
           right: 0,
           bottom: 0,
           background: 'radial-gradient(circle at 20% 50%, rgba(139, 111, 71, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(212, 186, 148, 0.1) 0%, transparent 50%)',
-          animation: 'gentleWave 15s ease-in-out infinite',
           pointerEvents: 'none',
         },
       }}
@@ -88,16 +87,16 @@ const ForgotPasswordPage = () => {
               sx={{ 
                 fontWeight: 800, 
                 mb: 2,
-                fontSize: { xs: '2.5rem', md: '3rem' },
+                fontSize: { xs: '2.1rem', md: '3rem' },
                 background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 letterSpacing: '-0.02em',
               }}
             >
-              Forgot Password? 🔐
+              Forgot Password?
             </Typography>
-            <Typography variant="body1" sx={{ fontSize: { xs: '1.25rem', md: '1.375rem' }, color: '#6B5544', fontWeight: 500, lineHeight: 1.6 }}>
+            <Typography variant="body1" sx={{ fontSize: { xs: '1.05rem', md: '1.15rem' }, color: '#6B5544', fontWeight: 500, lineHeight: 1.6 }}>
               Enter your email to receive a password reset link
             </Typography>
           </Box>
@@ -107,11 +106,11 @@ const ForgotPasswordPage = () => {
               severity="error" 
               sx={{ 
                 mb: 4,
-                fontSize: '1.25rem',
+                fontSize: '1.05rem',
                 py: 2,
                 borderRadius: 3,
                 '& .MuiAlert-icon': {
-                  fontSize: '2rem',
+                  fontSize: '1.7rem',
                 },
               }}
             >
@@ -125,11 +124,11 @@ const ForgotPasswordPage = () => {
                 severity="success" 
                 sx={{ 
                   mb: 4,
-                  fontSize: '1.25rem',
+                  fontSize: '1.05rem',
                   py: 2,
                   borderRadius: 3,
                   '& .MuiAlert-icon': {
-                    fontSize: '2rem',
+                    fontSize: '1.7rem',
                   },
                 }}
               >
@@ -139,7 +138,7 @@ const ForgotPasswordPage = () => {
                 component={RouterLink} 
                 to="/login" 
                 sx={{ 
-                  fontSize: '1.375rem',
+                  fontSize: '1.15rem',
                   fontWeight: 700,
                   color: '#8B6F47',
                   textDecoration: 'none',
@@ -181,7 +180,7 @@ const ForgotPasswordPage = () => {
                   mb: 4,
                   py: 2.5,
                   textTransform: 'none',
-                  fontSize: { xs: '1.375rem', md: '1.5rem' },
+                  fontSize: { xs: '1.15rem', md: '1.05rem' },
                   fontWeight: 700,
                   borderRadius: 3,
                   background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
@@ -208,14 +207,14 @@ const ForgotPasswordPage = () => {
           )}
 
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ fontSize: '1.25rem', color: '#6B5544' }}>
+            <Typography variant="body2" sx={{ fontSize: '1.05rem', color: '#6B5544' }}>
               Remember your password?{' '}
               <Link 
                 component={RouterLink} 
                 to="/login" 
                 sx={{ 
                   fontWeight: 700,
-                  fontSize: '1.375rem',
+                  fontSize: '1.15rem',
                   color: '#8B6F47',
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
@@ -236,3 +235,4 @@ const ForgotPasswordPage = () => {
 };
 
 export default ForgotPasswordPage;
+

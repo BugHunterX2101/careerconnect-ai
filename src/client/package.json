@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:perf": "vite build && node scripts/check-bundle-budget.mjs",
+    "perf:budget": "node scripts/check-bundle-budget.mjs",
+    "perf:lighthouse": "lhci autorun --config=./lighthouserc.json",
     "vercel-build": "vite build",
     "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",

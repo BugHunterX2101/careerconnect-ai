@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
   Card,
   CardContent,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
   LinearProgress,
   Avatar
@@ -21,7 +14,6 @@ import {
   People,
   Work,
   Schedule,
-  Visibility,
   ThumbUp
 } from '@mui/icons-material';
 import {
@@ -31,6 +23,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -38,6 +31,48 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { FixedSizeList } from 'react-window';
+import { ExecutiveTable, MetricChip, SignatureCard, TrendBadge } from '../../components/common';
+
+const CHART_COLORS = {
+  accent: '#0F5FCC',
+  support: '#1F73F2',
+  warm: '#F57A2E',
+  success: '#10B981',
+  muted: '#8DA0B6',
+  axis: '#40566E',
+  grid: '#D2DBE5',
+};
+
+const StatCard = React.memo(function StatCard({ title, value, icon, color = 'primary', subtitle }) {
+  return (
+    <SignatureCard>
+      <CardContent>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box>
+            <Typography color="textSecondary" gutterBottom variant="body2">
+              {title}
+            </Typography>
+            <Typography variant="h4" component="div">
+              {value}
+            </Typography>
+            {subtitle && (
+              <Typography variant="body2" color="textSecondary">
+                {subtitle}
+              </Typography>
+            )}
+            <Box sx={{ mt: 1 }}>
+              <TrendBadge direction="up" label="Healthy trend" />
+            </Box>
+          </Box>
+          <Avatar sx={{ bgcolor: `${color}.main` }}>
+            {icon}
+          </Avatar>
+        </Box>
+      </CardContent>
+    </SignatureCard>
+  );
+});
 
 const AnalyticsPage = () => {
   const [analytics, setAnalytics] = useState({
@@ -58,6 +93,23 @@ const AnalyticsPage = () => {
   useEffect(() => {
     fetchAnalytics();
   }, []);
+
+  const isLowEndDevice = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    const lowCpu = typeof navigator !== 'undefined' && navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+    return Boolean(prefersReducedMotion || lowCpu);
+  }, []);
+
+  const chartAnimation = useMemo(() => ({
+    isAnimationActive: !isLowEndDevice,
+    animationDuration: isLowEndDevice ? 0 : 320,
+  }), [isLowEndDevice]);
+
+  const applicationTrendData = useMemo(() => analytics.applicationTrends.slice(-12), [analytics.applicationTrends]);
+  const jobPerformanceData = useMemo(() => analytics.jobPerformance.slice(0, 8), [analytics.jobPerformance]);
+  const sourceAnalyticsData = useMemo(() => analytics.sourceAnalytics.slice(0, 6), [analytics.sourceAnalytics]);
+  const topJobsData = useMemo(() => analytics.topPerformingJobs.slice(0, 6), [analytics.topPerformingJobs]);
 
   const fetchAnalytics = async () => {
     // Mock data - replace with actual API call
@@ -86,11 +138,11 @@ const AnalyticsPage = () => {
         { job: 'Data Scientist', applications: 29, views: 140, conversion: 20.7 }
       ],
       sourceAnalytics: [
-        { name: 'Direct Apply', value: 35, color: '#8884d8' },
-        { name: 'LinkedIn', value: 28, color: '#82ca9d' },
-        { name: 'Job Boards', value: 20, color: '#ffc658' },
-        { name: 'Referrals', value: 12, color: '#ff7300' },
-        { name: 'Other', value: 5, color: '#00ff00' }
+        { name: 'Direct Apply', value: 35, color: '#0F5FCC' },
+        { name: 'LinkedIn', value: 28, color: '#1F73F2' },
+        { name: 'Job Boards', value: 20, color: '#10B981' },
+        { name: 'Referrals', value: 12, color: '#F57A2E' },
+        { name: 'Other', value: 5, color: '#8DA0B6' }
       ],
       topPerformingJobs: [
         {
@@ -122,34 +174,63 @@ const AnalyticsPage = () => {
     setAnalytics(mockData);
   };
 
-  const StatCard = ({ title, value, icon, color = 'primary', subtitle }) => (
-    <Card>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
-              {title}
-            </Typography>
-            <Typography variant="h4" component="div">
-              {value}
-            </Typography>
-            {subtitle && (
-              <Typography variant="body2" color="textSecondary">
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Avatar sx={{ bgcolor: `${color}.main` }}>
-            {icon}
-          </Avatar>
+  const topJobsListHeight = useMemo(() => {
+    if (topJobsData.length === 0) return 0;
+    return Math.min(320, topJobsData.length * 68);
+  }, [topJobsData.length]);
+
+  const TopJobRow = ({ index, style }) => {
+    const job = topJobsData[index];
+    if (!job) return null;
+    return (
+      <Box
+        style={style}
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '1.9fr 0.8fr 1.1fr',
+          alignItems: 'center',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          px: 1,
+          gap: 1,
+        }}
+      >
+        <Box>
+          <Typography variant="body2" noWrap>
+            {job.title}
+          </Typography>
+          <Chip
+            label={job.status}
+            size="small"
+            color={job.status === 'active' ? 'success' : 'warning'}
+          />
         </Box>
-      </CardContent>
-    </Card>
-  );
+        <Typography align="right" variant="body2">{job.applications}</Typography>
+        <Box>
+          <Typography align="right" variant="body2">{job.conversionRate}%</Typography>
+          <LinearProgress variant="determinate" value={job.conversionRate} sx={{ mt: 0.5 }} />
+        </Box>
+      </Box>
+    )
+  }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ p: 3 }} className="motion-page-enter">
+      <Box className="dashboard-highlight-panel" sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Recruitment Analytics
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 1.5, maxWidth: 850 }}>
+          Executive overview of pipeline velocity, source quality, and conversion efficiency across active hiring campaigns.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <MetricChip label="Data refreshed" color="success" />
+          <MetricChip label="Forecast enabled" />
+          <MetricChip label="Stakeholder-ready" color="warning" />
+        </Box>
+      </Box>
+
+      <Typography variant="h4" gutterBottom sx={{ display: 'none' }}>
         Recruitment Analytics
       </Typography>
 
@@ -208,29 +289,30 @@ const AnalyticsPage = () => {
       <Grid container spacing={3}>
         {/* Application Trends */}
         <Grid item xs={12} lg={8}>
-          <Card>
+          <SignatureCard>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Application Trends
               </Typography>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={analytics.applicationTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
+                <LineChart data={applicationTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                  <XAxis dataKey="month" stroke={CHART_COLORS.axis} />
+                  <YAxis stroke={CHART_COLORS.axis} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="applications" stroke="#8884d8" name="Applications" />
-                  <Line type="monotone" dataKey="interviews" stroke="#82ca9d" name="Interviews" />
-                  <Line type="monotone" dataKey="hires" stroke="#ffc658" name="Hires" />
+                  <Legend verticalAlign="top" height={36} />
+                  <Line type="monotone" dataKey="applications" stroke={CHART_COLORS.accent} strokeWidth={2} name="Applications" {...chartAnimation} dot={false} />
+                  <Line type="monotone" dataKey="interviews" stroke={CHART_COLORS.success} strokeWidth={2} name="Interviews" {...chartAnimation} dot={false} />
+                  <Line type="monotone" dataKey="hires" stroke={CHART_COLORS.warm} strokeWidth={2} name="Hires" {...chartAnimation} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </SignatureCard>
         </Grid>
 
         {/* Application Sources */}
         <Grid item xs={12} lg={4}>
-          <Card>
+          <SignatureCard>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Application Sources
@@ -238,15 +320,16 @@ const AnalyticsPage = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={analytics.sourceAnalytics}
+                    data={sourceAnalyticsData}
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    {...chartAnimation}
                   >
-                    {analytics.sourceAnalytics.map((entry, index) => (
+                    {sourceAnalyticsData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -254,86 +337,60 @@ const AnalyticsPage = () => {
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </SignatureCard>
         </Grid>
 
         {/* Job Performance */}
         <Grid item xs={12} lg={8}>
-          <Card>
+          <SignatureCard>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                <FormattedMessage id="analytics.jobPerformance" defaultMessage="Job Performance" />
+                Role Funnel Performance
               </Typography>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analytics.jobPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="job" />
-                  <YAxis />
+                <BarChart data={jobPerformanceData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                  <XAxis dataKey="job" stroke={CHART_COLORS.axis} />
+                  <YAxis stroke={CHART_COLORS.axis} />
                   <Tooltip />
-                  <Bar dataKey="applications" fill="#8884d8" name="Applications" />
-                  <Bar dataKey="views" fill="#82ca9d" name="Views" />
+                  <Legend verticalAlign="top" height={36} />
+                  <Bar dataKey="applications" fill={CHART_COLORS.accent} name="Applications" radius={[6, 6, 0, 0]} {...chartAnimation} />
+                  <Bar dataKey="views" fill={CHART_COLORS.support} name="Views" radius={[6, 6, 0, 0]} {...chartAnimation} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </SignatureCard>
         </Grid>
 
         {/* Top Performing Jobs */}
         <Grid item xs={12} lg={4}>
-          <Card>
+          <SignatureCard>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                <FormattedMessage id="analytics.topPerformingJobs" defaultMessage="Top Performing Jobs" />
+                Top Performing Jobs
               </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Job Title</TableCell>
-                      <TableCell align="right">Applications</TableCell>
-                      <TableCell align="right">Conv. Rate</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {analytics.topPerformingJobs.map((job) => (
-                      <TableRow key={job.id}>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="body2" noWrap>
-                              {job.title}
-                            </Typography>
-                            <Chip
-                              label={job.status}
-                              size="small"
-                              color={job.status === 'active' ? 'success' : 'warning'}
-                            />
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right">{job.applications}</TableCell>
-                        <TableCell align="right">
-                          <Box>
-                            <Typography variant="body2">
-                              {job.conversionRate}%
-                            </Typography>
-                            <LinearProgress
-                              variant="determinate"
-                              value={job.conversionRate}
-                              sx={{ mt: 0.5 }}
-                            />
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <ExecutiveTable compact>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1.9fr 0.8fr 1.1fr', px: 1, py: 0.75, gap: 1 }}>
+                  <Typography variant="caption" fontWeight={700}>Job Title</Typography>
+                  <Typography variant="caption" fontWeight={700} align="right">Applications</Typography>
+                  <Typography variant="caption" fontWeight={700} align="right">Conv. Rate</Typography>
+                </Box>
+                <FixedSizeList
+                  height={topJobsListHeight}
+                  width="100%"
+                  itemCount={topJobsData.length}
+                  itemSize={68}
+                >
+                  {TopJobRow}
+                </FixedSizeList>
+              </ExecutiveTable>
             </CardContent>
-          </Card>
+          </SignatureCard>
         </Grid>
 
         {/* Conversion Funnel */}
         <Grid item xs={12}>
-          <Card>
+          <SignatureCard>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Recruitment Funnel
@@ -396,7 +453,7 @@ const AnalyticsPage = () => {
                 </Grid>
               </Grid>
             </CardContent>
-          </Card>
+          </SignatureCard>
         </Grid>
       </Grid>
     </Box>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, Button, TextField,
   Grid, Chip, List, ListItem, ListItemText, IconButton,
@@ -11,6 +11,7 @@ import {
   People, Schedule, Pause, PlayArrow, Share,
   TrendingUp, LocationOn, AttachMoney, AccessTime
 } from '@mui/icons-material';
+import { FixedSizeList } from 'react-window';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { employerService } from '../../services/employerService';
@@ -67,9 +68,9 @@ const JobManagementPage = () => {
     }
   };
 
-  const getJobsByStatus = (status) => {
+  const getJobsByStatus = useCallback((status) => {
     return jobs.filter(job => job.status === status);
-  };
+  }, [jobs]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -94,7 +95,7 @@ const JobManagementPage = () => {
     }
   };
 
-  const JobCard = ({ job }) => (
+  const JobCard = memo(({ job }) => (
     <Card sx={{ mb: 2, '&:hover': { boxShadow: 3 } }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -212,7 +213,29 @@ const JobManagementPage = () => {
         </Box>
       </CardContent>
     </Card>
-  );
+  ));
+
+  const visibleJobs = useMemo(() => {
+    if (tabValue === 0) return jobs;
+    if (tabValue === 1) return getJobsByStatus('active');
+    if (tabValue === 2) return getJobsByStatus('paused');
+    return getJobsByStatus('closed');
+  }, [jobs, tabValue, getJobsByStatus]);
+
+  const listHeight = useMemo(() => {
+    if (visibleJobs.length === 0) return 0;
+    return Math.min(760, visibleJobs.length * 260);
+  }, [visibleJobs.length]);
+
+  const JobRow = useCallback(({ index, style }) => {
+    const job = visibleJobs[index];
+    if (!job) return null;
+    return (
+      <Box style={style} sx={{ px: 0.5, py: 0.5 }}>
+        <JobCard job={job} />
+      </Box>
+    );
+  }, [visibleJobs]);
 
   return (
     <Box>
@@ -310,18 +333,18 @@ const JobManagementPage = () => {
             </Box>
           ) : (
             <Box>
-              {(tabValue === 0 ? jobs :
-                tabValue === 1 ? getJobsByStatus('active') :
-                tabValue === 2 ? getJobsByStatus('paused') :
-                getJobsByStatus('closed'))
-                .map((job) => (
-                  <JobCard key={job._id} job={job} />
-                ))}
+              {visibleJobs.length > 0 && (
+                <FixedSizeList
+                  height={listHeight}
+                  width="100%"
+                  itemCount={visibleJobs.length}
+                  itemSize={260}
+                >
+                  {JobRow}
+                </FixedSizeList>
+              )}
 
-              {(tabValue === 0 ? jobs :
-                tabValue === 1 ? getJobsByStatus('active') :
-                tabValue === 2 ? getJobsByStatus('paused') :
-                getJobsByStatus('closed')).length === 0 && (
+              {visibleJobs.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Work sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary">
