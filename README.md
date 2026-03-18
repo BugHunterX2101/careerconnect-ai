@@ -160,6 +160,20 @@ npm start
 App URL: `http://localhost:3000`
 Health check: `http://localhost:3000/health`
 
+## Local Test Accounts
+
+If you need known credentials for local verification, seed/reset users with:
+
+```bash
+node scripts/reset-users.js
+```
+
+Default local accounts created by that script:
+
+- Jobseeker: `test@test.com` / `test123`
+- Employer: `employer@test.com` / `employer123`
+- Admin-like test account: `admin@test.com` / `admin123`
+
 ## Configuration and Environment
 
 Create `.env` from `.env.example` and provide at least:
@@ -208,8 +222,33 @@ Additional client checks can be run from `src/client` when needed.
 - Candidate flows: `/api/employee/*`
 - Employer flows: `/api/employer/*`
 - Jobs: `/api/jobs/*`
-- AI services: `/api/bert/*`
+- AI services: `/api/ml/*`, `/api/bert/*`
 - Status: `/health`, `/api/status`
+
+## Troubleshooting
+
+- Port 3000 already in use (Windows PowerShell):
+
+```powershell
+$conn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
+if ($conn) {
+	$pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique
+	foreach ($procId in $pids) { Stop-Process -Id $procId -Force }
+}
+```
+
+- Server starts but resume upload paths are missing:
+
+```bash
+mkdir uploads/temp uploads/resumes uploads/avatars
+```
+
+- Verify backend startup quickly:
+
+```bash
+npm start
+curl http://localhost:3000/health
+```
 
 ## Security and Reliability
 
