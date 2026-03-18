@@ -20,24 +20,64 @@ It combines resume intelligence, smart matching, interview workflows, and analyt
 
 ## Architecture
 
-CareerConnect AI follows a layered architecture:
+```mermaid
+flowchart TD
+	U[Users: Job Seekers and Employers]
 
-1. Presentation Layer
-- React SPA (Vite) for landing, auth, candidate, and employer experiences.
-- Context/providers for app state and Socket.IO-driven real-time UX.
+	subgraph FE[Presentation Layer - React and Vite]
+		SPA[SPA Pages and Components]
+		CTX[Contexts and Providers]
+		WS[Socket.IO Client]
+	end
 
-2. API Layer
-- Express server with route modules for auth, job flows, employer workflows, and AI endpoints.
-- Middleware for validation, security controls, auth checks, and centralized error handling.
+	subgraph API[API Layer - Express]
+		RT[Routes: auth, jobs, employer, employee, bert]
+		MW[Middleware: auth, validation, security, errors]
+		HC[Health and status endpoints]
+	end
 
-3. Domain and Service Layer
-- Business logic in dedicated services for recommendations, matching, resume analysis, and skill-gap insights.
-- Orchestrates AI, data access, and third-party integrations.
+	subgraph SRV[Domain and Service Layer]
+		BS[Business Services]
+		REC[Recommendation and Matching Services]
+		NLP[Resume and Skill Intelligence Services]
+		REAL[Real-time Job and Notification Services]
+	end
 
-4. Data and Integration Layer
-- Sequelize + SQLite for core relational persistence.
-- Mongoose-compatible model paths for optional document-oriented features.
-- Redis-ready caching hooks and external provider integrations (OAuth, meeting providers, APIs).
+	subgraph DATA[Data and Integration Layer]
+		SQL[(SQLite via Sequelize)]
+		DOC[(Mongoose-compatible models)]
+		REDIS[(Redis cache optional)]
+		OAUTH[OAuth Providers: Google, LinkedIn, GitHub]
+		EXT[External APIs and meeting integrations]
+	end
+
+	U --> SPA
+	SPA --> RT
+	CTX --> RT
+	WS <--> REAL
+
+	RT --> MW
+	MW --> BS
+	BS --> REC
+	BS --> NLP
+	BS --> REAL
+
+	REC --> SQL
+	NLP --> SQL
+	BS --> DOC
+	BS --> REDIS
+	MW --> OAUTH
+	BS --> EXT
+
+	HC --> SQL
+	HC --> REDIS
+```
+
+Architecture summary:
+
+- Frontend requests flow through route and middleware layers before reaching business services.
+- Service modules encapsulate hiring, recommendation, resume-intelligence, and real-time logic.
+- Persistence and integrations are isolated in the data/integration layer for maintainability.
 
 ### Runtime Flow
 
