@@ -102,6 +102,7 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === '/api/perf/vitals' || req.path === '/perf/vitals',
 });
 
 const authLimiter = rateLimit({
@@ -237,7 +238,7 @@ app.get('/api/status', [apiLimiter, passport.authenticate('jwt', { session: fals
 });
 
 // Optional telemetry endpoint for client web-vitals beacons.
-app.post('/api/perf/vitals', apiLimiter, (req, res) => {
+app.post('/api/perf/vitals', (req, res) => {
   res.status(204).end();
 });
 
