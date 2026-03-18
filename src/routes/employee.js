@@ -422,26 +422,16 @@ router.patch('/interviews/:id', async (req, res) => {
 // @access  Private (jobseeker)
 router.get('/saved-jobs', async (req, res) => {
   try {
-    if (!User || !Job) {
-      return res.status(503).json({ error: 'Models not available' });
-    }
-
     const { page = 1, limit = 20 } = req.query;
-    const userId = req.user.userId;
-    
-    const user = await User.findById(userId).populate({
-      path: 'savedJobs',
-      populate: {
-        path: 'employer',
-        select: 'firstName lastName company'
-      }
-    });
+    const userId = req.user?.userId || req.user?.id;
+
+    const user = await getUserById(userId);
     
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.json({ jobs: [], total: 0, page: parseInt(page, 10), totalPages: 0 });
     }
-    
-    const savedJobs = user.savedJobs || [];
+
+    const savedJobs = Array.isArray(user.savedJobs) ? user.savedJobs : [];
     
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);

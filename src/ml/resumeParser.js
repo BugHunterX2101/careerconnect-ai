@@ -68,7 +68,7 @@ class ResumeParser {
         personalInfo: this.extractPersonalInfo(sections.personal || ''),
         education: this.extractEducation(sections.education || ''),
         experience: this.extractExperience(sections.experience || ''),
-        skills: this.extractSkills(sections.skills || ''),
+        skills: await this.extractSkills(sections.skills || ''),
         summary: sections.summary || '',
         rawText: text
       };

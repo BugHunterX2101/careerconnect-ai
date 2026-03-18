@@ -1,6 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const csrf = require('csurf');
+const fs = require('fs').promises;
+const path = require('path');
 const gptJobsRouter = require('./gpt-jobs');
 // Try to import ML classes (optional)
 let ResumeParser = null;
@@ -78,6 +80,7 @@ initializeML();
 // @desc    Parse resume using BERT and generate job recommendations
 // @access  Private
 router.post('/parse-resume', authenticateToken, mlLimiter, upload.single('resume'), async (req, res) => {
+  let tempFilePath = null;
   try {
     if (!resumeParser) {
       return res.status(503).json({ error: 'Resume parser not available' });
@@ -87,8 +90,19 @@ router.post('/parse-resume', authenticateToken, mlLimiter, upload.single('resume
       return res.status(400).json({ error: 'Resume file is required' });
     }
 
-    // Parse resume with BERT
-    const parsedData = await resumeParser.parseResume(req.file.path);
+    // Parse resume with BERT (supports in-memory uploads by writing a temporary file).
+    const ext = path.extname(req.file.originalname || '').toLowerCase();
+    const supportedExtensions = new Set(['.pdf', '.txt']);
+    if (!supportedExtensions.has(ext)) {
+      return res.status(400).json({ error: 'Unsupported file format. Please upload a PDF or TXT resume.' });
+    }
+
+    const tempDir = path.resolve('./uploads/temp');
+    await fs.mkdir(tempDir, { recursive: true });
+    tempFilePath = path.join(tempDir, `resume-${Date.now()}${ext}`);
+    await fs.writeFile(tempFilePath, req.file.buffer);
+
+    const parsedData = await resumeParser.parseResume(tempFilePath);
     const qualityAnalysis = await resumeParser.analyzeResumeQuality(parsedData);
     
     // Extract keywords for job recommendations
@@ -111,6 +125,14 @@ router.post('/parse-resume', authenticateToken, mlLimiter, upload.single('resume
   } catch (error) {
     console.error('Resume parsing error:', error);
     res.status(500).json({ error: 'Failed to parse resume' });
+  } finally {
+    if (tempFilePath) {
+      try {
+        await fs.unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.warn('Temporary resume cleanup failed:', cleanupError.message);
+      }
+    }
   }
 });
 
@@ -330,7 +352,22 @@ router.post('/analyze-text', authenticateToken, mlLimiter, async (req, res) => {
     let analysis = {};
 
     if (resumeParser) {
-      analysis = await resumeParser.parseResume(Buffer.from(text), 'text-resume.txt');
+      // Text-mode analysis should avoid file-path parsing and work directly on provided text.
+      const sections = resumeParser.extractSections(text);
+      const parsedData = {
+        personalInfo: resumeParser.extractPersonalInfo(sections.personal || ''),
+        education: resumeParser.extractEducation(sections.education || ''),
+        experience: resumeParser.extractExperience(sections.experience || ''),
+        skills: await resumeParser.extractSkills(sections.skills || text),
+        summary: sections.summary || text.slice(0, 500),
+        rawText: text
+      };
+
+      const qualityAnalysis = await resumeParser.analyzeResumeQuality(parsedData);
+      analysis = {
+        ...parsedData,
+        qualityAnalysis
+      };
     } else if (type === 'job_description') {
       analysis = { type: 'job_description', content: text, analysis: 'Basic analysis available' };
     } else if (type === 'cover_letter') {

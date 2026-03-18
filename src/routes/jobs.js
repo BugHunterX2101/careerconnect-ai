@@ -302,16 +302,21 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
 
     // Search local jobs
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    if (!Job) {
-      return res.status(503).json({ error: 'Job model not available' });
-    }
-    const jobs = await Job.find(searchQuery)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('employer', 'firstName lastName company');
+    let jobs = [];
+    let total = 0;
+    if (Job && typeof Job.find === 'function') {
+      try {
+        jobs = await Job.find(searchQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .populate('employer', 'firstName lastName company');
 
-    const total = await Job.countDocuments(searchQuery);
+        total = await Job.countDocuments(searchQuery);
+      } catch (dbError) {
+        getLogger().warn(`Job search fallback (database unavailable): ${dbError.message}`);
+      }
+    }
 
     // Combine local and LinkedIn jobs
     const allJobs = [...jobs, ...linkedinJobs];
@@ -324,7 +329,7 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Job search error:', error);
+    getLogger().error('Job search error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
