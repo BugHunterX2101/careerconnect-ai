@@ -376,7 +376,8 @@ router.post('/job-recommendations', authenticateToken, mlLimiter, async (req, re
     // Get user profile for better recommendations
     let User = null;
     try {
-      User = require('../models/User');
+      const userModule = require('../models/User');
+      User = typeof userModule?.User === 'function' ? userModule.User() : userModule;
     } catch (error) {
       console.warn('User model not available:', error.message);
     }
@@ -385,7 +386,10 @@ router.post('/job-recommendations', authenticateToken, mlLimiter, async (req, re
       return res.status(503).json({ error: 'User model not available' });
     }
     
-    const user = await User.findById(userId).populate('resumes');
+    let user = null;
+    if (typeof User.findByPk === 'function') {
+      user = await User.findByPk(userId);
+    }
 
     // Prepare recommendation parameters
     const params = {
@@ -400,7 +404,7 @@ router.post('/job-recommendations', authenticateToken, mlLimiter, async (req, re
     };
 
     // If user has resumes, use their skills
-    if (user.resumes && user.resumes.length > 0) {
+    if (user?.resumes && user.resumes.length > 0) {
       const latestResume = user.resumes[user.resumes.length - 1];
       if (latestResume.skills && latestResume.skills.length > 0) {
         params.skills = [...new Set([...params.skills, ...latestResume.skills])];
@@ -408,7 +412,7 @@ router.post('/job-recommendations', authenticateToken, mlLimiter, async (req, re
     }
 
     // Get recommendations
-    const recommendations = await jobRecommender.getJobRecommendations(user, params);
+    const recommendations = await jobRecommender.getJobRecommendations(user || {}, params);
 
     res.json({
       success: true,

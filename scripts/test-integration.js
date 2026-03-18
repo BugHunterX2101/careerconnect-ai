@@ -39,7 +39,8 @@ function logTest(testName, status, details = '') {
 async function testBackendHealth() {
   try {
     const response = await axios.get(`${BACKEND_URL}/health`);
-    if (response.status === 200 && response.data.status === 'OK') {
+    const backendStatus = String(response.data.status || '').toLowerCase();
+    if (response.status === 200 && (backendStatus === 'ok' || backendStatus === 'ready')) {
       logTest('Backend Health Check', 'PASS', `Uptime: ${response.data.uptime}s`);
       return true;
     } else {

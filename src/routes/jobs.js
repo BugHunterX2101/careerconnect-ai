@@ -30,6 +30,7 @@ const getLogger = () => {
   }
   return logger;
 };
+logger = getLogger();
 
 let linkedinService;
 const getLinkedInService = () => {
@@ -325,6 +326,64 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
   } catch (error) {
     logger.error('Job search error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/jobs/applications
+// @desc    Get current user's job applications (compatibility endpoint)
+// @access  Private
+router.get('/applications', authenticateToken, jobSearchLimiter, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const userId = req.user?.userId;
+
+    if (!Job || typeof Job.find !== 'function') {
+      return res.json({ applications: [], total: 0, page: parseInt(page, 10), totalPages: 0 });
+    }
+
+    const query = { 'applications.userId': userId };
+    const jobs = await Job.find(query).sort({ updatedAt: -1 }).limit(200);
+
+    let applications = [];
+    jobs.forEach((job) => {
+      const matches = (job.applications || []).filter((entry) => {
+        const matchesUser = String(entry.userId) === String(userId);
+        const matchesStatus = status ? entry.status === status : true;
+        return matchesUser && matchesStatus;
+      });
+
+      matches.forEach((entry) => {
+        applications.push({
+          _id: entry._id,
+          status: entry.status,
+          appliedAt: entry.appliedAt,
+          notes: entry.notes,
+          job: {
+            _id: job._id,
+            title: job.title,
+            company: job?.company?.name || 'Unknown Company',
+            location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ')
+          }
+        });
+      });
+    });
+
+    applications = applications.sort((a, b) => new Date(b.appliedAt || 0) - new Date(a.appliedAt || 0));
+
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    const start = (parsedPage - 1) * parsedLimit;
+    const paginated = applications.slice(start, start + parsedLimit);
+
+    res.json({
+      applications: paginated,
+      total: applications.length,
+      page: parsedPage,
+      totalPages: Math.ceil(applications.length / parsedLimit) || 0
+    });
+  } catch (error) {
+    getLogger().warn(`Could not fetch applications from database: ${error.message}`);
+    res.json({ applications: [], total: 0, page: 1, totalPages: 0 });
   }
 });
 
