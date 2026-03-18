@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Card, CardContent, Grid, Button,
@@ -9,15 +9,17 @@ import {
 import {
   Work, Assessment, Schedule, TrendingUp, Add, Search,
   Description, Visibility, Chat, VideoCall, Star,
-  LocationOn, Business, CalendarToday, CheckCircle
+  LocationOn, Business, CalendarToday, CheckCircle, Refresh
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { employeeService } from '../../services/employeeService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSocket } from '../../contexts/SocketContext';
 import { MetricChip, SignatureCard, TrendBadge } from '../../components/common';
 const EmployeeDashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { socket, isConnected } = useSocket();
   const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [recentApplications, setRecentApplications] = useState([]);
@@ -25,14 +27,23 @@ const EmployeeDashboardPage = () => {
   const [jobRecommendations, setJobRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
+    if (isRefreshingRef.current) {
+      return;
+    }
 
-  const loadDashboardData = async () => {
     try {
-      setLoading(true);
+      isRefreshingRef.current = true;
+      setLoadError('');
+      if (!silent) {
+        setLoading(true);
+      }
+
       const [statsData, applicationsData, interviewsData, recommendationsData] = await Promise.all([
         employeeService.getDashboardStats(),
         employeeService.getApplications({ limit: 5 }),
@@ -44,10 +55,67 @@ const EmployeeDashboardPage = () => {
       setRecentApplications(applicationsData.applications || []);
       setUpcomingInterviews(interviewsData.interviews || []);
       setJobRecommendations(recommendationsData.jobs || []);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setLoadError('Unable to refresh your dashboard right now. Showing the most recent data available.');
     } finally {
-      setLoading(false);
+      isRefreshingRef.current = false;
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      loadDashboardData({ silent: true });
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    const refreshFromRealtimeEvent = () => loadDashboardData({ silent: true });
+    const realtimeEvents = [
+      'interview:scheduled',
+      'interview:cancelled',
+      'interview:completed',
+      'job_recommendations_ready',
+      'resume_progress_update'
+    ];
+
+    realtimeEvents.forEach((eventName) => {
+      socket.on(eventName, refreshFromRealtimeEvent);
+    });
+
+    return () => {
+      realtimeEvents.forEach((eventName) => {
+        socket.off(eventName, refreshFromRealtimeEvent);
+      });
+    };
+  }, [socket, loadDashboardData]);
+
+  useEffect(() => {
+    if (isConnected) {
+      loadDashboardData({ silent: true });
+    }
+  }, [isConnected, loadDashboardData]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await loadDashboardData({ silent: true });
+    } finally {
+      setIsManualRefreshing(false);
     }
   };
 
@@ -115,34 +183,71 @@ const EmployeeDashboardPage = () => {
           <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
             <MetricChip label="Role-fit scoring" />
             <MetricChip label="Interview readiness" color="success" />
+            <Chip
+              size="small"
+              label={isConnected ? 'Real-time connected' : 'Reconnecting live updates'}
+              color={isConnected ? 'success' : 'warning'}
+              variant="outlined"
+            />
+            <Chip
+              size="small"
+              label={lastUpdated ? `Updated ${formatDate(lastUpdated)}` : 'Waiting for first sync'}
+              variant="outlined"
+            />
           </Box>
         </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<TrendingUp sx={{ fontSize: 28 }} />}
-          onClick={() => navigate('/jobs/recommendations')}
-          size="large"
-          sx={{ 
-            background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
-            color: '#FAF3E0',
-            py: 2,
-            px: 4,
-            fontSize: '1.125rem',
-            fontWeight: 600,
-            textTransform: 'none',
-            letterSpacing: '0.3px',
-            boxShadow: '0 4px 12px rgba(139, 111, 71, 0.2)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #6B5544 0%, #8B6F47 100%)',
-              transform: 'translateY(-1px)',
-              boxShadow: '0 6px 16px rgba(139, 111, 71, 0.25)'
-            },
-            transition: 'all 0.25s ease'
-          }}
-        >
-          Generate High-Fit Matches
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            onClick={handleManualRefresh}
+            disabled={isManualRefreshing}
+            startIcon={<Refresh />}
+            sx={{
+              borderColor: '#8B6F47',
+              color: '#8B6F47',
+              textTransform: 'none',
+              fontWeight: 600,
+              '&:hover': {
+                borderColor: '#6B5544',
+                background: 'rgba(139, 111, 71, 0.08)'
+              }
+            }}
+          >
+            {isManualRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<TrendingUp sx={{ fontSize: 28 }} />}
+            onClick={() => navigate('/jobs/recommendations')}
+            size="large"
+            sx={{
+              background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+              color: '#FAF3E0',
+              py: 2,
+              px: 4,
+              fontSize: '1.125rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              letterSpacing: '0.3px',
+              boxShadow: '0 4px 12px rgba(139, 111, 71, 0.2)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #6B5544 0%, #8B6F47 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(139, 111, 71, 0.25)'
+              },
+              transition: 'all 0.25s ease'
+            }}
+          >
+            Generate High-Fit Matches
+          </Button>
+        </Box>
       </Box>
+
+      {loadError && (
+        <Alert severity="warning" sx={{ mb: 3, borderLeft: '4px solid #A67C52' }}>
+          {loadError}
+        </Alert>
+      )}
 
       {/* AI-Powered Quick Actions */}
       <Paper className="dashboard-highlight-panel" sx={{ 
@@ -588,6 +693,14 @@ const EmployeeDashboardPage = () => {
                   </Box>
                 </ListItem>
               ))}
+              {jobRecommendations.length === 0 && (
+                <ListItem sx={{ p: 3 }}>
+                  <ListItemText
+                    primary={<Typography variant="h6" sx={{ color: '#6B5544', fontSize: '1rem' }}>No recommendations yet</Typography>}
+                    secondary={<Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem' }}>Keep your profile updated to unlock better AI matches.</Typography>}
+                  />
+                </ListItem>
+              )}
             </List>
             <Button 
               fullWidth 
