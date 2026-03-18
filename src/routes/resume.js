@@ -164,10 +164,32 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
 router.get('/', authenticateToken, async (req, res) => {
   try {
     if (!getResumeModel) {
-      return res.status(503).json({ error: 'Resume model not available' });
+      return res.json({
+        resumes: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          pages: 0
+        }
+      });
     }
 
-    const Resume = getResumeModel();
+    let Resume;
+    try {
+      Resume = getResumeModel();
+    } catch (modelError) {
+      console.warn('Resume model initialization failed:', modelError.message);
+      return res.json({
+        resumes: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          pages: 0
+        }
+      });
+    }
     const { page = 1, limit = 10, status, search } = req.query;
     const offset = (page - 1) * limit;
 

@@ -31,7 +31,8 @@ import {
   TrendingUp,
   Work,
   School,
-  Star
+  Star,
+  AutoAwesome
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
@@ -294,9 +295,6 @@ const ResumeUploadPage = () => {
 
               <Box sx={{ mt: 2 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>{t('resume.maxSize.label')}:</strong> {t('resume.maxSize.value')}
-                </Typography>
                   <strong>Maximum size:</strong> 10MB
                 </Typography>
               </Box>
