@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Card,
@@ -20,7 +20,9 @@ import {
   List,
   ListItem,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  LinearProgress,
+  Chip
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import {
@@ -62,6 +64,42 @@ const RegisterPage = () => {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
 
+  const roleGuidance = {
+    employer: 'You will get hiring pipelines, applicant tracking, and interview coordination tools.',
+    jobseeker: 'You will get AI job matching, resume insights, and interview prep guidance.'
+  };
+
+  const passwordChecks = useMemo(() => {
+    const password = formData.password || '';
+    return {
+      minLength: password.length >= 8,
+      hasLetter: /[A-Za-z]/.test(password),
+      hasNumber: /\d/.test(password),
+      hasSpecial: /[^A-Za-z0-9]/.test(password)
+    };
+  }, [formData.password]);
+
+  const passwordScore = useMemo(() => {
+    const checks = Object.values(passwordChecks).filter(Boolean).length;
+    return checks;
+  }, [passwordChecks]);
+
+  const passwordStrength = useMemo(() => {
+    if (!formData.password) {
+      return { label: 'Add a password', color: 'inherit', progress: 0 };
+    }
+    if (passwordScore <= 1) {
+      return { label: 'Weak', color: 'error', progress: 25 };
+    }
+    if (passwordScore === 2) {
+      return { label: 'Fair', color: 'warning', progress: 50 };
+    }
+    if (passwordScore === 3) {
+      return { label: 'Good', color: 'info', progress: 75 };
+    }
+    return { label: 'Strong', color: 'success', progress: 100 };
+  }, [formData.password, passwordScore]);
+
   const { oauthState, statusFlags, startOAuth, retryOAuth } = useOAuthFlow({
     loginWithToken,
     navigate,
@@ -69,12 +107,15 @@ const RegisterPage = () => {
   });
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    const normalizedValue = name === 'email' ? value.trim().toLowerCase() : value;
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: normalizedValue
     });
     setError(''); // Clear error when user starts typing
-    setFieldErrors((prev) => ({ ...prev, [e.target.name]: '' }));
+    setFieldErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   const validateForm = () => {
@@ -91,8 +132,14 @@ const RegisterPage = () => {
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
       nextErrors.email = 'Please enter a valid email address.';
     }
-    if (formData.password.length < 8) {
-      nextErrors.password = 'Password must be at least 8 characters long.';
+    if (!formData.password) {
+      nextErrors.password = 'Password is required.';
+    }
+    if (formData.password && !Object.values(passwordChecks).every(Boolean)) {
+      nextErrors.password = 'Use at least 8 characters with letters, numbers, and a special character.';
+    }
+    if (!formData.confirmPassword) {
+      nextErrors.confirmPassword = 'Please confirm your password.';
     }
     if (formData.password !== formData.confirmPassword) {
       nextErrors.confirmPassword = 'Passwords do not match.';
@@ -133,6 +180,7 @@ const RegisterPage = () => {
 
   const displayError = error || (statusFlags.hasError ? oauthState.message : '');
   const isOAuthInProgress = statusFlags.isLoading;
+  const isSubmitDisabled = loading || isOAuthInProgress;
   const trustPoints = [
     { icon: <Security />, text: 'Protected authentication and privacy-first profile handling' },
     { icon: <Bolt />, text: 'Fast AI resume parsing and instant career signal analysis' },
@@ -316,6 +364,10 @@ const RegisterPage = () => {
               </Select>
             </FormControl>
 
+            <CalmAlert severity="info" sx={{ mb: 3, borderRadius: 3 }}>
+              {roleGuidance[formData.role]}
+            </CalmAlert>
+
             <TextField
               className={fieldErrors.password ? 'field-error-shake' : formData.password ? 'field-success-pop' : ''}
               fullWidth
@@ -347,6 +399,50 @@ const RegisterPage = () => {
                 ),
               }}
             />
+
+            <Box sx={{ mb: 2.5 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Password strength
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }} color={`${passwordStrength.color}.main`}>
+                  {passwordStrength.label}
+                </Typography>
+              </Stack>
+              <LinearProgress
+                variant="determinate"
+                value={passwordStrength.progress}
+                color={passwordStrength.color === 'inherit' ? 'primary' : passwordStrength.color}
+                sx={{ height: 8, borderRadius: 999, bgcolor: 'rgba(139, 111, 71, 0.15)' }}
+              />
+            </Box>
+
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 3 }}>
+              <Chip
+                label="8+ chars"
+                size="small"
+                color={passwordChecks.minLength ? 'success' : 'default'}
+                variant={passwordChecks.minLength ? 'filled' : 'outlined'}
+              />
+              <Chip
+                label="Letter"
+                size="small"
+                color={passwordChecks.hasLetter ? 'success' : 'default'}
+                variant={passwordChecks.hasLetter ? 'filled' : 'outlined'}
+              />
+              <Chip
+                label="Number"
+                size="small"
+                color={passwordChecks.hasNumber ? 'success' : 'default'}
+                variant={passwordChecks.hasNumber ? 'filled' : 'outlined'}
+              />
+              <Chip
+                label="Special"
+                size="small"
+                color={passwordChecks.hasSpecial ? 'success' : 'default'}
+                variant={passwordChecks.hasSpecial ? 'filled' : 'outlined'}
+              />
+            </Stack>
 
             <TextField
               className={fieldErrors.confirmPassword ? 'field-error-shake' : formData.confirmPassword ? 'field-success-pop' : ''}
@@ -385,7 +481,7 @@ const RegisterPage = () => {
               fullWidth
               variant="contained"
               size="large"
-              disabled={loading || isOAuthInProgress}
+              disabled={isSubmitDisabled}
               sx={{
                 mb: 4,
                 py: 2.5,

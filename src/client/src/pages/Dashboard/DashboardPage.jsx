@@ -70,31 +70,18 @@ const DashboardPage = () => {
       // Use the new comprehensive dashboard endpoint
       const response = await api.get('/profile/dashboard');
       
-      if (response.data?.success && response.data?.data) {
-        const data = response.data.data;
-        setStats({
-          resumes: data.stats?.resumes || 0,
-          applications: data.stats?.applications || 0,
-          interviews: data.stats?.interviews || 0,
-          recommendations: data.stats?.recommendations || 0
-        });
-        setRecentActivities(data.recent_activities || []);
-      } else {
-        // Fallback to individual endpoints if dashboard endpoint fails
-        const [statsRes, activitiesRes] = await Promise.all([
-          api.get('/profile/stats').catch(() => ({ data: { stats: { resumes: 0, applications: 0, interviews: 0, recommendations: 0 } } })),
-          api.get('/profile/activities').catch(() => ({ data: { activities: [] } }))
-        ]);
-        
-        const s = statsRes.data?.stats || {};
-        setStats({
-          resumes: s.resumes || 0,
-          applications: s.applications || 0,
-          interviews: s.interviews || 0,
-          recommendations: s.recommendations || 0
-        });
-        setRecentActivities(activitiesRes.data?.activities || []);
+      if (!response.data?.success || !response.data?.data) {
+        throw new Error('Invalid dashboard response');
       }
+
+      const data = response.data.data;
+      setStats({
+        resumes: data.stats?.resumes || 0,
+        applications: data.stats?.applications || 0,
+        interviews: data.stats?.interviews || 0,
+        recommendations: data.stats?.recommendations || 0
+      });
+      setRecentActivities(data.recent_activities || []);
     } catch (error) {
       console.error('Dashboard data fetch error:', error);
       setError(error.message || 'Failed to load dashboard data');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Box, Typography, Card, CardContent, Grid, Button, 
@@ -9,15 +9,17 @@ import {
 import { 
   Business, People, Work, Assessment, Add, Search, 
   Schedule, Chat, MoreVert, Notifications, TrendingUp,
-  VideoCall, Email, Phone, LocationOn
+  VideoCall, Email, Phone, LocationOn, Refresh
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { employerService } from '../../services/employerService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSocket } from '../../contexts/SocketContext';
 
 const EmployerDashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { socket, isConnected } = useSocket();
   const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
@@ -25,14 +27,23 @@ const EmployerDashboardPage = () => {
   const [upcomingInterviews, setUpcomingInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
+    if (isRefreshingRef.current) {
+      return;
+    }
 
-  const loadDashboardData = async () => {
     try {
-      setLoading(true);
+      isRefreshingRef.current = true;
+      setLoadError('');
+      if (!silent) {
+        setLoading(true);
+      }
+
       const [statsData, jobsData, interviewsData] = await Promise.all([
         employerService.getDashboardStats(),
         employerService.getJobs({ limit: 5 }),
@@ -57,11 +68,71 @@ const EmployerDashboardPage = () => {
         const applicationsArrays = await Promise.all(jobPromises);
         const applications = applicationsArrays.flat().slice(0, 5);
         setRecentApplications(applications);
+      } else {
+        setRecentApplications([]);
       }
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setLoadError('Unable to refresh dashboard data right now. Showing the most recent data available.');
     } finally {
-      setLoading(false);
+      isRefreshingRef.current = false;
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      loadDashboardData({ silent: true });
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    const refreshFromRealtimeEvent = () => loadDashboardData({ silent: true });
+    const realtimeEvents = [
+      'interview:scheduled',
+      'interview:cancelled',
+      'interview:completed',
+      'job_recommendations_ready',
+      'resume_progress_update',
+      'chat:new_message'
+    ];
+
+    realtimeEvents.forEach((eventName) => {
+      socket.on(eventName, refreshFromRealtimeEvent);
+    });
+
+    return () => {
+      realtimeEvents.forEach((eventName) => {
+        socket.off(eventName, refreshFromRealtimeEvent);
+      });
+    };
+  }, [socket, loadDashboardData]);
+
+  useEffect(() => {
+    if (isConnected) {
+      loadDashboardData({ silent: true });
+    }
+  }, [isConnected, loadDashboardData]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await loadDashboardData({ silent: true });
+    } finally {
+      setIsManualRefreshing(false);
     }
   };
 
@@ -112,33 +183,72 @@ const EmployerDashboardPage = () => {
           <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1rem', lineHeight: 1.6 }}>
             Manage your recruitment and hiring process
           </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+            <Chip
+              size="small"
+              label={isConnected ? 'Real-time connected' : 'Reconnecting live updates'}
+              color={isConnected ? 'success' : 'warning'}
+              variant="outlined"
+            />
+            <Chip
+              size="small"
+              label={lastUpdated ? `Updated ${formatDate(lastUpdated)}` : 'Waiting for first sync'}
+              variant="outlined"
+            />
+          </Box>
         </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<Add sx={{ fontSize: 22 }} />}
-          onClick={() => handleQuickAction('post-job')}
-          size="large"
-          sx={{
-            background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
-            color: '#FAF3E0',
-            py: 1.75,
-            px: 3.5,
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            textTransform: 'none',
-            letterSpacing: '0.3px',
-            boxShadow: '0 4px 12px rgba(139, 111, 71, 0.2)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #6B5544 0%, #8B6F47 100%)',
-              transform: 'translateY(-1px)',
-              boxShadow: '0 6px 16px rgba(139, 111, 71, 0.25)'
-            },
-            transition: 'all 0.25s ease'
-          }}
-        >
-          Post New Job
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            onClick={handleManualRefresh}
+            disabled={isManualRefreshing}
+            startIcon={<Refresh />}
+            sx={{
+              borderColor: '#8B6F47',
+              color: '#8B6F47',
+              textTransform: 'none',
+              fontWeight: 600,
+              '&:hover': {
+                borderColor: '#6B5544',
+                background: 'rgba(139, 111, 71, 0.08)'
+              }
+            }}
+          >
+            {isManualRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Add sx={{ fontSize: 22 }} />}
+            onClick={() => handleQuickAction('post-job')}
+            size="large"
+            sx={{
+              background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+              color: '#FAF3E0',
+              py: 1.75,
+              px: 3.5,
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              letterSpacing: '0.3px',
+              boxShadow: '0 4px 12px rgba(139, 111, 71, 0.2)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #6B5544 0%, #8B6F47 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(139, 111, 71, 0.25)'
+              },
+              transition: 'all 0.25s ease'
+            }}
+          >
+            Post New Job
+          </Button>
+        </Box>
       </Box>
+
+      {loadError && (
+        <Alert severity="warning" sx={{ mb: 3, borderLeft: '4px solid #A67C52' }}>
+          {loadError}
+        </Alert>
+      )}
 
       {/* Quick Actions */}
       <Paper sx={{ 
