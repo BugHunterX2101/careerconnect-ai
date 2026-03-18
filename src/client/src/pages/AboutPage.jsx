@@ -51,28 +51,28 @@ const AboutPage = () => {
       name: 'Alex Chen',
       role: 'CEO & Co-Founder',
       bio: 'Former Google AI researcher with 10+ years in machine learning and career development.',
-      avatar: '👨‍💼',
+      avatar: 'AC',
       linkedin: '#',
     },
     {
       name: 'Sarah Rodriguez',
       role: 'CTO & Co-Founder',
       bio: 'Ex-Microsoft engineer specializing in NLP and distributed systems architecture.',
-      avatar: '👩‍💻',
+      avatar: 'SR',
       linkedin: '#',
     },
     {
       name: 'Michael Johnson',
       role: 'Head of AI',
       bio: 'PhD in Computer Science, former OpenAI researcher focused on language models.',
-      avatar: '🧠',
+      avatar: 'MJ',
       linkedin: '#',
     },
     {
       name: 'Emily Davis',
       role: 'Head of Product',
       bio: 'Former LinkedIn product manager with expertise in career development platforms.',
-      avatar: '👩‍🚀',
+      avatar: 'ED',
       linkedin: '#',
     },
   ];
@@ -166,7 +166,7 @@ const AboutPage = () => {
                 variant="h1"
                 sx={{
                   fontWeight: 800,
-                  fontSize: { xs: '2.5rem', md: '4rem' },
+                  fontSize: { xs: '2rem', md: '2.8rem' },
                   mb: 3,
                   textShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
                 }}
@@ -179,6 +179,7 @@ const AboutPage = () => {
                   opacity: 0.9,
                   lineHeight: 1.6,
                   mb: 4,
+                  fontSize: { xs: '1rem', md: '1.15rem' },
                 }}
               >
                 We're on a mission to democratize career success through cutting-edge
@@ -195,12 +196,11 @@ const AboutPage = () => {
                     color: 'white',
                     px: 6,
                     py: 2,
-                    fontSize: '1.375rem',
+                    fontSize: '1.05rem',
                     fontWeight: 700,
                     borderRadius: 3,
                     border: '3px solid #FBBF24',
                     boxShadow: '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 40px rgba(251, 191, 36, 0.4)',
-                    animation: 'subtleGlow 2s ease-in-out infinite',
                     transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
@@ -221,7 +221,7 @@ const AboutPage = () => {
                     color: 'white',
                     px: 4,
                     py: 1.5,
-                    fontSize: '1.1rem',
+                    fontSize: '1rem',
                     fontWeight: 600,
                     '&:hover': {
                       borderColor: 'white',
@@ -444,7 +444,7 @@ const AboutPage = () => {
             {team.map((member, index) => (
               <Grid item xs={12} sm={6} md={3} key={index}>
                 <Card className="hover-lift" sx={{ textAlign: 'center', p: 3, borderRadius: 3 }}>
-                  <Typography sx={{ fontSize: '4rem', mb: 2 }}>
+                  <Typography sx={{ fontSize: '3.2rem', mb: 2 }}>
                     {member.avatar}
                   </Typography>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
@@ -545,10 +545,10 @@ const AboutPage = () => {
       >
         <Container maxWidth="md">
           <Box textAlign="center">
-            <Typography variant="h3" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h3" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.3rem' } }}>
               Ready to Join the AI Career Revolution?
             </Typography>
-            <Typography variant="h6" paragraph sx={{ opacity: 0.9, mb: 4 }}>
+            <Typography variant="h6" paragraph sx={{ opacity: 0.9, mb: 4, fontSize: { xs: '1rem', md: '1.1rem' } }}>
               Be part of the future of career development. Start your AI-powered journey today.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
@@ -561,12 +561,11 @@ const AboutPage = () => {
                   color: 'white',
                   px: 6,
                   py: 2,
-                  fontSize: '1.375rem',
+                  fontSize: '1.05rem',
                   fontWeight: 700,
                   borderRadius: 3,
                   border: '3px solid #FBBF24',
                   boxShadow: '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 40px rgba(251, 191, 36, 0.4)',
-                  animation: 'subtleGlow 2s ease-in-out infinite',
                   transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',
@@ -587,7 +586,7 @@ const AboutPage = () => {
                   color: 'white',
                   px: 5,
                   py: 2,
-                  fontSize: '1.25rem',
+                  fontSize: '1.05rem',
                   fontWeight: 600,
                   borderRadius: 3,
                   borderWidth: '2px',

@@ -63,7 +63,7 @@ const NotFoundPage = () => {
                 mb: 2,
               }}
             >
-              Oops! Page Not Found 😅
+              Oops! Page Not Found
             </Typography>
             
             <Typography 

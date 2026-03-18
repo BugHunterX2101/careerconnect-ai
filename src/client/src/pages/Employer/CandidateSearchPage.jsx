@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, TextField, Button,
   Grid, Chip, Avatar, List, ListItem, ListItemAvatar,
@@ -12,8 +12,11 @@ import {
   Star, Chat, Visibility, FilterList, Download,
   School, Business, CalendarToday
 } from '@mui/icons-material';
+import { FixedSizeList } from 'react-window';
+import { Trans } from 'react-i18next';
 import { employerService } from '../../services/employerService';
 import { useNavigate } from 'react-router-dom';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const CandidateSearchPage = () => {
   const navigate = useNavigate();
@@ -25,6 +28,8 @@ const CandidateSearchPage = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [inviteDialog, setInviteDialog] = useState(false);
   const [jobs, setJobs] = useState([]);
+  const [searchNonce, setSearchNonce] = useState(0);
+  const searchAbortRef = useRef(null);
   
   const [searchFilters, setSearchFilters] = useState({
     skills: [],
@@ -54,10 +59,21 @@ const CandidateSearchPage = () => {
     'Master\'s Degree', 'PhD', 'Professional Certification'
   ];
 
+  const debouncedFilters = useDebouncedValue(searchFilters, 350);
+
   useEffect(() => {
     loadJobs();
-    searchCandidates();
-  }, [page]);
+  }, []);
+
+  useEffect(() => {
+    searchCandidates(debouncedFilters);
+
+    return () => {
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort();
+      }
+    };
+  }, [page, debouncedFilters, searchNonce]);
 
   const loadJobs = async () => {
     try {
@@ -68,22 +84,32 @@ const CandidateSearchPage = () => {
     }
   };
 
-  const searchCandidates = async () => {
+  const searchCandidates = async (activeFilters) => {
     try {
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort();
+      }
+
+      const abortController = new AbortController();
+      searchAbortRef.current = abortController;
+
       setLoading(true);
       setError('');
       
       const searchParams = {
-        ...searchFilters,
-        skills: searchFilters.skills.join(','),
+        ...activeFilters,
+        skills: activeFilters.skills.join(','),
         page,
         limit: 10
       };
       
-      const response = await employerService.searchCandidates(searchParams);
+      const response = await employerService.searchCandidates(searchParams, { signal: abortController.signal });
       setCandidates(response.candidates || []);
       setTotalPages(response.totalPages || 1);
     } catch (error) {
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        return;
+      }
       setError('Failed to search candidates');
       console.error('Search error:', error);
     } finally {
@@ -95,14 +121,14 @@ const CandidateSearchPage = () => {
     setSearchFilters(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     setPage(1);
-    searchCandidates();
-  };
+    setSearchNonce((prev) => prev + 1);
+  }, []);
 
-  const handleViewProfile = (candidate) => {
+  const handleViewProfile = useCallback((candidate) => {
     setSelectedCandidate(candidate);
-  };
+  }, []);
 
   const handleInviteCandidate = async (candidateId, jobId, message) => {
     try {
@@ -115,9 +141,9 @@ const CandidateSearchPage = () => {
     }
   };
 
-  const handleStartChat = (candidateId) => {
+  const handleStartChat = useCallback((candidateId) => {
     navigate(`/chat?user=${candidateId}`);
-  };
+  }, [navigate]);
 
   const formatExperience = (experience) => {
     if (!experience) return 'Not specified';
@@ -129,6 +155,125 @@ const CandidateSearchPage = () => {
     const latest = education[0];
     return `${latest.degree} in ${latest.field}`;
   };
+
+  const candidateListHeight = useMemo(() => {
+    if (candidates.length === 0) return 0;
+    return Math.min(680, candidates.length * 190);
+  }, [candidates.length]);
+
+  const CandidateRow = useCallback(({ index, style }) => {
+    const candidate = candidates[index];
+    if (!candidate) return null;
+
+    return (
+      <Box style={style} sx={{ px: 0.5, pb: 1 }}>
+        <ListItem
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            height: 180,
+            alignItems: 'flex-start',
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <ListItemAvatar>
+            <Avatar
+              src={candidate.profile?.avatar}
+              sx={{ width: 60, height: 60 }}
+            >
+              {candidate.firstName?.[0]}{candidate.lastName?.[0]}
+            </Avatar>
+          </ListItemAvatar>
+
+          <ListItemText
+            primary={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h6">
+                  {candidate.firstName} {candidate.lastName}
+                </Typography>
+                {candidate.profile?.verified && (
+                  <Badge color="primary" variant="dot" />
+                )}
+              </Box>
+            }
+            secondary={
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {candidate.profile?.title || 'Professional'}
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <LocationOn fontSize="small" color="action" />
+                    <Typography variant="caption">
+                      {candidate.profile?.location || 'Location not specified'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Work fontSize="small" color="action" />
+                    <Typography variant="caption">
+                      {formatExperience(candidate.profile?.experience)}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {candidate.profile?.skills && (
+                  <Box sx={{ mt: 1 }}>
+                    {candidate.profile.skills.slice(0, 4).map((skill, idx) => (
+                      <Chip
+                        key={idx}
+                        label={skill}
+                        size="small"
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))}
+                    {candidate.profile.skills.length > 4 && (
+                      <Chip
+                        label={`+${candidate.profile.skills.length - 4} more`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                )}
+              </Box>
+            }
+          />
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => handleViewProfile(candidate)}
+              startIcon={<Visibility />}
+            >
+              View Profile
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleStartChat(candidate._id)}
+              startIcon={<Chat />}
+            >
+              Message
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setSelectedCandidate(candidate);
+                setInviteDialog(true);
+              }}
+              startIcon={<Email />}
+            >
+              Invite
+            </Button>
+          </Box>
+        </ListItem>
+      </Box>
+    );
+  }, [candidates, handleStartChat, handleViewProfile]);
 
   return (
     <Box>
@@ -251,138 +396,33 @@ const CandidateSearchPage = () => {
             </Typography>
           </Box>
 
-          {loading ? (
+          {loading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
             </Box>
-          ) : (
-            <List>
-              {candidates.map((candidate, index) => (
-                <React.Fragment key={candidate._id}>
-                  <ListItem
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      mb: 2,
-                      '&:hover': { bgcolor: 'action.hover' }
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar
-                        src={candidate.profile?.avatar}
-                        sx={{ width: 60, height: 60 }}
-                      >
-                        {candidate.firstName?.[0]}{candidate.lastName?.[0]}
-                      </Avatar>
-                    </ListItemAvatar>
-                    
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="h6">
-                            {candidate.firstName} {candidate.lastName}
-                          </Typography>
-                          {candidate.profile?.verified && (
-                            <Badge color="primary" variant="dot" />
-                          )}
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {candidate.profile?.title || 'Professional'}
-                          </Typography>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <LocationOn fontSize="small" color="action" />
-                              <Typography variant="caption">
-                                {candidate.profile?.location || 'Location not specified'}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Work fontSize="small" color="action" />
-                              <Typography variant="caption">
-                                {formatExperience(candidate.profile?.experience)}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <School fontSize="small" color="action" />
-                              <Typography variant="caption">
-                                {formatEducation(candidate.profile?.education)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          {candidate.profile?.skills && (
-                            <Box sx={{ mt: 1 }}>
-                              {candidate.profile.skills.slice(0, 5).map((skill, idx) => (
-                                <Chip
-                                  key={idx}
-                                  label={skill}
-                                  size="small"
-                                  sx={{ mr: 0.5, mb: 0.5 }}
-                                />
-                              ))}
-                              {candidate.profile.skills.length > 5 && (
-                                <Chip
-                                  label={`+${candidate.profile.skills.length - 5} more`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          )}
-                        </Box>
-                      }
-                    />
-                    
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => handleViewProfile(candidate)}
-                        startIcon={<Visibility />}
-                      >
-                        View Profile
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleStartChat(candidate._id)}
-                        startIcon={<Chat />}
-                      >
-                        Message
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => {
-                          setSelectedCandidate(candidate);
-                          setInviteDialog(true);
-                        }}
-                        startIcon={<Email />}
-                      >
-                        Invite
-                      </Button>
-                    </Box>
-                  </ListItem>
-                </React.Fragment>
-              ))}
-              
-              {candidates.length === 0 && !loading && (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <People sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    No candidates found
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Try adjusting your search filters
-                  </Typography>
-                </Box>
-              )}
-            </List>
+          )}
+
+          {!loading && candidates.length > 0 && (
+            <FixedSizeList
+              height={candidateListHeight}
+              width="100%"
+              itemCount={candidates.length}
+              itemSize={190}
+            >
+              {CandidateRow}
+            </FixedSizeList>
+          )}
+
+          {!loading && candidates.length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <People sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                No candidates found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your search filters
+              </Typography>
+            </Box>
           )}
 
           {totalPages > 1 && (

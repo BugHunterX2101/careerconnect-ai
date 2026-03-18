@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { employeeService } from '../../services/employeeService';
 import { useAuth } from '../../contexts/AuthContext';
+import { MetricChip, SignatureCard, TrendBadge } from '../../components/common';
 const EmployeeDashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -102,15 +103,19 @@ const EmployeeDashboardPage = () => {
   }
 
   return (
-    <Box>
+    <Box className="motion-page-enter">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: '2.75rem', color: '#6B5544', letterSpacing: '-0.5px' }}>
+          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: '2.05rem', color: 'text.primary', letterSpacing: '-0.5px' }}>
             Welcome back, {user?.firstName}!
           </Typography>
-          <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.25rem', lineHeight: 1.6, maxWidth: '650px' }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '1.05rem', lineHeight: 1.6, maxWidth: '650px' }}>
             {t('dashboard.welcomeMessage', 'Your AI-powered career dashboard with GPT-enhanced job matching, LinkedIn integration, and comprehensive resume analysis')}
           </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+            <MetricChip label="Role-fit scoring" />
+            <MetricChip label="Interview readiness" color="success" />
+          </Box>
         </Box>
         <Button 
           variant="contained" 
@@ -135,20 +140,20 @@ const EmployeeDashboardPage = () => {
             transition: 'all 0.25s ease'
           }}
         >
-          Get AI Recommendations
+          Generate High-Fit Matches
         </Button>
       </Box>
 
       {/* AI-Powered Quick Actions */}
-      <Paper sx={{ 
+      <Paper className="dashboard-highlight-panel" sx={{ 
         p: 3, 
         mb: 3,
-        background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
-        border: '1px solid rgba(139, 111, 71, 0.15)',
+        border: '1px solid rgba(15, 95, 204, 0.16)',
         borderRadius: 2,
-        boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
+        boxShadow: '0 10px 28px rgba(27, 43, 59, 0.08)'
       }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 2.5 }}>🤖 AI-Powered Quick Actions</Typography>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: 'text.primary', mb: 1 }}>AI-Powered Quick Actions</Typography>
+        <TrendBadge direction="up" label="Personalized for your recent profile activity" />
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <Button
@@ -259,17 +264,15 @@ const EmployeeDashboardPage = () => {
       
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
+        <Grid item xs={12} sm={6} md={6}>
+          <SignatureCard sx={{ 
             cursor: 'pointer',
-            background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
-            border: '1px solid rgba(139, 111, 71, 0.12)',
             borderRadius: 2,
             transition: 'all 0.25s ease',
             '&:hover': {
               transform: 'translateY(-3px)',
-              boxShadow: '0 8px 16px rgba(139, 111, 71, 0.12)',
-              borderColor: 'rgba(139, 111, 71, 0.25)'
+              boxShadow: '0 8px 16px rgba(27, 43, 59, 0.12)',
+              borderColor: 'rgba(15, 95, 204, 0.25)'
             }
           }} onClick={() => navigate('/employee/applications')}>
             <CardContent sx={{ p: 2.5 }}>
@@ -277,14 +280,14 @@ const EmployeeDashboardPage = () => {
                 <Work sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Job Applications</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.totalApplications || 0}
               </Typography>
               <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '1rem' }}>
                 {stats?.pendingApplications || 0} pending
               </Typography>
             </CardContent>
-          </Card>
+          </SignatureCard>
         </Grid>
         
         <Grid item xs={12} sm={6} md={3}>
@@ -305,7 +308,7 @@ const EmployeeDashboardPage = () => {
                 <Schedule sx={{ mr: 1.5, color: '#6B5544', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Interviews</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.totalInterviews || 0}
               </Typography>
               <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '1rem' }}>
@@ -332,7 +335,7 @@ const EmployeeDashboardPage = () => {
                 <Assessment sx={{ mr: 1.5, color: '#A67C52', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Profile Views</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.profileViews || 0}
               </Typography>
               <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '1rem' }}>
@@ -360,7 +363,7 @@ const EmployeeDashboardPage = () => {
                 <TrendingUp sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>AI Match Score</Typography>
               </Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '3rem', mb: 1, letterSpacing: '-1px' }}>
+              <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.jobMatches || 0}
               </Typography>
               <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '0.875rem' }}>
@@ -412,7 +415,7 @@ const EmployeeDashboardPage = () => {
             <Grid container spacing={4}>
               {/* Recent Applications */}
               <Grid item xs={12} md={6}>
-                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>
+                <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>
                   <Work sx={{ mr: 2, fontSize: 28 }} />
                   Recent Applications
                 </Typography>
@@ -425,7 +428,7 @@ const EmployeeDashboardPage = () => {
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', color: '#6B5544' }}>{application.job?.title}</Typography>}
+                        primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#6B5544' }}>{application.job?.title}</Typography>}
                         secondary={
                           <Box>
                             <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem', mt: 0.5 }}>
@@ -450,7 +453,7 @@ const EmployeeDashboardPage = () => {
                   {recentApplications.length === 0 && (
                     <ListItem sx={{ p: 3 }}>
                       <ListItemText 
-                        primary={<Typography variant="h6" sx={{ color: '#6B5544', fontSize: '1.25rem' }}>No applications yet</Typography>}
+                        primary={<Typography variant="h6" sx={{ color: '#6B5544', fontSize: '1rem' }}>No applications yet</Typography>}
                         secondary={<Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem' }}>Start applying to jobs to see them here</Typography>}
                       />
                     </ListItem>
@@ -481,11 +484,11 @@ const EmployeeDashboardPage = () => {
 
               {/* Profile Completion */}
               <Grid item xs={12} md={6}>
-                <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>Profile Completion</Typography>
+                <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>Profile Completion</Typography>
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#6B5544', fontWeight: 600 }}>Profile Strength</Typography>
-                    <Typography variant="body1" sx={{ fontSize: '1.25rem', color: '#8B6F47', fontWeight: 700 }}>{stats?.profileCompletion || 0}%</Typography>
+                    <Typography variant="body1" sx={{ fontSize: '1rem', color: '#8B6F47', fontWeight: 700 }}>{stats?.profileCompletion || 0}%</Typography>
                   </Box>
                   <LinearProgress 
                     variant="determinate" 
@@ -537,7 +540,7 @@ const EmployeeDashboardPage = () => {
         {/* Job Recommendations Tab */}
         {tabValue === 1 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>Recommended Jobs</Typography>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>Recommended Jobs</Typography>
             <List>
               {jobRecommendations.map((job) => (
                 <ListItem key={job._id} sx={{ 
@@ -559,7 +562,7 @@ const EmployeeDashboardPage = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={<Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.375rem', color: '#6B5544' }}>{job.title}</Typography>}
+                    primary={<Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#6B5544' }}>{job.title}</Typography>}
                     secondary={
                       <Box>
                         <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#8B6F47', mt: 1 }}>{job.company}</Typography>
@@ -613,7 +616,7 @@ const EmployeeDashboardPage = () => {
         {/* Upcoming Interviews Tab */}
         {tabValue === 2 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#6B5544', mb: 3 }}>Upcoming Interviews</Typography>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>Upcoming Interviews</Typography>
             <List>
               {upcomingInterviews.map((interview) => (
                 <ListItem key={interview._id} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
@@ -623,7 +626,7 @@ const EmployeeDashboardPage = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', color: '#6B5544' }}>{interview.job?.title}</Typography>}
+                    primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#6B5544' }}>{interview.job?.title}</Typography>}
                     secondary={
                       <Box>
                         <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#8B6F47', mt: 0.5 }}>{interview.job?.company}</Typography>
@@ -652,7 +655,7 @@ const EmployeeDashboardPage = () => {
               {upcomingInterviews.length === 0 && (
                 <ListItem sx={{ p: 3 }}>
                   <ListItemText 
-                    primary={<Typography variant="h6" sx={{ color: '#6B5544', fontSize: '1.25rem' }}>No upcoming interviews</Typography>}
+                    primary={<Typography variant="h6" sx={{ color: '#6B5544', fontSize: '1rem' }}>No upcoming interviews</Typography>}
                     secondary={<Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem' }}>Interviews will appear here when scheduled</Typography>}
                   />
                 </ListItem>

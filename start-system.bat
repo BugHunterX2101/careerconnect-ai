@@ -28,6 +28,14 @@ if not exist "src\client\node_modules" (
     echo.
 )
 
+REM Start Redis if script is available
+if exist "start-redis.bat" (
+    echo Starting Redis cache...
+    start "CareerConnect Redis" cmd /k "start-redis.bat"
+    timeout /t 2 /nobreak >nul
+    echo.
+)
+
 echo Starting backend server...
 start "CareerConnect Backend" cmd /k "npm start"
 

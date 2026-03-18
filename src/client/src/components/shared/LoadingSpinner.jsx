@@ -25,8 +25,7 @@ const LoadingSpinner = ({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: alpha('#ffffff', 0.9),
-          backdropFilter: 'blur(4px)',
+          backgroundColor: alpha('#f8f6f1', 0.94),
           zIndex: 9999,
         }),
       }}

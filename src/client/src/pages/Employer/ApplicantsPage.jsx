@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Box, Typography, Card, CardContent, Button, TextField,
   Grid, Chip, List, ListItem, ListItemText, ListItemAvatar,
@@ -12,8 +12,10 @@ import {
   Download, FilterList, MoreVert, CheckCircle, Cancel,
   Star, StarBorder, LocationOn, Work, School, CalendarToday
 } from '@mui/icons-material';
+import { FixedSizeList } from 'react-window';
 import { useNavigate, useParams } from 'react-router-dom';
 import { employerService } from '../../services/employerService';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const ApplicantsPage = () => {
   const navigate = useNavigate();
@@ -35,6 +37,8 @@ const ApplicantsPage = () => {
     experience: '',
     location: ''
   });
+  const requestAbortRef = useRef(null);
+  const debouncedFilters = useDebouncedValue(filters, 350);
 
   const applicationStatuses = [
     { value: 'pending', label: 'Pending', color: 'warning' },
@@ -51,9 +55,15 @@ const ApplicantsPage = () => {
 
   useEffect(() => {
     if (selectedJob) {
-      loadApplicants();
+      loadApplicants(debouncedFilters);
     }
-  }, [selectedJob, filters]);
+
+    return () => {
+      if (requestAbortRef.current) {
+        requestAbortRef.current.abort();
+      }
+    };
+  }, [selectedJob, debouncedFilters]);
 
   const loadJobs = async () => {
     try {
@@ -67,12 +77,23 @@ const ApplicantsPage = () => {
     }
   };
 
-  const loadApplicants = async () => {
+  const loadApplicants = async (activeFilters) => {
     try {
+      if (requestAbortRef.current) {
+        requestAbortRef.current.abort();
+      }
+      const abortController = new AbortController();
+      requestAbortRef.current = abortController;
+
       setLoading(true);
-      const response = await employerService.getJobApplicants(selectedJob, filters);
+      const response = await employerService.getJobApplicants(selectedJob, activeFilters, {
+        signal: abortController.signal,
+      });
       setApplicants(response.applications || []);
     } catch (error) {
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        return;
+      }
       setError('Failed to load applicants');
     } finally {
       setLoading(false);
@@ -83,7 +104,7 @@ const ApplicantsPage = () => {
     try {
       await employerService.updateApplicantStatus(selectedJob, applicantId, status, notes);
       setSuccess(`Application status updated to ${status}`);
-      loadApplicants();
+      loadApplicants(debouncedFilters);
       setStatusDialog(false);
     } catch (error) {
       setError('Failed to update application status');
@@ -95,7 +116,7 @@ const ApplicantsPage = () => {
       await employerService.bulkUpdateApplicants(selectedJob, selectedApplicants, status);
       setSuccess(`${selectedApplicants.length} applications updated to ${status}`);
       setSelectedApplicants([]);
-      loadApplicants();
+      loadApplicants(debouncedFilters);
     } catch (error) {
       setError('Failed to update applications');
     }
@@ -127,9 +148,9 @@ const ApplicantsPage = () => {
     });
   };
 
-  const getApplicantsByStatus = (status) => {
+  const getApplicantsByStatus = useCallback((status) => {
     return applicants.filter(app => app.status === status);
-  };
+  }, [applicants]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -316,6 +337,29 @@ const ApplicantsPage = () => {
     </Card>
   );
 
+  const filteredApplicants = useMemo(() => {
+    if (tabValue === 0) return applicants;
+    if (tabValue === 1) return getApplicantsByStatus('pending');
+    if (tabValue === 2) return getApplicantsByStatus('shortlisted');
+    if (tabValue === 3) return getApplicantsByStatus('interview');
+    return getApplicantsByStatus('hired');
+  }, [applicants, getApplicantsByStatus, tabValue]);
+
+  const listHeight = useMemo(() => {
+    if (filteredApplicants.length === 0) return 0;
+    return Math.min(760, filteredApplicants.length * 290);
+  }, [filteredApplicants.length]);
+
+  const ApplicantRow = useCallback(({ index, style }) => {
+    const applicant = filteredApplicants[index];
+    if (!applicant) return null;
+    return (
+      <Box style={style} sx={{ px: 0.5, py: 0.5 }}>
+        <ApplicantCard applicant={applicant} />
+      </Box>
+    );
+  }, [filteredApplicants]);
+
   return (
     <Box>
       <Typography variant="h3" gutterBottom sx={{ 
@@ -489,20 +533,16 @@ const ApplicantsPage = () => {
                 </Box>
               ) : (
                 <Box>
-                  {(tabValue === 0 ? applicants :
-                    tabValue === 1 ? getApplicantsByStatus('pending') :
-                    tabValue === 2 ? getApplicantsByStatus('shortlisted') :
-                    tabValue === 3 ? getApplicantsByStatus('interview') :
-                    getApplicantsByStatus('hired'))
-                    .map((applicant) => (
-                      <ApplicantCard key={applicant._id} applicant={applicant} />
-                    ))}
-
-                  {(tabValue === 0 ? applicants :
-                    tabValue === 1 ? getApplicantsByStatus('pending') :
-                    tabValue === 2 ? getApplicantsByStatus('shortlisted') :
-                    tabValue === 3 ? getApplicantsByStatus('interview') :
-                    getApplicantsByStatus('hired')).length === 0 && (
+                  {filteredApplicants.length > 0 ? (
+                    <FixedSizeList
+                      height={listHeight}
+                      width="100%"
+                      itemCount={filteredApplicants.length}
+                      itemSize={290}
+                    >
+                      {ApplicantRow}
+                    </FixedSizeList>
+                  ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                       <People sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary">

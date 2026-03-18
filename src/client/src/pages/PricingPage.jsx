@@ -182,7 +182,7 @@ const PricingPage = () => {
               variant="h1"
               sx={{
                 fontWeight: 800,
-                fontSize: { xs: '2.5rem', md: '4rem' },
+                fontSize: { xs: '2rem', md: '2.8rem' },
                 mb: 3,
               }}
             >
@@ -195,6 +195,7 @@ const PricingPage = () => {
                 maxWidth: 600,
                 mx: 'auto',
                 mb: 4,
+                fontSize: { xs: '1rem', md: '1.1rem' },
               }}
             >
               Choose the perfect plan for your career goals. All plans include our core AI features.
@@ -314,7 +315,7 @@ const PricingPage = () => {
                       onClick={() => navigate('/register')}
                       sx={{
                         py: 2,
-                        fontSize: '1.25rem',
+                        fontSize: '1.05rem',
                         fontWeight: 700,
                         borderRadius: 3,
                         transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -508,10 +509,10 @@ const PricingPage = () => {
       >
         <Container maxWidth="md">
           <Box textAlign="center">
-            <Typography variant="h3" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h3" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.3rem' } }}>
               Ready to Transform Your Career?
             </Typography>
-            <Typography variant="h6" paragraph sx={{ opacity: 0.9, mb: 4 }}>
+            <Typography variant="h6" paragraph sx={{ opacity: 0.9, mb: 4, fontSize: { xs: '1rem', md: '1.1rem' } }}>
               Start your 14-day free trial today. No credit card required.
             </Typography>
             <Button
@@ -523,12 +524,11 @@ const PricingPage = () => {
                 color: 'white',
                 px: 6,
                 py: 2,
-                fontSize: '1.375rem',
+                fontSize: '1.05rem',
                 fontWeight: 700,
                 borderRadius: 3,
                 border: '3px solid #FBBF24',
                 boxShadow: '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 40px rgba(251, 191, 36, 0.4)',
-                animation: 'subtleGlow 2s ease-in-out infinite',
                 transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)',

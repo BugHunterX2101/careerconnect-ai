@@ -8,6 +8,7 @@ const GitHubStrategy = require('passport-github2').Strategy;
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 
+
 // Mock user model for OAuth
 const mockUsers = new Map();
 

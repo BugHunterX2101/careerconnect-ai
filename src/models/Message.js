@@ -65,7 +65,7 @@ messageSchema.index({ type: 1 });
 // Virtual for formatted content
 messageSchema.virtual('formattedContent').get(function() {
   if (this.type === 'file') {
-    return `📎 ${this.attachment.filename}`;
+    return `[Attachment] ${this.attachment.filename}`;
   }
   return this.content;
 });

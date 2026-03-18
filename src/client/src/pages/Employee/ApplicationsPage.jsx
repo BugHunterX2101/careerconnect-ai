@@ -1,15 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Card,
   CardContent,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
   Button,
   TextField,
@@ -19,31 +13,42 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import { Visibility, Delete, FilterList } from '@mui/icons-material';
+import { FixedSizeList } from 'react-window';
+import { useTranslation } from 'react-i18next';
 import api from '../../services/api';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const ApplicationsPage = () => {
+  const { t } = useTranslation();
   const [applications, setApplications] = useState([]);
-  const [filteredApplications, setFilteredApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const requestAbortRef = useRef(null);
+
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
 
   useEffect(() => {
     fetchApplications();
   }, []);
 
-  useEffect(() => {
-    filterApplications();
-  }, [applications, statusFilter, searchTerm]);
-
   const fetchApplications = async () => {
     try {
-      const response = await api.get('/jobs/applications');
+      if (requestAbortRef.current) {
+        requestAbortRef.current.abort();
+      }
+      const abortController = new AbortController();
+      requestAbortRef.current = abortController;
+
+      await api.get('/jobs/applications', { signal: abortController.signal });
       const mockApplications = [
         {
           id: 1,
@@ -78,28 +83,31 @@ const ApplicationsPage = () => {
       ];
       setApplications(mockApplications);
     } catch (error) {
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        return;
+      }
       console.error('Error fetching applications:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterApplications = () => {
+  const filteredApplications = useMemo(() => {
     let filtered = applications;
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(app => app.status === statusFilter);
+      filtered = filtered.filter((app) => app.status === statusFilter);
     }
 
-    if (searchTerm) {
-      filtered = filtered.filter(app =>
-        app.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        app.company.toLowerCase().includes(searchTerm.toLowerCase())
+    if (debouncedSearchTerm) {
+      const term = debouncedSearchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (app) => app.jobTitle.toLowerCase().includes(term) || app.company.toLowerCase().includes(term)
       );
     }
 
-    setFilteredApplications(filtered);
-  };
+    return filtered;
+  }, [applications, statusFilter, debouncedSearchTerm]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -111,25 +119,62 @@ const ApplicationsPage = () => {
     }
   };
 
-  const handleViewDetails = (application) => {
+  const handleViewDetails = useCallback((application) => {
     setSelectedApplication(application);
     setDetailsOpen(true);
-  };
+  }, []);
 
-  const handleWithdrawApplication = async (applicationId) => {
+  const handleWithdrawApplication = useCallback(async (applicationId) => {
     try {
       await api.delete(`/jobs/applications/${applicationId}`);
-      setApplications(applications.filter(app => app.id !== applicationId));
+      setApplications((prev) => prev.filter((app) => app.id !== applicationId));
     } catch (error) {
       console.error('Error withdrawing application:', error);
     }
-  };
+  }, []);
+
+  const listHeight = useMemo(() => {
+    if (filteredApplications.length === 0) return 0;
+    return Math.min(620, filteredApplications.length * 76);
+  }, [filteredApplications.length]);
+
+  const ApplicationRow = useCallback(({ index, style }) => {
+    const application = filteredApplications[index];
+    if (!application) return null;
+
+    return (
+      <ListItem style={style} divider sx={{ px: 2 }}>
+        <ListItemText
+          primary={
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1.7fr 1.3fr 1fr 1fr 1fr 1fr auto', gap: 1, alignItems: 'center' }}>
+              <Typography variant="subtitle2">{application.jobTitle}</Typography>
+              <Typography>{application.company}</Typography>
+              <Chip label={application.status} color={getStatusColor(application.status)} size="small" />
+              <Typography>{application.appliedDate}</Typography>
+              <Typography>{application.salary}</Typography>
+              <Typography>{application.location}</Typography>
+              <Box>
+                <IconButton size="small" onClick={() => handleViewDetails(application)} sx={{ color: '#8B6F47' }}>
+                  <Visibility />
+                </IconButton>
+                {application.status === 'pending' && (
+                  <IconButton size="small" color="error" onClick={() => handleWithdrawApplication(application.id)}>
+                    <Delete />
+                  </IconButton>
+                )}
+              </Box>
+            </Box>
+          }
+        />
+      </ListItem>
+    );
+  }, [filteredApplications, handleViewDetails, handleWithdrawApplication]);
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h3" gutterBottom sx={{ 
         fontWeight: 700, 
-        fontSize: '2.5rem', 
+        fontSize: '2rem', 
         color: '#6B5544',
         letterSpacing: '-0.5px',
         mb: 3
@@ -202,78 +247,41 @@ const ApplicationsPage = () => {
         borderRadius: 2,
         boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
       }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: 'rgba(139, 111, 71, 0.08)' }}>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.jobTitle')}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.company')}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.status')}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.appliedDate')}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.salary')}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.location')}</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#6B5544', fontSize: '1.05rem' }}>{t('table.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredApplications.map((application) => (
-                <TableRow 
-                  key={application.id}
-                  sx={{
-                    '&:hover': {
-                      backgroundColor: 'rgba(139, 111, 71, 0.05)'
-                    },
-                    transition: 'background-color 0.2s ease',
-                    '& .MuiTableCell-root': {
-                      fontSize: '1rem'
-                    }
-                  }}
-                >
-                  <TableCell>
-                    <Typography variant="subtitle2">
-                      {application.jobTitle}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{application.company}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={application.status}
-                      color={getStatusColor(application.status)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{application.appliedDate}</TableCell>
-                  <TableCell>{application.salary}</TableCell>
-                  <TableCell>{application.location}</TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleViewDetails(application)}
-                      sx={{ 
-                        color: '#8B6F47',
-                        '&:hover': { backgroundColor: 'rgba(139, 111, 71, 0.1)' }
-                      }}
-                    >
-                      <Visibility />
-                    </IconButton>
-                    {application.status === 'pending' && (
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleWithdrawApplication(application.id)}
-                        sx={{
-                          '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.1)' }
-                        }}
-                      >
-                        <Delete />
-                      </IconButton>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        {filteredApplications.length > 0 ? (
+          <Box sx={{ borderTop: '1px solid rgba(139, 111, 71, 0.08)' }}>
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: '1.7fr 1.3fr 1fr 1fr 1fr 1fr auto',
+              gap: 1,
+              px: 2,
+              py: 1.5,
+              backgroundColor: 'rgba(139, 111, 71, 0.08)',
+              fontWeight: 600,
+              color: '#6B5544',
+              fontSize: '0.95rem'
+            }}>
+              <Box>{t('table.jobTitle')}</Box>
+              <Box>{t('table.company')}</Box>
+              <Box>{t('table.status')}</Box>
+              <Box>{t('table.appliedDate')}</Box>
+              <Box>{t('table.salary')}</Box>
+              <Box>{t('table.location')}</Box>
+              <Box>{t('table.actions')}</Box>
+            </Box>
+            <FixedSizeList
+              height={listHeight}
+              width="100%"
+              itemCount={filteredApplications.length}
+              itemSize={76}
+            >
+              {ApplicationRow}
+            </FixedSizeList>
+          </Box>
+        ) : (
+          <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+            <Typography>No applications match your filters.</Typography>
+          </Box>
+        )}
       </Card>
 
       <Dialog 
@@ -289,7 +297,7 @@ const ApplicationsPage = () => {
           }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: '#6B5544', fontSize: '1.75rem' }}>Application Details</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, color: '#6B5544', fontSize: '1.35rem' }}>Application Details</DialogTitle>
         <DialogContent>
           {selectedApplication && (
             <Box>

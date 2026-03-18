@@ -1,7 +1,9 @@
 import axios from 'axios'
+import { API_BASE_URL } from '../config/appConfig'
+import { emitUserError, reportApiError } from '../utils/observability'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -63,7 +65,7 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken')
         if (refreshToken) {
           const response = await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/refresh`,
+            `${API_BASE_URL}/auth/refresh`,
             { refreshToken }
           )
 
@@ -78,6 +80,8 @@ api.interceptors.response.use(
         // Refresh failed, redirect to login
         localStorage.removeItem('token')
         localStorage.removeItem('refreshToken')
+        reportApiError(refreshError, { stage: 'refresh_token' })
+        emitUserError('Your session has expired. Please login again.', 'auth')
         window.location.href = '/login'
         return Promise.reject(refreshError)
       }
@@ -86,6 +90,7 @@ api.interceptors.response.use(
     // Handle 403 errors (forbidden)
     if (error.response?.status === 403) {
       console.error('Access forbidden:', error.response.data)
+      emitUserError('You do not have permission to perform this action.', 'api')
     }
 
     // Handle 404 errors (not found)
@@ -96,7 +101,10 @@ api.interceptors.response.use(
     // Handle 500 errors (server error)
     if (error.response?.status >= 500) {
       console.error('Server error:', error.response.data)
+      emitUserError('Server is currently unavailable. Please try again shortly.', 'api')
     }
+
+    reportApiError(error, { stage: 'response_interceptor' })
 
     return Promise.reject(error)
   }

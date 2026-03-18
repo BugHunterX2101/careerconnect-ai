@@ -39,6 +39,17 @@ const logger = winston.createLogger({
 
 const app = express();
 const server = createServer(app);
+const serviceState = {
+  initializing: false,
+  initialized: false,
+  initError: null,
+  aiWarmup: {
+    status: 'idle',
+    startedAt: null,
+    finishedAt: null,
+    error: null
+  }
+};
 // Passport initialization
 const passport = require('passport');
 
@@ -52,7 +63,7 @@ try {
 
 // CORS configuration
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5179",
+  process.env.CLIENT_URL || "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000"
@@ -72,11 +83,16 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://graph.linkedin.com", "https://api.github.com", "https://"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
     },
   },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Rate limiting for API endpoints
@@ -140,21 +156,35 @@ app.get('/health', async (req, res) => {
     uptime: process.uptime(),
     timestamp: Date.now(),
     status: 'ok',
-    services: {}
+    services: {
+      startup: serviceState.initializing
+        ? 'initializing'
+        : serviceState.initialized
+          ? 'ready'
+          : serviceState.initError
+            ? 'degraded'
+            : 'booting',
+      aiWarmup: serviceState.aiWarmup.status
+    }
   };
 
-  try {
-    const mongoose = require('mongoose');
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.connection.db.admin().ping();
-      health.services.mongodb = 'connected';
-    } else {
+  const mongoRequired = process.env.MONGODB_REQUIRED === 'true';
+  if (mongoRequired) {
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.connection.readyState === 1) {
+        await mongoose.connection.db.admin().ping();
+        health.services.mongodb = 'connected';
+      } else {
+        health.services.mongodb = 'disconnected';
+        health.status = 'degraded';
+      }
+    } catch (error) {
       health.services.mongodb = 'disconnected';
       health.status = 'degraded';
     }
-  } catch (error) {
-    health.services.mongodb = 'disconnected';
-    health.status = 'degraded';
+  } else {
+    health.services.mongodb = 'optional';
   }
 
   const statusCode = health.status === 'ok' ? 200 : 503;
@@ -181,7 +211,7 @@ app.get('/', apiLimiter, (req, res) => {
       bert: '/api/bert/*'
     },
     features: {
-      gptOss: !!process.env.GPT_OSS_API_KEY,
+      groq: !!(process.env.GROQ_API_KEY || process.env.GPT_OSS_API_KEY),
       database: 'SQLite (ready)',
       realtime: 'Socket.IO (ready)',
       bert: 'Available (basic parsing)',
@@ -199,7 +229,7 @@ app.get('/api/status', [apiLimiter, passport.authenticate('jwt', { session: fals
     message: 'API is running',
     timestamp: new Date().toISOString(),
     features: {
-      gptOss: !!process.env.GPT_OSS_API_KEY,
+      groq: !!(process.env.GROQ_API_KEY || process.env.GPT_OSS_API_KEY),
       database: 'SQLite (ready)',
       realtime: 'Socket.IO (ready)'
     }
@@ -447,6 +477,9 @@ process.on('SIGTERM', () => {
 
 // Initialize services
 async function initializeServices() {
+  serviceState.initializing = true;
+  serviceState.initError = null;
+
   try {
     const strategies = passport._strategies;
     const availableStrategies = Object.keys(strategies || {});
@@ -475,47 +508,94 @@ async function initializeServices() {
     initFileCleanup();
     
     app.set('io', io);
+
+    serviceState.aiWarmup.status = 'warming';
+    serviceState.aiWarmup.startedAt = new Date().toISOString();
+    setImmediate(async () => {
+      try {
+        const bertPoolManager = require('../services/bertPoolManager');
+        const warmupResult = await bertPoolManager.warmup();
+        serviceState.aiWarmup.status = warmupResult.ok ? 'ready' : 'failed';
+        serviceState.aiWarmup.error = warmupResult.ok ? null : warmupResult.error;
+      } catch (warmupError) {
+        serviceState.aiWarmup.status = 'failed';
+        serviceState.aiWarmup.error = warmupError.message;
+        logger.warn(`BERT warmup failed: ${warmupError.message}`);
+      } finally {
+        serviceState.aiWarmup.finishedAt = new Date().toISOString();
+      }
+    });
     
     logger.info('✅ Services initialized successfully');
+    serviceState.initialized = true;
   } catch (error) {
     logger.error('❌ Failed to initialize services:', error);
     logger.info('🔄 Continuing with basic functionality...');
+    serviceState.initError = error.message;
+  } finally {
+    serviceState.initializing = false;
   }
 }
 
 // Start server
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 
+async function isExistingInstanceHealthy(port) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1500);
+
+  try {
+    const response = await fetch(`http://localhost:${port}/health`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' }
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const payload = await response.json();
+    return Boolean(payload && payload.services && payload.services.startup);
+  } catch (_error) {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function startServer() {
   try {
-    await initializeServices();
-    
-    const tryPort = (port) => {
-      return new Promise((resolve, reject) => {
-        const portNum = parseInt(port, 10);
-        server.listen(portNum)
-          .once('listening', () => resolve(portNum))
-          .once('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-              logger.warn(`⚠️ Port ${portNum} is in use, trying ${portNum + 1}...`);
-              server.close();
-              resolve(tryPort(portNum + 1));
-            } else {
-              reject(err);
-            }
-          });
-      });
-    };
-    
-    const finalPort = await tryPort(PORT);
+    const finalPort = await new Promise((resolve, reject) => {
+      server.listen(PORT)
+        .once('listening', () => resolve(PORT))
+        .once('error', (err) => reject(err));
+    });
+
     logger.info(`🚀 Server running on port ${finalPort}`);
     logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`🔗 Health check: http://localhost:${finalPort}/health`);
     logger.info(`💾 Database: SQLite (file-based, no external setup required)`);
-    logger.info(`🤖 GPT-OSS-120B: ${process.env.GPT_OSS_API_KEY ? 'Configured' : 'Not configured'}`);
+    logger.info(`🤖 Groq LLM: ${(process.env.GROQ_API_KEY || process.env.GPT_OSS_API_KEY) ? 'Configured' : 'Not configured'}`);
     logger.info(`📡 Routes loaded: ${routesLoaded ? 'All' : 'Basic only'}`);
     logger.info(`🎉 CareerConnect AI is ready!`);
+
+    // Warm heavy dependencies after the server is already accepting requests.
+    setImmediate(() => {
+      initializeServices().catch((error) => {
+        logger.error('Service warmup failed:', error);
+      });
+    });
   } catch (error) {
+    if (error.code === 'EADDRINUSE') {
+      const existingServerHealthy = await isExistingInstanceHealthy(PORT);
+      if (existingServerHealthy) {
+        logger.warn(`⚠️ Port ${PORT} is already in use by a healthy instance. Reusing existing server.`);
+        process.exit(0);
+      }
+
+      logger.error(`❌ Port ${PORT} is already in use. OAuth callbacks expect this port, so the server cannot auto-switch.`);
+      process.exit(1);
+    }
     logger.error('Failed to start server:', error);
     process.exit(1);
   }

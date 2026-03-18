@@ -204,7 +204,7 @@ const Layout = ({ children }) => {
           CareerConnect AI
         </Typography>
         <Chip 
-          label={user?.role === 'employer' ? '🏢 Employer' : '🚀 Job Seeker'} 
+          label={user?.role === 'employer' ? 'Employer' : 'Job Seeker'} 
           size="small" 
           sx={{
             background: user?.role === 'employer' 
@@ -366,7 +366,7 @@ const Layout = ({ children }) => {
               {navigationItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
             </Typography>
             <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '1.125rem', md: '1.25rem' }, transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-              Welcome back, {user?.firstName}! 🚀
+              Welcome back, {user?.firstName}!
             </Typography>
           </Box>
 
@@ -415,7 +415,6 @@ const Layout = ({ children }) => {
                       minWidth: 24,
                       height: 24,
                       transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                      animation: 'subtleGlow 2s ease-in-out infinite',
                     },
                   }}
                 >

@@ -188,10 +188,24 @@ export const AppProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      const optimisticJob = {
+        ...jobData,
+        id: `temp-${Date.now()}`,
+        isOptimistic: true
+      };
+
+      dispatch({ type: actionTypes.SET_JOBS, payload: [...state.jobs, optimisticJob] });
       const newJob = await employerService.createJob(jobData);
-      dispatch({ type: actionTypes.SET_JOBS, payload: [...state.jobs, newJob] });
+      dispatch({
+        type: actionTypes.SET_JOBS,
+        payload: [...state.jobs.filter((job) => job.id !== optimisticJob.id), newJob]
+      });
       return newJob;
     } catch (error) {
+      dispatch({
+        type: actionTypes.SET_JOBS,
+        payload: state.jobs.filter((job) => !String(job.id).startsWith('temp-'))
+      });
       setError('Failed to create job');
       throw error;
     } finally {
@@ -223,12 +237,18 @@ export const AppProvider = ({ children }) => {
     
     try {
       setLoading(true);
-      await employerService.deleteJob(jobId);
+      const previousJobs = state.jobs;
       dispatch({
         type: actionTypes.SET_JOBS,
         payload: state.jobs.filter(job => job.id !== jobId)
       });
+
+      await employerService.deleteJob(jobId);
     } catch (error) {
+      dispatch({
+        type: actionTypes.SET_JOBS,
+        payload: previousJobs
+      });
       setError('Failed to delete job');
       throw error;
     } finally {
@@ -256,13 +276,29 @@ export const AppProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      const optimisticApplication = {
+        ...applicationData,
+        id: `temp-${Date.now()}`,
+        jobId,
+        status: 'pending',
+        isOptimistic: true
+      };
+      dispatch({
+        type: actionTypes.SET_APPLICATIONS,
+        payload: [...state.applications, optimisticApplication]
+      });
+
       const application = await employeeService.applyToJob(jobId, applicationData);
       dispatch({
         type: actionTypes.SET_APPLICATIONS,
-        payload: [...state.applications, application]
+        payload: [...state.applications.filter((app) => app.id !== optimisticApplication.id), application]
       });
       return application;
     } catch (error) {
+      dispatch({
+        type: actionTypes.SET_APPLICATIONS,
+        payload: state.applications.filter((app) => !String(app.id).startsWith('temp-'))
+      });
       setError('Failed to apply to job');
       throw error;
     } finally {

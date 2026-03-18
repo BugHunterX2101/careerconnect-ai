@@ -17,18 +17,34 @@ const logger = winston.createLogger({
   ]
 });
 
-// Initialize OpenAI client with GPT-OSS configuration
+// Initialize OpenAI-compatible client for Groq (or fallback provider)
 const openai = new OpenAI({
-  apiKey: process.env.GPT_OSS_API_KEY,
-  baseURL: process.env.GPT_OSS_BASE_URL || 'https://api.openai.com/v1',
+  apiKey: process.env.GROQ_API_KEY || process.env.GPT_OSS_API_KEY,
+  baseURL: process.env.GROQ_BASE_URL || process.env.GPT_OSS_BASE_URL || 'https://api.groq.com/openai/v1',
   dangerouslyAllowBrowser: false
 });
 
 class GPTOSSService {
   constructor() {
-    this.model = process.env.GPT_OSS_MODEL || 'gpt-oss-120b';
+    this.model = process.env.GROQ_MODEL || process.env.GPT_OSS_MODEL || 'llama-3.3-70b-versatile';
     this.maxTokens = 4000;
     this.temperature = 0.7;
+  }
+
+  async getResponse(prompt, options = {}) {
+    const response = await openai.chat.completions.create({
+      model: options.model || this.model,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: options.maxTokens || 2000,
+      temperature: options.temperature ?? 0.6
+    });
+
+    return response.choices?.[0]?.message?.content || '';
   }
 
   /**
@@ -358,7 +374,7 @@ Please provide advice in the following JSON format:
   }
 
   /**
-   * Test the GPT-OSS connection
+  * Test the Groq connection
    * @returns {Promise<boolean>} Connection status
    */
   async testConnection() {
@@ -368,7 +384,7 @@ Please provide advice in the following JSON format:
         messages: [
           {
             role: 'user',
-            content: 'Hello, please respond with "GPT-OSS-120B is working correctly"'
+            content: 'Hello, please respond with "Groq integration is working correctly"'
           }
         ],
         max_tokens: 50,
@@ -376,13 +392,16 @@ Please provide advice in the following JSON format:
       });
 
       const result = response.choices[0].message.content;
-      logger.info('GPT-OSS connection test successful', { result });
+      logger.info('Groq connection test successful', { result });
       return true;
     } catch (error) {
-      logger.error('GPT-OSS connection test failed:', error);
+      logger.error('Groq connection test failed:', error);
       return false;
     }
   }
 }
 
-module.exports = new GPTOSSService();
+const gptOssService = new GPTOSSService();
+
+module.exports = gptOssService;
+module.exports.getGPTOSSResponse = (prompt, options = {}) => gptOssService.getResponse(prompt, options);

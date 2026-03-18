@@ -4,6 +4,7 @@ const logger = require('../middleware/logger');
 class GMeetService {
   constructor() {
     this.calendar = null;
+    this.requestCounter = 0;
     this.initializeCalendar();
   }
 
@@ -57,7 +58,7 @@ class GMeetService {
         })),
         conferenceData: {
           createRequest: {
-            requestId: `meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            requestId: `meet-${Date.now()}-${++this.requestCounter}`,
             conferenceSolutionKey: {
               type: 'hangoutsMeet'
             }

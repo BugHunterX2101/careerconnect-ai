@@ -113,9 +113,18 @@ router.get('/health', async (req, res) => {
   
   res.json({
     success: true,
-    status: 'operational',
+    status: poolStats.modelStatus === 'ready' ? 'operational' : 'warming',
     pool: poolStats,
     cache: cacheStats
+  });
+});
+
+// Trigger non-blocking warmup of heavy model artifacts.
+router.post('/warmup', [authenticateToken, bertLimiter], async (req, res) => {
+  const result = await bertPoolManager.warmup();
+  res.status(result.ok ? 200 : 503).json({
+    success: result.ok,
+    data: result
   });
 });
 

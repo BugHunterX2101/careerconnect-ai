@@ -1,13 +1,9 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { beginOAuthFlow } from '../utils/oauth';
 
 const GoogleLogin = ({ onSuccess, onError }) => {
   const handleGoogleLogin = () => {
-    // Store current URL to redirect back after OAuth
-    localStorage.setItem('preOAuthUrl', window.location.pathname);
-    
-    // Redirect to Google OAuth
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/google`;
+    beginOAuthFlow({ provider: 'google', returnPath: window.location.pathname, flow: 'login' });
   };
 
   // Handle OAuth callback (call this in your main app component)
@@ -27,10 +23,7 @@ const GoogleLogin = ({ onSuccess, onError }) => {
       const redirectUrl = localStorage.getItem('preOAuthUrl') || '/dashboard';
       localStorage.removeItem('preOAuthUrl');
       if (onSuccess) onSuccess(token);
-      // Use React Router's navigate instead of window.location
-      const navigate = useNavigate();
-      navigate(redirectUrl);
-    } else if (oauthStatus === 'error') {
+      window.location.assign(redirectUrl);
     } else if (oauthStatus === 'error') {
       if (onError) onError('Google login failed');
     }

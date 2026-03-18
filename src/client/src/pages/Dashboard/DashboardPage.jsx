@@ -47,6 +47,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import { MetricChip, TrendBadge } from '../../components/common';
 
 const DashboardPage = () => {
   const theme = useTheme();
@@ -227,7 +228,7 @@ const DashboardPage = () => {
                 mb: 2,
               }}
             >
-              ⚠️ Dashboard Error
+              Dashboard Error
             </Typography>
             <Typography variant="body1" color="text.secondary" paragraph sx={{ mb: 3 }}>
               {error}
@@ -251,16 +252,15 @@ const DashboardPage = () => {
   }
 
   return (
-    <Box>
+    <Box className="motion-page-enter">
       {/* Welcome Section */}
       <Box 
-        className="animate-fade-in"
+        className="dashboard-highlight-panel animate-fade-in"
         sx={{ 
           mb: 5,
           p: 4,
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #A67C52 0%, #C4A574 100%)',
-          color: 'white',
+          color: 'text.primary',
           position: 'relative',
           overflow: 'hidden',
           '&::before': {
@@ -279,36 +279,44 @@ const DashboardPage = () => {
             variant="h3" 
             gutterBottom 
             sx={{ 
-              fontWeight: 800,
-              fontSize: { xs: '2rem', md: '2.5rem' },
+              fontWeight: 700,
+              fontSize: { xs: '1.9rem', md: '2.35rem' },
             }}
           >
-            Welcome back, {user?.firstName}! 🚀
+            Welcome back, {user?.firstName}
           </Typography>
           <Typography 
-            variant="h6" 
+            variant="body1" 
             sx={{ 
-              opacity: 0.9,
-              fontWeight: 400,
+              color: 'text.secondary',
+              fontWeight: 500,
               maxWidth: 800,
             }}
           >
             Your AI-powered {user?.role === 'employer' ? 'recruitment command center' : 'career acceleration hub'} with 
             advanced machine learning, real-time insights, and intelligent automation.
           </Typography>
+          <Box sx={{ mt: 2.5, display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
+            <MetricChip label="AI-backed insights" />
+            <MetricChip label="Realtime signals" color="success" />
+            <MetricChip label="Role-fit confidence" color="warning" />
+          </Box>
         </Box>
       </Box>
 
       {/* Statistics Cards */}
+      <Typography variant="overline" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
+        What matters now
+      </Typography>
       <Grid container spacing={3} sx={{ mb: 5 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} md={6}>
           <Card 
             className="hover-lift animate-slide-up"
             sx={{ 
               height: '100%',
-              background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
-              color: 'white',
-              border: 'none',
+              background: 'linear-gradient(145deg, #0f5fcc 0%, #1f73f2 75%, #4e8bf0 100%)',
+              color: '#ffffff',
+              border: '1px solid rgba(210, 230, 255, 0.4)',
             }}
           >
             <CardContent sx={{ p: 3 }}>
@@ -330,34 +338,32 @@ const DashboardPage = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, opacity: 0.9 }}>
                 {user?.role === 'employer' ? 'Active Job Posts' : 'AI-Analyzed Resumes'}
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7, mt: 1 }}>
-                +12% from last month
-              </Typography>
+              <Box sx={{ mt: 1.2 }}><TrendBadge direction="up" label="12% from last month" /></Box>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Card 
             className="hover-lift animate-slide-up"
             sx={{ 
               height: '100%',
-              background: 'linear-gradient(135deg, #C4A574 0%, #D4BA94 100%)',
-              color: 'white',
-              border: 'none',
+              background: 'linear-gradient(160deg, #f8fbff 0%, #edf4ff 100%)',
+              color: 'text.primary',
+              border: '1px solid #d2dbe5',
             }}
           >
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Avatar 
                   sx={{ 
-                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                    bgcolor: 'rgba(15, 95, 204, 0.12)', 
                     width: 56, 
                     height: 56,
                     backdropFilter: 'blur(10px)',
                   }}
                 >
-                  <Work sx={{ fontSize: 28 }} />
+                  <Work sx={{ fontSize: 28, color: '#0f5fcc' }} />
                 </Avatar>
                 <Typography variant="h3" sx={{ fontWeight: 800 }}>
                   {stats.applications}
@@ -366,34 +372,32 @@ const DashboardPage = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, opacity: 0.9 }}>
                 {user?.role === 'employer' ? 'Applications Received' : 'Applications Sent'}
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7, mt: 1 }}>
-                +8% from last week
-              </Typography>
+              <Box sx={{ mt: 1.2 }}><TrendBadge direction="up" label="8% week" /></Box>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Card 
             className="hover-lift animate-slide-up"
             sx={{ 
               height: '100%',
-              background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
-              color: 'white',
-              border: 'none',
+              background: 'linear-gradient(160deg, #f5fff9 0%, #ebfbf2 100%)',
+              color: 'text.primary',
+              border: '1px solid #caecd9',
             }}
           >
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Avatar 
                   sx={{ 
-                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                    bgcolor: 'rgba(5, 150, 105, 0.12)', 
                     width: 56, 
                     height: 56,
                     backdropFilter: 'blur(10px)',
                   }}
                 >
-                  <Schedule sx={{ fontSize: 28 }} />
+                  <Schedule sx={{ fontSize: 28, color: '#059669' }} />
                 </Avatar>
                 <Typography variant="h3" sx={{ fontWeight: 800 }}>
                   {stats.interviews}
@@ -402,34 +406,32 @@ const DashboardPage = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, opacity: 0.9 }}>
                 Upcoming Interviews
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7, mt: 1 }}>
-                3 this week
-              </Typography>
+              <Box sx={{ mt: 1.2 }}><TrendBadge direction="flat" label="3 this week" /></Box>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={2}>
           <Card 
             className="hover-lift animate-slide-up"
             sx={{ 
               height: '100%',
-              background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
-              color: 'white',
-              border: 'none',
+              background: 'linear-gradient(160deg, #fff8f1 0%, #ffefdd 100%)',
+              color: 'text.primary',
+              border: '1px solid #ffd5ad',
             }}
           >
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Avatar 
                   sx={{ 
-                    bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                    bgcolor: 'rgba(245, 122, 46, 0.14)', 
                     width: 56, 
                     height: 56,
                     backdropFilter: 'blur(10px)',
                   }}
                 >
-                  <TrendingUp sx={{ fontSize: 28 }} />
+                  <TrendingUp sx={{ fontSize: 28, color: '#a74913' }} />
                 </Avatar>
                 <Typography variant="h3" sx={{ fontWeight: 800 }}>
                   {stats.recommendations}
@@ -438,13 +440,16 @@ const DashboardPage = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, opacity: 0.9 }}>
                 {user?.role === 'employer' ? 'AI-Matched Candidates' : 'AI Job Matches'}
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7, mt: 1 }}>
-                95% accuracy rate
-              </Typography>
+              <Box sx={{ mt: 1.2 }}><TrendBadge direction="up" label="95% confidence" /></Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      <Box className="editorial-divider" />
+      <Typography variant="overline" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
+        What to do next
+      </Typography>
 
       <Grid container spacing={3}>
         {/* Quick Actions */}
@@ -491,7 +496,7 @@ const DashboardPage = () => {
                       }
                     }}
                   >
-                    {action.title}
+                    {action.title === 'AI Job Recommendations' ? 'Generate High-Fit Matches' : action.title}
                   </Button>
                 ))}
               </Box>
@@ -576,6 +581,9 @@ const DashboardPage = () => {
       </Grid>
 
       {/* Profile Summary */}
+      <Typography variant="overline" sx={{ color: 'text.secondary', mt: 3, mb: 1, display: 'block' }}>
+        Why it changed
+      </Typography>
       <Grid container spacing={3} sx={{ mt: 2 }}>
         <Grid item xs={12}>
           <Card>

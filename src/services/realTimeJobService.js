@@ -51,13 +51,6 @@ class RealTimeJobService {
       console.log('RemoteOK API failed, using fallback');
     }
 
-    // Add realistic mock data to reach target count
-    const targetCount = preferences.limit || 20;
-    if (allJobs.length < targetCount) {
-      const mockJobs = this.generateRealisticJobs(userProfile, preferences);
-      allJobs.push(...mockJobs.slice(0, targetCount - allJobs.length));
-    }
-
     return this.rankAndFilterJobs(allJobs, userProfile, preferences);
   }
 
@@ -75,7 +68,7 @@ class RealTimeJobService {
     return keywords.join(' ');
   }
 
-  async fetchRemoteOKJobs(userProfile, preferences) {
+  async fetchRemoteOKJobs(_userProfile, _preferences) {
     try {
       const response = await axios.get('https://remoteok.io/api', {
         timeout: 5000,
@@ -108,93 +101,8 @@ class RealTimeJobService {
     }
   }
 
-  generateRealisticJobs(userProfile, preferences) {
-    const companies = [
-      { name: 'Google', url: 'https://careers.google.com/jobs/results/' },
-      { name: 'Microsoft', url: 'https://careers.microsoft.com/us/en/job/' },
-      { name: 'Amazon', url: 'https://amazon.jobs/en/jobs/' },
-      { name: 'Meta', url: 'https://www.metacareers.com/jobs/' },
-      { name: 'Apple', url: 'https://jobs.apple.com/en-us/details/' },
-      { name: 'Netflix', url: 'https://jobs.netflix.com/jobs/' },
-      { name: 'Uber', url: 'https://www.uber.com/careers/list/' },
-      { name: 'Airbnb', url: 'https://careers.airbnb.com/positions/' },
-      { name: 'Spotify', url: 'https://www.lifeatspotify.com/jobs/' },
-      { name: 'Tesla', url: 'https://www.tesla.com/careers/search/job/' },
-      { name: 'Stripe', url: 'https://stripe.com/jobs/listing/' },
-      { name: 'Shopify', url: 'https://www.shopify.com/careers/' },
-      { name: 'Slack', url: 'https://slack.com/careers/' },
-      { name: 'Zoom', url: 'https://careers.zoom.us/jobs/' },
-      { name: 'Dropbox', url: 'https://jobs.dropbox.com/listing/' }
-    ];
-
-    const jobTitles = [
-      'Software Engineer', 'Senior Software Engineer', 'Frontend Developer',
-      'Backend Developer', 'Full Stack Developer', 'DevOps Engineer',
-      'Data Scientist', 'Machine Learning Engineer', 'Product Manager',
-      'UI/UX Designer', 'Mobile Developer', 'Cloud Engineer',
-      'Security Engineer', 'Site Reliability Engineer', 'Technical Lead'
-    ];
-
-    const locations = [
-      'San Francisco, CA', 'Seattle, WA', 'New York, NY', 'Austin, TX',
-      'Boston, MA', 'Los Angeles, CA', 'Chicago, IL', 'Denver, CO',
-      'Remote', 'Hybrid - San Francisco', 'Hybrid - Seattle'
-    ];
-
-    const skillSets = [
-      ['JavaScript', 'React', 'Node.js', 'TypeScript'],
-      ['Python', 'Django', 'PostgreSQL', 'AWS'],
-      ['Java', 'Spring Boot', 'MySQL', 'Kubernetes'],
-      ['Go', 'Docker', 'Redis', 'MongoDB'],
-      ['C#', '.NET', 'Azure', 'SQL Server'],
-      ['Swift', 'iOS', 'Xcode', 'Core Data'],
-      ['Kotlin', 'Android', 'Firebase', 'Room'],
-      ['React Native', 'Flutter', 'Mobile Development'],
-      ['Vue.js', 'Nuxt.js', 'GraphQL', 'Apollo'],
-      ['Angular', 'RxJS', 'NgRx', 'Material UI']
-    ];
-
-    const jobs = [];
-    const userSkills = userProfile.skills || [];
-    
-    for (let i = 0; i < 20; i++) {
-      const company = companies[Math.floor(Math.random() * companies.length)];
-      const isRemote = Math.random() > 0.4; // 60% remote jobs
-      const location = isRemote ? 
-        (Math.random() > 0.5 ? 'Remote' : `Hybrid - ${locations[Math.floor(Math.random() * 4)]}`) :
-        locations[Math.floor(Math.random() * locations.length)];
-      
-      // Choose skills that match user profile for better relevance
-      let jobSkills = skillSets[Math.floor(Math.random() * skillSets.length)];
-      if (userSkills.length > 0 && Math.random() > 0.3) {
-        // 70% chance to include user skills for better matching
-        const userSkillsToInclude = userSkills.slice(0, 2);
-        jobSkills = [...new Set([...jobSkills.slice(0, 2), ...userSkillsToInclude])];
-      }
-
-      const salaryMin = Math.floor(Math.random() * 60000) + 80000;
-      const salaryMax = salaryMin + Math.floor(Math.random() * 50000) + 20000;
-      
-      jobs.push({
-        id: `ext_${i + 1}`,
-        title: jobTitles[Math.floor(Math.random() * jobTitles.length)],
-        company: company.name,
-        location: location,
-        salary: `$${salaryMin.toLocaleString()} - $${salaryMax.toLocaleString()}`,
-        description: `Join ${company.name} and work on cutting-edge technology that impacts millions of users worldwide. We're looking for passionate developers to help build the future.`,
-        skills: jobSkills,
-        url: `${company.url}${Math.floor(Math.random() * 1000000)}/`,
-        posted: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000).toISOString(),
-        source: 'External API',
-        isRealTime: true,
-        isExternal: true,
-        remote: isRemote,
-        type: 'Full-time',
-        applicants: Math.floor(Math.random() * 150) + 10
-      });
-    }
-
-    return jobs;
+  generateRealisticJobs(_userProfile, _preferences) {
+    return [];
   }
 
   rankAndFilterJobs(jobs, userProfile, preferences) {
@@ -255,8 +163,8 @@ class RealTimeJobService {
     }
   }
 
-  generateSearchResults(query, userProfile, filters) {
-    const jobs = this.generateRealisticJobs(userProfile, filters);
+  generateSearchResults(query, _userProfile, _filters) {
+    const jobs = [];
     const queryLower = query.toLowerCase();
     
     return jobs.filter(job => 

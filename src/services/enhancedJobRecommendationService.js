@@ -5,6 +5,7 @@ class EnhancedJobRecommendationService {
   constructor() {
     this.minJobCount = 15; // Minimum jobs to return
     this.targetJobCount = 20; // Target number of jobs
+    this.jobCounter = 0;
   }
 
   /**
@@ -100,8 +101,8 @@ class EnhancedJobRecommendationService {
     const jobs = [];
 
     companies.forEach(company => {
-      const randomTitles = this.getRandomItems(jobTitles, 2);
-      randomTitles.forEach(title => {
+      const selectedTitles = this.getDeterministicItems(jobTitles, 2, `${company.name}:${location}`);
+      selectedTitles.forEach(title => {
         jobs.push(this.createJobListing(company, title, location, skills));
       });
     });
@@ -128,8 +129,8 @@ class EnhancedJobRecommendationService {
     const jobTitles = this.generateJobTitlesFromSkills(skills);
 
     startups.forEach(startup => {
-      const randomTitles = this.getRandomItems(jobTitles, 1);
-      randomTitles.forEach(title => {
+      const selectedTitles = this.getDeterministicItems(jobTitles, 1, `${startup.name}:${location}`);
+      selectedTitles.forEach(title => {
         jobs.push(this.createJobListing(startup, title, location, skills));
       });
     });
@@ -154,7 +155,7 @@ class EnhancedJobRecommendationService {
     const jobTitles = this.generateJobTitlesFromSkills(skills);
 
     remoteCompanies.forEach(company => {
-      const title = this.getRandomItems(jobTitles, 1)[0];
+      const title = this.getDeterministicItems(jobTitles, 1, `${company.name}:remote`)[0];
       jobs.push(this.createJobListing(company, title, 'Remote (Worldwide)', skills, true));
     });
 
@@ -166,13 +167,13 @@ class EnhancedJobRecommendationService {
    */
   createJobListing(company, title, location, userSkills, isFullyRemote = false) {
     const experienceLevels = ['Entry', 'Mid', 'Senior', 'Lead'];
-    const experienceLevel = this.getRandomItems(experienceLevels, 1)[0];
+    const experienceLevel = this.getDeterministicItems(experienceLevels, 1, `${company.name}:${title}`)[0];
     
     const requiredSkills = this.selectRelevantSkills(userSkills, title);
     const salaryRange = this.calculateSalaryRange(title, experienceLevel, company.salaryMultiplier || 1.0);
     
     return {
-      id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: this.getSequentialJobId(company.name, title),
       title: `${experienceLevel} ${title}`,
       company: company.name,
       companyUrl: company.url,
@@ -187,7 +188,7 @@ class EnhancedJobRecommendationService {
       description: this.generateJobDescription(title, company.name, requiredSkills),
       responsibilities: this.generateResponsibilities(title, experienceLevel),
       benefits: this.generateBenefits(company),
-      posted: this.getRandomRecentDate(),
+      posted: this.getDeterministicRecentDate(company.name, title),
       source: 'CareerConnect AI',
       isRealTime: true,
       applicationUrl: `${company.url}`,
@@ -324,7 +325,7 @@ class EnhancedJobRecommendationService {
     if (skillsMatch.matchedSkills.length > 0) {
       reasons.push({
         type: 'skills',
-        icon: '✓',
+        icon: 'OK',
         message: `Matches ${skillsMatch.matchedSkills.length}/${job.requiredSkills.length} required skills`,
         details: skillsMatch.matchedSkills
       });
@@ -337,7 +338,7 @@ class EnhancedJobRecommendationService {
     if (experienceMatch.score > 70) {
       reasons.push({
         type: 'experience',
-        icon: '✓',
+        icon: 'OK',
         message: experienceMatch.message
       });
     }
@@ -349,7 +350,7 @@ class EnhancedJobRecommendationService {
     if (locationMatch.score === 100) {
       reasons.push({
         type: 'location',
-        icon: '✓',
+        icon: 'OK',
         message: locationMatch.message
       });
     }
@@ -366,7 +367,7 @@ class EnhancedJobRecommendationService {
     if (tierMatch.score === 100) {
       reasons.push({
         type: 'company',
-        icon: '⭐',
+        icon: 'Top',
         message: tierMatch.message
       });
     }
@@ -512,7 +513,7 @@ class EnhancedJobRecommendationService {
       suggestions.push({
         category: 'Skills',
         priority: 'High',
-        icon: '🎯',
+        icon: 'Target',
         title: 'Add In-Demand Skills',
         description: 'These skills appear frequently in your recommended jobs',
         action: 'Learn and add these skills to increase your job matches',
@@ -540,7 +541,7 @@ class EnhancedJobRecommendationService {
         suggestions.push({
           category: 'Profile',
           priority: 'Medium',
-          icon: '📝',
+          icon: 'Note',
           title: 'Complete Your Profile',
           description: `Your profile is ${completeness}% complete`,
           action: 'Add missing information to appear more professional',
@@ -556,7 +557,7 @@ class EnhancedJobRecommendationService {
       suggestions.push({
         category: 'Experience',
         priority: 'High',
-        icon: '💼',
+        icon: 'Work',
         title: 'Add Work Experience',
         description: 'Your profile lacks detailed work experience',
         action: 'Add your previous roles, responsibilities, and achievements',
@@ -575,7 +576,7 @@ class EnhancedJobRecommendationService {
       suggestions.push({
         category: 'Certifications',
         priority: 'Low',
-        icon: '📜',
+        icon: 'Cert',
         title: 'Consider Relevant Certifications',
         description: 'Boost your credibility with industry certifications',
         action: 'Get certified in high-demand skills',
@@ -593,7 +594,7 @@ class EnhancedJobRecommendationService {
       suggestions.push({
         category: 'Projects',
         priority: 'Medium',
-        icon: '🚀',
+        icon: 'Launch',
         title: 'Showcase Your Projects',
         description: 'Add portfolio projects to demonstrate your skills',
         action: 'Build and document 2-3 substantial projects',
@@ -611,7 +612,7 @@ class EnhancedJobRecommendationService {
     suggestions.push({
       category: 'Keywords',
       priority: 'Medium',
-      icon: '🔍',
+      icon: 'Search',
       title: 'Optimize Profile Keywords',
       description: 'Use industry-standard terms for better discoverability',
       action: 'Include these keywords naturally in your profile',
@@ -822,19 +823,44 @@ class EnhancedJobRecommendationService {
   /**
    * Get random items from array
    */
-  getRandomItems(array, count) {
-    const shuffled = [...array].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
+  getDeterministicItems(array, count, seed = '') {
+    if (!Array.isArray(array) || array.length === 0 || count <= 0) {
+      return [];
+    }
+
+    const offset = this.hashString(seed) % array.length;
+    const ordered = [...array.slice(offset), ...array.slice(0, offset)];
+    return ordered.slice(0, Math.min(count, ordered.length));
   }
 
   /**
-   * Get random recent date
+   * Get deterministic recent date
    */
-  getRandomRecentDate() {
-    const daysAgo = Math.floor(Math.random() * 14) + 1; // 1-14 days ago
+  getDeterministicRecentDate(companyName, title) {
+    const seed = `${companyName}:${title}`;
+    const daysAgo = (this.hashString(seed) % 14) + 1; // 1-14 days ago
     const date = new Date();
     date.setDate(date.getDate() - daysAgo);
     return date.toISOString();
+  }
+
+  getSequentialJobId(companyName, title) {
+    this.jobCounter += 1;
+    const base = `${companyName}-${title}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    return `job_${base}_${this.jobCounter}`;
+  }
+
+  hashString(value) {
+    const input = String(value || 'seed');
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      hash = ((hash << 5) - hash) + input.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
   }
 }
 

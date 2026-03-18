@@ -105,13 +105,24 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
     const { page = 1, limit = 10, location, remote } = req.query;
     const userId = req.user.userId;
 
-    // Get user's resume and profile for recommendations
-    if (!User) {
-      return res.status(503).json({ error: 'User model not available' });
+    // Get user's profile for recommendations (supports both Sequelize and Mongoose models)
+    let user = null;
+    if (User?.findById) {
+      user = await User.findById(userId);
+      if (user?.populate) {
+        user = await user.populate('resumes');
+      }
+    } else if (User?.findByPk) {
+      user = await User.findByPk(userId);
     }
-    const user = await User.findById(userId).populate('resumes');
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.json({
+        recommendations: [],
+        total: 0,
+        page: parseInt(page, 10),
+        totalPages: 0
+      });
     }
 
     // Get recommendations from ML service
@@ -123,7 +134,7 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
         location,
         remote: remote === 'true'
       });
-    } else {
+    } else if (Job?.find) {
       // Fallback to basic job search
       const searchQuery = {};
       if (location) searchQuery.location = { $regex: location, $options: 'i' };
@@ -135,6 +146,8 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
         .populate('employer', 'firstName lastName company');
       
       recommendations = { jobs, total: jobs.length };
+          } else {
+            recommendations = { jobs: [], total: 0 };
     }
 
     res.json({
@@ -145,7 +158,7 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
     });
 
   } catch (error) {
-    logger.error('Job recommendations error:', error);
+    getLogger().error('Job recommendations error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

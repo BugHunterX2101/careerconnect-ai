@@ -94,57 +94,54 @@ function extractCustomKeywords(text) {
 
 // Generate GPT-enhanced job recommendations
 async function generateGPTJobRecommendations(keywords, searchContext) {
-  // Mock GPT-enhanced jobs with intelligent matching
-  const baseJobs = [
-    {
-      id: 'gpt_1',
-      title: 'AI-Enhanced Full Stack Developer',
-      company: 'TechForward AI',
-      location: 'Remote',
-      salary: '$120,000 - $160,000',
-      type: 'Full-time',
-      remote: true,
-      description: 'Revolutionary role combining traditional full-stack development with AI integration.',
-      skills: ['React', 'Node.js', 'Python', 'TensorFlow', 'AI/ML'],
-      posted: 'Just posted',
-      applicants: 12,
-      source: 'GPT Enhanced',
-      matchScore: 95
-    },
-    {
-      id: 'gpt_2',
-      title: 'Senior React Developer - FinTech',
-      company: 'NextGen Finance',
-      location: 'New York, NY',
-      salary: '$135,000 - $175,000',
-      type: 'Full-time',
-      remote: false,
-      description: 'Lead React development for cutting-edge financial applications.',
-      skills: ['React', 'TypeScript', 'GraphQL', 'Microservices'],
-      posted: '3 hours ago',
-      applicants: 8,
-      source: 'GPT Enhanced',
-      matchScore: 91
-    },
-    {
-      id: 'gpt_3',
-      title: 'Machine Learning Engineer',
-      company: 'DataCorp Analytics',
-      location: 'San Francisco, CA',
-      salary: '$150,000 - $200,000',
-      type: 'Full-time',
-      remote: true,
-      description: 'Build and deploy ML models at scale for enterprise clients.',
-      skills: ['Python', 'TensorFlow', 'PyTorch', 'AWS', 'Kubernetes'],
-      posted: '1 day ago',
-      applicants: 25,
-      source: 'GPT Enhanced',
-      matchScore: 88
+  let jobs = [];
+  try {
+    const Job = require('../models/Job');
+    if (Job && typeof Job.find === 'function') {
+      const query = { status: 'active' };
+      if (searchContext?.location) {
+        query.$or = [
+          { 'location.city': { $regex: searchContext.location, $options: 'i' } },
+          { 'location.state': { $regex: searchContext.location, $options: 'i' } },
+          { 'location.country': { $regex: searchContext.location, $options: 'i' } }
+        ];
+      }
+
+      const rawJobs = await Job.find(query)
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+      jobs = rawJobs.map((job) => {
+        const skills = Array.isArray(job?.requirements?.skills)
+          ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
+          : [];
+        const minSalary = job?.benefits?.salary?.min;
+        const maxSalary = job?.benefits?.salary?.max;
+        return {
+          id: String(job._id),
+          title: job.title,
+          company: job?.company?.name || 'Unknown Company',
+          location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ') || 'Remote',
+          salary: Number.isFinite(minSalary) || Number.isFinite(maxSalary)
+            ? `$${(minSalary || 0).toLocaleString()} - $${(maxSalary || 0).toLocaleString()}`
+            : null,
+          type: job.employmentType || 'full-time',
+          remote: Boolean(job?.location?.isRemote),
+          description: job.description || '',
+          skills,
+          posted: job.createdAt,
+          applicants: job.applications?.length || 0,
+          source: 'Realtime',
+          matchScore: 0
+        };
+      });
     }
-  ];
-  
-  // Enhance jobs with GPT reasoning and career insights
-  return baseJobs.map(job => ({
+  } catch (error) {
+    console.warn('GPT job recommendation data source unavailable:', error.message);
+    jobs = [];
+  }
+
+  return jobs.map(job => ({
     ...job,
     gptReasoning: generateJobReasoning(job, keywords, searchContext),
     careerGrowth: generateCareerPath(job.title),

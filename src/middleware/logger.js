@@ -254,8 +254,10 @@ const healthCheckLogger = (status, duration, checks) => {
   });
 };
 
-// Export all logging functions
-module.exports = {
+// Export logger in a backward-compatible shape:
+// 1) `const logger = require('../middleware/logger'); logger.error(...)`
+// 2) `const { requestLogger } = require('../middleware/logger');`
+const exportedLogger = Object.assign(logger, {
   logger,
   requestLogger,
   performanceLogger,
@@ -269,4 +271,6 @@ module.exports = {
   authLogger,
   rateLimitLogger,
   healthCheckLogger
-};
+});
+
+module.exports = exportedLogger;

@@ -1,0 +1,36 @@
+name: Performance Guardrails
+
+on:
+  pull_request:
+    branches: ["*"]
+  workflow_dispatch:
+
+jobs:
+  frontend-performance:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: src/client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Enforce bundle budget
+        run: npm run perf:budget
+
+      - name: Run Lighthouse regression checks
+        run: npx -y @lhci/cli@0.14.0 autorun --config=./lighthouserc.json

@@ -1,14 +1,9 @@
 import React from 'react';
+import { beginOAuthFlow } from '../utils/oauth';
 
 const LinkedInLogin = ({ onSuccess, onError }) => {
   const handleLinkedInLogin = () => {
-    console.log('LinkedIn button clicked');
-    console.log('API URL:', import.meta.env.VITE_API_URL);
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const linkedinUrl = `${apiUrl}/api/auth/linkedin`;
-    console.log('Redirecting to:', linkedinUrl);
-    localStorage.setItem('preOAuthUrl', window.location.pathname);
-    window.location.href = linkedinUrl;
+    beginOAuthFlow({ provider: 'linkedin', returnPath: window.location.pathname, flow: 'login' });
   };
 
   return (

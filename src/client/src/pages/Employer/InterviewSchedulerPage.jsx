@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Card, CardContent, Button, TextField,
@@ -16,6 +16,7 @@ import {
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { FixedSizeList } from 'react-window';
 import { employerService } from '../../services/employerService';
 import { useNavigate } from 'react-router-dom';
 const InterviewSchedulerPage = () => {
@@ -174,21 +175,153 @@ const InterviewSchedulerPage = () => {
     }
   };
 
-  const getUpcomingInterviews = () => {
+  const upcomingInterviews = useMemo(() => {
     const now = new Date();
-    return interviews.filter(interview => 
-      new Date(interview.scheduledAt) > now && 
+    return interviews.filter((interview) =>
+      new Date(interview.scheduledAt) > now &&
       ['scheduled', 'confirmed'].includes(interview.status)
     );
-  };
+  }, [interviews]);
 
-  const getPastInterviews = () => {
+  const pastInterviews = useMemo(() => {
     const now = new Date();
-    return interviews.filter(interview => 
-      new Date(interview.scheduledAt) <= now || 
+    return interviews.filter((interview) =>
+      new Date(interview.scheduledAt) <= now ||
       ['completed', 'cancelled'].includes(interview.status)
     );
-  };
+  }, [interviews]);
+
+  const displayedInterviews = useMemo(() => {
+    if (tabValue === 0) return upcomingInterviews;
+    if (tabValue === 1) return pastInterviews;
+    return interviews;
+  }, [interviews, pastInterviews, tabValue, upcomingInterviews]);
+
+  const listHeight = useMemo(() => {
+    if (displayedInterviews.length === 0) return 0;
+    return Math.min(720, displayedInterviews.length * 168);
+  }, [displayedInterviews.length]);
+
+  const InterviewRow = useCallback(({ index, style }) => {
+    const interview = displayedInterviews[index];
+    if (!interview) return null;
+
+    return (
+      <Box style={style} sx={{ px: 0.5, py: 0.5 }}>
+        <ListItem
+          key={interview._id}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            mb: 1,
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <ListItemAvatar>
+            <Avatar src={interview.candidate?.profile?.avatar}>
+              {interview.candidate?.firstName?.[0]}
+            </Avatar>
+          </ListItemAvatar>
+
+          <ListItemText
+            primary={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h6">
+                  {interview.candidate?.firstName} {interview.candidate?.lastName}
+                </Typography>
+                <Chip
+                  size="small"
+                  label={interview.status}
+                  color={getStatusColor(interview.status)}
+                />
+              </Box>
+            }
+            secondary={
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {interview.job?.title} • {interview.job?.company}
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <CalendarToday fontSize="small" color="action" />
+                    <Typography variant="caption">
+                      {formatDateTime(interview.scheduledAt)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <AccessTime fontSize="small" color="action" />
+                    <Typography variant="caption">
+                      {interview.duration} minutes
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {interviewTypes.find(t => t.value === interview.type)?.icon}
+                    <Typography variant="caption">
+                      {interviewTypes.find(t => t.value === interview.type)?.label}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {interview.notes && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    Notes: {interview.notes}
+                  </Typography>
+                )}
+              </Box>
+            }
+          />
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {interview.type === 'video' && interview.meetLink && (
+              <Tooltip title="Join Video Call">
+                <IconButton
+                  size="small"
+                  onClick={() => window.open(interview.meetLink, '_blank')}
+                  disabled={interview.status === 'cancelled'}
+                >
+                  <VideoCall />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            <Tooltip title="Message Candidate">
+              <IconButton
+                size="small"
+                onClick={() => navigate(`/chat?user=${interview.candidate._id}`)}
+              >
+                <Chat />
+              </IconButton>
+            </Tooltip>
+
+            {['scheduled', 'confirmed'].includes(interview.status) && (
+              <>
+                <Tooltip title="Edit Interview">
+                  <IconButton
+                    size="small"
+                    onClick={() => openEditDialog(interview)}
+                  >
+                    <Edit />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Cancel Interview">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleCancelInterview(interview._id)}
+                    color="error"
+                  >
+                    <Cancel />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+          </Box>
+        </ListItem>
+      </Box>
+    );
+  }, [displayedInterviews, interviewTypes, navigate]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -225,7 +358,7 @@ const InterviewSchedulerPage = () => {
                   <Typography variant="h6">Upcoming</Typography>
                 </Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {getUpcomingInterviews().length}
+                  {upcomingInterviews.length}
                 </Typography>
               </CardContent>
             </Card>
@@ -274,8 +407,8 @@ const InterviewSchedulerPage = () => {
         {/* Interview Lists */}
         <Paper>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-            <Tab label={`${t('upcoming')} (${getUpcomingInterviews().length})`} />
-            <Tab label={`${t('past')} (${getPastInterviews().length})`} />
+            <Tab label={`${t('upcoming')} (${upcomingInterviews.length})`} />
+            <Tab label={`${t('past')} (${pastInterviews.length})`} />
             <Tab label={t('allInterviews')} />
           </Tabs>
 
@@ -285,125 +418,17 @@ const InterviewSchedulerPage = () => {
                 <CircularProgress />
               </Box>
             ) : (
-              <List>
-                {(tabValue === 0 ? getUpcomingInterviews() : 
-                  tabValue === 1 ? getPastInterviews() : interviews)
-                  .map((interview) => (
-                  <ListItem
-                    key={interview._id}
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      mb: 2,
-                      '&:hover': { bgcolor: 'action.hover' }
-                    }}
+              <Box>
+                {displayedInterviews.length > 0 ? (
+                  <FixedSizeList
+                    height={listHeight}
+                    width="100%"
+                    itemCount={displayedInterviews.length}
+                    itemSize={168}
                   >
-                    <ListItemAvatar>
-                      <Avatar src={interview.candidate?.profile?.avatar}>
-                        {interview.candidate?.firstName?.[0]}
-                      </Avatar>
-                    </ListItemAvatar>
-                    
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="h6">
-                            {interview.candidate?.firstName} {interview.candidate?.lastName}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={interview.status}
-                            color={getStatusColor(interview.status)}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {interview.job?.title} • {interview.job?.company}
-                          </Typography>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <CalendarToday fontSize="small" color="action" />
-                              <Typography variant="caption">
-                                {formatDateTime(interview.scheduledAt)}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <AccessTime fontSize="small" color="action" />
-                              <Typography variant="caption">
-                                {interview.duration} minutes
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              {interviewTypes.find(t => t.value === interview.type)?.icon}
-                              <Typography variant="caption">
-                                {interviewTypes.find(t => t.value === interview.type)?.label}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          
-                          {interview.notes && (
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                              Notes: {interview.notes}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                    
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {interview.type === 'video' && interview.meetLink && (
-                        <Tooltip title="Join Video Call">
-                          <IconButton
-                            size="small"
-                            onClick={() => window.open(interview.meetLink, '_blank')}
-                            disabled={interview.status === 'cancelled'}
-                          >
-                            <VideoCall />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      <Tooltip title="Message Candidate">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/chat?user=${interview.candidate._id}`)}
-                        >
-                          <Chat />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {['scheduled', 'confirmed'].includes(interview.status) && (
-                        <>
-                          <Tooltip title="Edit Interview">
-                            <IconButton
-                              size="small"
-                              onClick={() => openEditDialog(interview)}
-                            >
-                              <Edit />
-                            </IconButton>
-                          </Tooltip>
-                          
-                          <Tooltip title="Cancel Interview">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleCancelInterview(interview._id)}
-                              color="error"
-                            >
-                              <Cancel />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </Box>
-                  </ListItem>
-                ))}
-                
-                {(tabValue === 0 ? getUpcomingInterviews() : 
-                  tabValue === 1 ? getPastInterviews() : interviews).length === 0 && (
+                    {InterviewRow}
+                  </FixedSizeList>
+                ) : (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Schedule sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="h6" color="text.secondary">
@@ -414,7 +439,7 @@ const InterviewSchedulerPage = () => {
                     </Typography>
                   </Box>
                 )}
-              </List>
+              </Box>
             )}
           </Box>
         </Paper>

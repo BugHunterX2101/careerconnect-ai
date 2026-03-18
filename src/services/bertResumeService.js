@@ -1,5 +1,20 @@
-const tf = require('@tensorflow/tfjs-node');
-const use = require('@tensorflow-models/universal-sentence-encoder');
+let use = null;
+try {
+  require('@tensorflow/tfjs-node');
+} catch (error) {
+  try {
+    require('@tensorflow/tfjs');
+  } catch (_) {
+    // If TensorFlow runtime cannot be loaded, service continues with heuristic parsing.
+  }
+}
+
+try {
+  use = require('@tensorflow-models/universal-sentence-encoder');
+} catch (error) {
+  // Model package unavailable; fallback mode still supports non-embedding features.
+  use = null;
+}
 const natural = require('natural');
 const cache = require('./bertCacheService');
 
@@ -8,7 +23,6 @@ class BERTResumeService {
     this.model = null;
     this.tokenizer = new natural.WordTokenizer();
     this.modelLoading = null;
-    this.initializeModel();
   }
 
   async initializeModel() {
@@ -16,10 +30,16 @@ class BERTResumeService {
     
     this.modelLoading = (async () => {
       try {
+        if (!use) {
+          this.model = null;
+          console.warn('Universal Sentence Encoder not available, using heuristic parsing fallback');
+          return;
+        }
         this.model = await use.load();
         console.log('✓ Universal Sentence Encoder loaded');
       } catch (error) {
         console.error('USE model loading failed:', error.message);
+        this.model = null;
       }
     })();
     
@@ -45,6 +65,12 @@ class BERTResumeService {
     
     await cache.set(resumeText, result);
     return result;
+  }
+
+  getModelStatus() {
+    if (this.model) return 'ready';
+    if (this.modelLoading) return 'loading';
+    return 'idle';
   }
 
   extractSections(text) {

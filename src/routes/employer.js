@@ -1,7 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
-const csrf = require('csurf');
 
 // Try to import models (optional)
 let Job = null;
@@ -47,16 +46,27 @@ const employerLimiter = rateLimit({
 router.use(employerLimiter);
 router.use(authenticateToken);
 router.use(authorizeRole('employer'));
-router.use(csrf({ cookie: true }));
-router.use(authorizeRole('employer'));
 
 // @route   GET /api/employer/dashboard/stats
 // @desc    Get employer dashboard statistics
 // @access  Private (employer)
 router.get('/dashboard/stats', async (req, res) => {
   try {
-    if (!Job || !User || !Interview) {
-      return res.status(503).json({ error: 'Models not available' });
+    if (!Job || !Interview) {
+      return res.json({
+        activeJobs: 0,
+        totalJobs: 0,
+        totalApplications: 0,
+        newApplications: 0,
+        scheduledInterviews: 0,
+        upcomingInterviews: 0,
+        totalHired: 0,
+        hiredThisMonth: 0,
+        avgApplicationsPerJob: 0,
+        responseRate: 0,
+        hireRate: 0,
+        notifications: []
+      });
     }
 
     const employerId = req.user.userId;
@@ -124,7 +134,20 @@ router.get('/dashboard/stats', async (req, res) => {
 
   } catch (error) {
     getLogger().error('Get dashboard stats error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.json({
+      activeJobs: 0,
+      totalJobs: 0,
+      totalApplications: 0,
+      newApplications: 0,
+      scheduledInterviews: 0,
+      upcomingInterviews: 0,
+      totalHired: 0,
+      hiredThisMonth: 0,
+      avgApplicationsPerJob: 0,
+      responseRate: 0,
+      hireRate: 0,
+      notifications: []
+    });
   }
 });
 
@@ -134,7 +157,12 @@ router.get('/dashboard/stats', async (req, res) => {
 router.get('/jobs', async (req, res) => {
   try {
     if (!Job) {
-      return res.status(503).json({ error: 'Job model not available' });
+      return res.json({
+        jobs: [],
+        total: 0,
+        page: parseInt(req.query.page || 1, 10),
+        totalPages: 0
+      });
     }
 
     const { page = 1, limit = 10, status } = req.query;
@@ -162,7 +190,12 @@ router.get('/jobs', async (req, res) => {
 
   } catch (error) {
     getLogger().error('Get employer jobs error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.json({
+      jobs: [],
+      total: 0,
+      page: parseInt(req.query.page || 1, 10),
+      totalPages: 0
+    });
   }
 });
 
@@ -792,7 +825,12 @@ router.post('/candidates/:id/invite', async (req, res) => {
 router.get('/interviews', async (req, res) => {
   try {
     if (!Interview) {
-      return res.status(503).json({ error: 'Interview model not available' });
+      return res.json({
+        interviews: [],
+        total: 0,
+        page: parseInt(req.query.page || 1, 10),
+        totalPages: 0
+      });
     }
 
     const { page = 1, limit = 20, status } = req.query;
@@ -821,7 +859,12 @@ router.get('/interviews', async (req, res) => {
 
   } catch (error) {
     getLogger().error('Get interviews error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.json({
+      interviews: [],
+      total: 0,
+      page: parseInt(req.query.page || 1, 10),
+      totalPages: 0
+    });
   }
 });
 
@@ -961,64 +1004,158 @@ router.get('/analytics', async (req, res) => {
   try {
     const employerId = req.user.userId;
     const { startDate, endDate } = req.query;
-    
-    // Mock analytics data
+
+    let jobs = [];
+    let interviews = [];
+    try {
+      if (Job && typeof Job.find === 'function') {
+        jobs = await Job.find({ employer: employerId });
+      }
+    } catch (error) {
+      getLogger().warn(`Employer analytics jobs query unavailable: ${error.message}`);
+    }
+
+    try {
+      if (Interview && typeof Interview.find === 'function') {
+        interviews = await Interview.find({ interviewer: employerId });
+      }
+    } catch (error) {
+      getLogger().warn(`Employer analytics interviews query unavailable: ${error.message}`);
+    }
+
+    const totalJobs = jobs.length;
+    const activeJobs = jobs.filter((job) => job.status === 'active').length;
+    const totalApplications = jobs.reduce((sum, job) => sum + (job.applications?.length || 0), 0);
+    const totalHires = jobs.reduce((sum, job) => {
+      const hires = (job.applications || []).filter((app) => app.status === 'hired').length;
+      return sum + hires;
+    }, 0);
+
+    const thisMonthStart = new Date();
+    thisMonthStart.setDate(1);
+    const lastMonthStart = new Date(thisMonthStart.getFullYear(), thisMonthStart.getMonth() - 1, 1);
+
+    const thisMonthApplications = jobs.reduce((sum, job) => {
+      return sum + (job.applications || []).filter((app) => {
+        const appliedAt = new Date(app.appliedAt || app.createdAt || 0);
+        return appliedAt >= thisMonthStart;
+      }).length;
+    }, 0);
+    const lastMonthApplications = jobs.reduce((sum, job) => {
+      return sum + (job.applications || []).filter((app) => {
+        const appliedAt = new Date(app.appliedAt || app.createdAt || 0);
+        return appliedAt >= lastMonthStart && appliedAt < thisMonthStart;
+      }).length;
+    }, 0);
+
+    const thisMonthHires = jobs.reduce((sum, job) => {
+      return sum + (job.applications || []).filter((app) => {
+        const updatedAt = new Date(app.updatedAt || app.appliedAt || 0);
+        return app.status === 'hired' && updatedAt >= thisMonthStart;
+      }).length;
+    }, 0);
+    const lastMonthHires = jobs.reduce((sum, job) => {
+      return sum + (job.applications || []).filter((app) => {
+        const updatedAt = new Date(app.updatedAt || app.appliedAt || 0);
+        return app.status === 'hired' && updatedAt >= lastMonthStart && updatedAt < thisMonthStart;
+      }).length;
+    }, 0);
+
+    const totalTimeToHireDays = interviews
+      .filter((interview) => interview.status === 'completed' && interview.createdAt && interview.scheduledAt)
+      .map((interview) => {
+        const created = new Date(interview.createdAt).getTime();
+        const scheduled = new Date(interview.scheduledAt).getTime();
+        return Math.max(0, Math.round((scheduled - created) / (1000 * 60 * 60 * 24)));
+      });
+    const averageTimeToHire = totalTimeToHireDays.length
+      ? Math.round(totalTimeToHireDays.reduce((sum, v) => sum + v, 0) / totalTimeToHireDays.length)
+      : 0;
+
     const analytics = {
       overview: {
-        totalJobs: Math.floor(Math.random() * 20) + 10,
-        activeJobs: Math.floor(Math.random() * 15) + 5,
-        totalApplications: Math.floor(Math.random() * 200) + 100,
-        totalHires: Math.floor(Math.random() * 15) + 5
+        totalJobs,
+        activeJobs,
+        totalApplications,
+        totalHires
       },
       trends: {
         applications: {
-          thisMonth: Math.floor(Math.random() * 50) + 25,
-          lastMonth: Math.floor(Math.random() * 40) + 20,
-          growth: '+25%'
+          thisMonth: thisMonthApplications,
+          lastMonth: lastMonthApplications,
+          growth: lastMonthApplications > 0
+            ? `${Math.round(((thisMonthApplications - lastMonthApplications) / lastMonthApplications) * 100)}%`
+            : '0%'
         },
         hires: {
-          thisMonth: Math.floor(Math.random() * 8) + 2,
-          lastMonth: Math.floor(Math.random() * 6) + 1,
-          growth: '+50%'
+          thisMonth: thisMonthHires,
+          lastMonth: lastMonthHires,
+          growth: lastMonthHires > 0
+            ? `${Math.round(((thisMonthHires - lastMonthHires) / lastMonthHires) * 100)}%`
+            : '0%'
         },
         timeToHire: {
-          average: Math.floor(Math.random() * 10) + 15,
-          improvement: '-3 days'
+          average: averageTimeToHire,
+          improvement: '0 days'
         }
       },
-      topPerformingJobs: [
-        {
-          title: 'Senior React Developer',
-          applications: 45,
-          interviews: 12,
-          hires: 2,
-          conversionRate: '4.4%'
-        },
-        {
-          title: 'Full Stack Engineer',
-          applications: 38,
-          interviews: 10,
-          hires: 1,
-          conversionRate: '2.6%'
-        }
-      ],
+      topPerformingJobs: jobs
+        .map((job) => {
+          const applications = job.applications?.length || 0;
+          const hires = (job.applications || []).filter((app) => app.status === 'hired').length;
+          return {
+            title: job.title,
+            applications,
+            interviews: interviews.filter((intv) => String(intv.job) === String(job._id)).length,
+            hires,
+            conversionRate: applications > 0 ? `${((hires / applications) * 100).toFixed(1)}%` : '0.0%'
+          };
+        })
+        .sort((a, b) => b.applications - a.applications)
+        .slice(0, 5),
       candidateQuality: {
-        averageScore: Math.floor(Math.random() * 20) + 70,
-        qualifiedCandidates: Math.floor(Math.random() * 30) + 60,
-        topSkills: ['React', 'Node.js', 'Python', 'AWS']
+        averageScore: 0,
+        qualifiedCandidates: 0,
+        topSkills: []
       },
-      sourcingEffectiveness: [
-        { source: 'Job Boards', applications: 120, hires: 8, cost: '$2,400' },
-        { source: 'LinkedIn', applications: 85, hires: 6, cost: '$1,800' },
-        { source: 'Referrals', applications: 25, hires: 4, cost: '$800' }
-      ]
+      sourcingEffectiveness: []
     };
     
     res.json(analytics);
 
   } catch (error) {
     getLogger().error('Get employer analytics error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.json({
+      overview: {
+        totalJobs: 0,
+        activeJobs: 0,
+        totalApplications: 0,
+        totalHires: 0
+      },
+      trends: {
+        applications: {
+          thisMonth: 0,
+          lastMonth: 0,
+          growth: '0%'
+        },
+        hires: {
+          thisMonth: 0,
+          lastMonth: 0,
+          growth: '0%'
+        },
+        timeToHire: {
+          average: 0,
+          improvement: '0 days'
+        }
+      },
+      topPerformingJobs: [],
+      candidateQuality: {
+        averageScore: 0,
+        qualifiedCandidates: 0,
+        topSkills: []
+      },
+      sourcingEffectiveness: []
+    });
   }
 });
 
@@ -1027,40 +1164,7 @@ router.get('/analytics', async (req, res) => {
 // @access  Private (employer)
 router.get('/team', async (req, res) => {
   try {
-    const employerId = req.user.userId;
-    
-    // Mock team data
-    const team = {
-      members: [
-        {
-          id: 1,
-          name: 'John Smith',
-          email: 'john@company.com',
-          role: 'Hiring Manager',
-          permissions: ['view_candidates', 'schedule_interviews', 'update_applications'],
-          joinedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000)
-        },
-        {
-          id: 2,
-          name: 'Sarah Johnson',
-          email: 'sarah@company.com',
-          role: 'Recruiter',
-          permissions: ['view_candidates', 'schedule_interviews'],
-          joinedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
-          lastActive: new Date(Date.now() - 30 * 60 * 1000)
-        }
-      ],
-      pendingInvites: [
-        {
-          email: 'newrecruiter@company.com',
-          role: 'Recruiter',
-          invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-        }
-      ]
-    };
-    
-    res.json(team);
+    res.json({ members: [], pendingInvites: [] });
 
   } catch (error) {
     getLogger().error('Get team error:', error);
@@ -1081,18 +1185,7 @@ router.post('/team/invite', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, role, permissions = [] } = req.body;
-    
-    // Mock response
-    const invite = {
-      email,
-      role,
-      permissions,
-      invitedAt: new Date(),
-      inviteToken: 'mock-token-' + Date.now()
-    };
-    
-    res.status(201).json({ message: 'Team member invited successfully', invite });
+    res.status(501).json({ error: 'Team invite persistence is not implemented yet' });
 
   } catch (error) {
     getLogger().error('Invite team member error:', error);
@@ -1107,31 +1200,26 @@ router.get('/reports/hiring', async (req, res) => {
   try {
     const employerId = req.user.userId;
     const { startDate, endDate, format } = req.query;
-    
-    // Mock hiring report
+
+    let jobs = [];
+    if (Job && typeof Job.find === 'function') {
+      jobs = await Job.find({ employer: employerId });
+    }
+
+    const allApplications = jobs.flatMap((job) => job.applications || []);
+    const totalHires = allApplications.filter((app) => app.status === 'hired').length;
+    const offerCount = allApplications.filter((app) => app.status === 'offered').length;
+
     const report = {
       summary: {
-        totalHires: Math.floor(Math.random() * 20) + 10,
-        averageTimeToHire: Math.floor(Math.random() * 10) + 20,
-        costPerHire: Math.floor(Math.random() * 2000) + 3000,
-        offerAcceptanceRate: Math.floor(Math.random() * 20) + 75
+        totalHires,
+        averageTimeToHire: 0,
+        costPerHire: 0,
+        offerAcceptanceRate: offerCount > 0 ? Math.round((totalHires / offerCount) * 100) : 0
       },
-      byDepartment: [
-        { department: 'Engineering', hires: 8, avgSalary: '$95k', timeToHire: 25 },
-        { department: 'Marketing', hires: 3, avgSalary: '$65k', timeToHire: 18 },
-        { department: 'Sales', hires: 5, avgSalary: '$70k', timeToHire: 15 }
-      ],
-      monthlyTrends: [
-        { month: 'Jan', hires: 2, applications: 45 },
-        { month: 'Feb', hires: 4, applications: 52 },
-        { month: 'Mar', hires: 3, applications: 38 },
-        { month: 'Apr', hires: 5, applications: 61 }
-      ],
-      topSources: [
-        { source: 'LinkedIn', hires: 8, cost: '$1,600' },
-        { source: 'Job Boards', hires: 6, cost: '$1,200' },
-        { source: 'Referrals', hires: 4, cost: '$800' }
-      ]
+      byDepartment: [],
+      monthlyTrends: [],
+      topSources: []
     };
     
     res.json(report);
@@ -1148,43 +1236,34 @@ router.get('/reports/hiring', async (req, res) => {
 router.get('/pipeline', async (req, res) => {
   try {
     const employerId = req.user.userId;
-    
-    // Mock pipeline data
+
+    let jobs = [];
+    if (Job && typeof Job.find === 'function') {
+      jobs = await Job.find({ employer: employerId });
+    }
+
+    const allApplications = jobs.flatMap((job) => job.applications || []);
+    const stageMap = {
+      Applied: ['applied'],
+      Screening: ['reviewing', 'shortlisted'],
+      Interview: ['interviewing'],
+      'Final Round': ['final_round'],
+      Offer: ['offered'],
+      Hired: ['hired']
+    };
+    const total = allApplications.length || 1;
+
     const pipeline = {
-      stages: [
-        { stage: 'Applied', count: 145, percentage: 100 },
-        { stage: 'Screening', count: 87, percentage: 60 },
-        { stage: 'Interview', count: 34, percentage: 23 },
-        { stage: 'Final Round', count: 12, percentage: 8 },
-        { stage: 'Offer', count: 6, percentage: 4 },
-        { stage: 'Hired', count: 4, percentage: 3 }
-      ],
-      recentActivity: [
-        {
-          candidate: 'John Doe',
-          job: 'Senior Developer',
-          action: 'Moved to Interview',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
-        },
-        {
-          candidate: 'Jane Smith',
-          job: 'Product Manager',
-          action: 'Offer Extended',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000)
-        }
-      ],
-      bottlenecks: [
-        {
-          stage: 'Interview Scheduling',
-          avgDelay: '5 days',
-          suggestion: 'Consider automated scheduling'
-        },
-        {
-          stage: 'Reference Checks',
-          avgDelay: '3 days',
-          suggestion: 'Streamline reference process'
-        }
-      ]
+      stages: Object.entries(stageMap).map(([stage, statuses]) => {
+        const count = allApplications.filter((app) => statuses.includes(app.status)).length;
+        return {
+          stage,
+          count,
+          percentage: Math.round((count / total) * 100)
+        };
+      }),
+      recentActivity: [],
+      bottlenecks: []
     };
     
     res.json(pipeline);
@@ -1200,40 +1279,7 @@ router.get('/pipeline', async (req, res) => {
 // @access  Private (employer)
 router.get('/notifications', async (req, res) => {
   try {
-    const employerId = req.user.userId;
-    
-    // Mock notifications
-    const notifications = [
-      {
-        id: 1,
-        title: 'New Application',
-        message: 'John Doe applied for Senior React Developer position',
-        type: 'application',
-        read: false,
-        createdAt: new Date(Date.now() - 30 * 60 * 1000),
-        actionUrl: '/employer/jobs/123/applicants'
-      },
-      {
-        id: 2,
-        title: 'Interview Reminder',
-        message: 'Interview with Sarah Johnson in 1 hour',
-        type: 'interview',
-        read: false,
-        createdAt: new Date(Date.now() - 45 * 60 * 1000),
-        actionUrl: '/employer/interviews/456'
-      },
-      {
-        id: 3,
-        title: 'Job Expiring Soon',
-        message: 'Frontend Developer job expires in 3 days',
-        type: 'job_expiry',
-        read: true,
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        actionUrl: '/employer/jobs/789'
-      }
-    ];
-    
-    res.json({ notifications });
+    res.json({ notifications: [] });
 
   } catch (error) {
     getLogger().error('Get notifications error:', error);
@@ -1246,10 +1292,7 @@ router.get('/notifications', async (req, res) => {
 // @access  Private (employer)
 router.patch('/notifications/:id/read', async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    // Mock response
-    res.json({ message: 'Notification marked as read' });
+    res.status(404).json({ error: 'Notification not found' });
 
   } catch (error) {
     getLogger().error('Mark notification as read error:', error);
@@ -1262,37 +1305,7 @@ router.patch('/notifications/:id/read', async (req, res) => {
 // @access  Private (employer)
 router.get('/settings', async (req, res) => {
   try {
-    const employerId = req.user.userId;
-    
-    // Mock settings
-    const settings = {
-      company: {
-        name: 'TechCorp Inc.',
-        website: 'https://techcorp.com',
-        industry: 'Technology',
-        size: '51-200 employees',
-        description: 'Leading technology company'
-      },
-      notifications: {
-        newApplications: true,
-        interviewReminders: true,
-        weeklyReports: false,
-        candidateMessages: true
-      },
-      hiring: {
-        autoRejectAfterDays: 30,
-        requireCoverLetter: false,
-        allowRemoteApplications: true,
-        screeningQuestions: []
-      },
-      integrations: {
-        linkedin: { connected: true, lastSync: new Date() },
-        slack: { connected: false },
-        calendar: { connected: true, provider: 'Google' }
-      }
-    };
-    
-    res.json({ settings });
+    res.json({ settings: {} });
 
   } catch (error) {
     getLogger().error('Get settings error:', error);
@@ -1305,13 +1318,7 @@ router.get('/settings', async (req, res) => {
 // @access  Private (employer)
 router.put('/settings', async (req, res) => {
   try {
-    const { settings } = req.body;
-    
-    // Mock response
-    res.json({
-      message: 'Settings updated successfully',
-      settings
-    });
+    res.status(501).json({ error: 'Employer settings persistence is not implemented yet' });
 
   } catch (error) {
     getLogger().error('Update settings error:', error);
