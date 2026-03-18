@@ -11,7 +11,24 @@ try {
 }
 
 const getUser = () => {
-  return userModel;
+  if (!userModel) {
+    return null;
+  }
+
+  if (typeof userModel.findByPk === 'function') {
+    return userModel;
+  }
+
+  if (typeof userModel.User === 'function') {
+    try {
+      return userModel.User();
+    } catch (error) {
+      console.warn('Failed to initialize User model:', error.message);
+      return null;
+    }
+  }
+
+  return null;
 };
 
 if (!process.env.JWT_SECRET) {
