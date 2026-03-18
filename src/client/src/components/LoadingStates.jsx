@@ -1,7 +1,7 @@
 import { Skeleton, Box, Card, CardContent } from '@mui/material';
 
 export const JobCardSkeleton = () => (
-  <Card>
+  <Card className="skeleton-shell">
     <CardContent>
       <Skeleton variant="text" width="60%" height={32} />
       <Skeleton variant="text" width="40%" height={24} />
@@ -17,7 +17,7 @@ export const JobCardSkeleton = () => (
 );
 
 export const ProfileSkeleton = () => (
-  <Box>
+  <Box className="skeleton-shell">
     <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
       <Skeleton variant="circular" width={100} height={100} />
       <Box sx={{ flex: 1 }}>
@@ -31,7 +31,7 @@ export const ProfileSkeleton = () => (
 );
 
 export const DashboardSkeleton = () => (
-  <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+  <Box className="skeleton-shell" sx={{ display: 'grid', gap: 3, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
     {[1, 2, 3, 4].map((i) => (
       <Card key={i}>
         <CardContent>

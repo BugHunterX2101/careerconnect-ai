@@ -1,126 +1,94 @@
 # CareerConnect AI
 
-CareerConnect AI is a full-stack platform for job seekers and employers.
-It combines real-time workflows, AI-assisted recommendations, and analytics dashboards in one system.
+CareerConnect AI is an AI-powered hiring and job-search platform for both job seekers and employers.
+It combines resume intelligence, smart matching, interview workflows, and analytics in one product.
 
-## Why This Project
+## Highlights
 
-- One platform for both hiring and job search journeys
-- Production-ready backend with authentication, authorization, and API guardrails
-- AI-powered resume and recommendation services with practical fallbacks
-- Fast frontend with focused dashboards and performance guardrails
-
-## Core Capabilities
-
-### Job Seeker Experience
-- Personalized dashboard with applications, interviews, and analytics
-- Resume analysis and profile insights
-- Job recommendations and search workflows
-- OAuth login and secure account flows
-
-### Employer Experience
-- Hiring dashboard with pipeline and analytics views
-- Candidate search, review, and interview scheduling
-- Job management and applicant tracking endpoints
-
-### Platform Services
-- JWT auth + OAuth providers (Google, LinkedIn, GitHub)
-- Real-time communication with Socket.IO
-- AI services for resume understanding and recommendation support
-- Redis-ready caching support and SQLite-based local persistence
+- Unified experience for candidates and hiring teams
+- AI-assisted resume analysis and role matching
+- Secure auth stack with JWT + OAuth providers
+- Real-time features with Socket.IO
+- Production-ready backend + modern React frontend
 
 ## Tech Stack
 
-- Backend: Node.js, Express, Sequelize, SQLite, Mongoose support
+- Backend: Node.js, Express, Sequelize, SQLite, Mongoose
 - Frontend: React 18, Vite, Material UI, React Query
-- AI/ML: TensorFlow.js, Universal Sentence Encoder, recommendation services
-- Infra: Docker, PM2, Nginx config, GitHub Actions workflows
+- AI: TensorFlow.js, Universal Sentence Encoder
+- Ops: Docker, PM2, Nginx
 
 ## Quick Start
 
-### Windows Fast Path
+### Option 1: Windows Fast Start
 
 ```bash
 quick-start-dashboards.bat
 ```
 
-### Manual Setup
+### Option 2: Manual
 
 ```bash
 npm install
-cd src/client && npm install
+cd src/client
+npm install
 cd ../..
-```
-
-Create environment file:
-
-```bash
 copy .env.example .env
-```
-
-Start backend:
-
-```bash
+npm run build:client
 npm start
 ```
 
-## Frontend Development
+App URL: `http://localhost:3000`
+Health check: `http://localhost:3000/health`
 
-Run frontend in Vite dev mode:
+## Development
+
+Backend:
+
+```bash
+npm run dev
+```
+
+Frontend:
 
 ```bash
 cd src/client
 npm run dev
 ```
 
-Build frontend for backend-served static hosting:
+## Build and Run (Production Mode)
 
 ```bash
 npm run build:client
+npm start
 ```
 
-## Testing and Quality
-
-From repository root:
+## Testing and Linting
 
 ```bash
 npm test
 npm run lint
 ```
 
-From `src/client`:
-
-```bash
-npm run test
-npm run build:perf
-```
-
-## API Surface (High-Level)
+## Key Routes
 
 - Auth: `/api/auth/*`
-- Employee workflows: `/api/employee/*`
-- Employer workflows: `/api/employer/*`
-- Jobs and recommendations: `/api/jobs/*`
-- BERT services: `/api/bert/*`
-- Health/status: `/health`, `/api/status`
+- Candidate flows: `/api/employee/*`
+- Employer flows: `/api/employer/*`
+- Jobs: `/api/jobs/*`
+- AI services: `/api/bert/*`
+- Status: `/health`, `/api/status`
 
-## Production Notes
+## Deployment Notes
 
-- Start server: `npm start`
-- PM2 mode: `npm run start:pm2`
-- Docker mode: `docker-compose up -d`
-- Keep secrets in `.env` and never commit credentials
+- PM2: `npm run start:pm2`
+- Docker: `docker-compose up -d`
+- Keep secrets in `.env` (never commit credentials)
 
-## Documentation Map
+## Docs
 
 - `ENHANCED_DASHBOARD_DOCUMENTATION.md`
 - `BERT_INTEGRATION.md`
 - `IMPLEMENTATION_SUMMARY.md`
 - `OAUTH_SETUP_GUIDE.md`
 - `REDIS_SETUP.md`
-
-## Project Goal
-
-Deliver a focused, reliable career platform where AI improves decisions without blocking core workflows.
-
-

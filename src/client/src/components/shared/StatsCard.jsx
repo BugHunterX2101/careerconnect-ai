@@ -1,5 +1,7 @@
 import React from 'react';
 import { Card, CardContent, Box, Typography, Avatar, LinearProgress } from '@mui/material';
+import { CountUpNumber } from '../common';
+import useReducedMotion from '../../hooks/useReducedMotion';
 
 const StatsCard = ({ 
   title, 
@@ -11,6 +13,11 @@ const StatsCard = ({
   className = '',
   ...props 
 }) => {
+  const reducedMotion = useReducedMotion();
+
+  const numericValue = Number(value);
+  const showCounter = Number.isFinite(numericValue);
+
   return (
     <Card
       className={`hover-lift animate-scale-in ${className}`}
@@ -48,7 +55,11 @@ const StatsCard = ({
             {icon}
           </Avatar>
           <Typography variant="h3" sx={{ fontWeight: 800 }}>
-            {value}
+            {showCounter ? (
+              <CountUpNumber value={numericValue} duration={760} reducedMotion={reducedMotion} />
+            ) : (
+              value
+            )}
           </Typography>
         </Box>
         

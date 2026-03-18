@@ -187,7 +187,7 @@ const Layout = ({ children }) => {
   ];
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
+    <Box className="drawer-content-enter" sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#ffffff' }}>
       {/* Logo/Brand */}
       <Box sx={{ p: 3, borderBottom: '1px solid #f1f5f9' }}>
         <Typography 
@@ -234,28 +234,30 @@ const Layout = ({ children }) => {
                   mb: 0.5,
                   borderRadius: 2,
                   minHeight: 48,
+                  position: 'relative',
                   backgroundColor: isActive 
                     ? alpha(theme.palette.primary.main, 0.1)
                     : 'transparent',
                   color: isActive ? 'primary.main' : 'text.primary',
-                  transition: 'all 0.2s ease-in-out',
+                  transition: 'background-color 260ms cubic-bezier(0.16, 1, 0.3, 1), color 260ms cubic-bezier(0.16, 1, 0.3, 1), transform 220ms cubic-bezier(0.16, 1, 0.3, 1)',
                   '&:hover': {
                     backgroundColor: isActive 
                       ? alpha(theme.palette.primary.main, 0.15)
                       : alpha(theme.palette.primary.main, 0.05),
-                    transform: 'translateX(4px)',
+                    transform: 'translateX(3px)',
                   },
                   '&::before': {
                     content: '""',
                     position: 'absolute',
                     left: 0,
                     top: '50%',
-                    transform: 'translateY(-50%)',
+                    transform: isActive ? 'translateY(-50%) scaleY(1)' : 'translateY(-50%) scaleY(0)',
                     width: 3,
-                    height: isActive ? 24 : 0,
+                    height: 24,
+                    opacity: isActive ? 1 : 0,
                     backgroundColor: 'primary.main',
                     borderRadius: '0 2px 2px 0',
-                    transition: 'height 0.2s ease-in-out',
+                    transition: 'transform 240ms cubic-bezier(0.16, 1, 0.3, 1), opacity 240ms cubic-bezier(0.16, 1, 0.3, 1)',
                   },
                 }}
               >
@@ -470,6 +472,7 @@ const Layout = ({ children }) => {
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{ keepMounted: true }}
+          transitionDuration={{ enter: 240, exit: 180 }}
           sx={{
             display: { xs: 'block', md: 'none' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }

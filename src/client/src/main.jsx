@@ -27,6 +27,11 @@ import { startWebVitalsTracking } from './utils/webVitals'
 initializeErrorHandling();
 startWebVitalsTracking();
 
+const prefersReducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 if (typeof window !== 'undefined' && 'loading' in HTMLImageElement.prototype) {
   window.addEventListener('load', () => {
     const images = document.querySelectorAll('img:not([loading])')
@@ -67,21 +72,28 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 <AppErrorNotifier />
                 <Toaster
                   position="top-right"
+                  gutter={10}
                   toastOptions={{
-                    duration: 4000,
+                    className: 'toast-motion',
+                    duration: prefersReducedMotion ? 2800 : 3800,
                     style: {
                       background: '#363636',
                       color: '#fff',
+                      borderRadius: '12px',
+                      boxShadow: '0 14px 28px rgba(15, 30, 46, 0.22)',
+                      transition: prefersReducedMotion
+                        ? 'opacity 120ms linear'
+                        : 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms cubic-bezier(0.16, 1, 0.3, 1)',
                     },
                     success: {
-                      duration: 3000,
+                      duration: prefersReducedMotion ? 2400 : 3000,
                       iconTheme: {
                         primary: '#4caf50',
                         secondary: '#fff',
                       },
                     },
                     error: {
-                      duration: 5000,
+                      duration: prefersReducedMotion ? 3400 : 4800,
                       iconTheme: {
                         primary: '#f44336',
                         secondary: '#fff',
