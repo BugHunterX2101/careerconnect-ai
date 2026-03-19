@@ -120,10 +120,22 @@ class BERTResumeService {
       'machine learning', 'tensorflow', 'pytorch', 'data science', 'cloud', 'azure', 'gcp'
     ];
 
-    const tokens = this.tokenizer.tokenize(skillsText.toLowerCase());
-    const foundSkills = techSkills.filter(skill => 
-      tokens.some(token => token.includes(skill) || skill.includes(token))
-    );
+    const normalizedText = String(skillsText || '').toLowerCase();
+    const tokens = this.tokenizer
+      .tokenize(normalizedText)
+      .map((token) => token.replace(/^[^a-z0-9+#]+|[^a-z0-9+#]+$/gi, ''))
+      .filter((token) => token.length > 1);
+
+    const hasSkillPhrase = (skill) => {
+      const escaped = String(skill)
+        .toLowerCase()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\s+/g, '\\s+');
+      const boundaryPattern = new RegExp(`(^|[^a-z0-9+#])${escaped}([^a-z0-9+#]|$)`, 'i');
+      return boundaryPattern.test(normalizedText);
+    };
+
+    const foundSkills = techSkills.filter((skill) => hasSkillPhrase(skill));
 
     return {
       technical: foundSkills,

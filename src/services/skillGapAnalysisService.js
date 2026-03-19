@@ -40,7 +40,7 @@ class SkillGapAnalysisService {
       );
 
       if (missingSkills.length > 0) {
-        const relevance = await this.calculateRelevance(currentSkills, data.skills);
+        const relevance = await this.calculateRelevance(currentSkills, data.skills, skillEmbedding);
         
         gaps.push({
           category,
@@ -60,14 +60,36 @@ class SkillGapAnalysisService {
     return gaps.sort((a, b) => b.priority - a.priority);
   }
 
-  async calculateRelevance(currentSkills, targetSkills) {
+  async calculateRelevance(currentSkills, targetSkills, skillEmbedding = null) {
     if (!currentSkills.length) return 0;
     
     const overlap = targetSkills.filter(ts => 
       currentSkills.some(cs => cs.toLowerCase().includes(ts.toLowerCase()))
     ).length;
-    
-    return (overlap / targetSkills.length * 100).toFixed(0);
+
+    const lexicalScore = (overlap / targetSkills.length) * 100;
+
+    // Blend lexical overlap with USE semantic similarity when embeddings are available.
+    try {
+      const hasEmbedding = !!skillEmbedding;
+      if (!hasEmbedding) {
+        return Math.round(lexicalScore);
+      }
+
+      const semanticSimilarity = await bertService.calculateSimilarity(
+        currentSkills.join(' '),
+        targetSkills.join(' ')
+      );
+
+      if (!Number.isFinite(semanticSimilarity) || semanticSimilarity <= 0) {
+        return Math.round(lexicalScore);
+      }
+
+      const semanticScore = Math.max(0, Math.min(100, semanticSimilarity * 100));
+      return Math.round((lexicalScore * 0.6) + (semanticScore * 0.4));
+    } catch (error) {
+      return Math.round(lexicalScore);
+    }
   }
 
   calculatePriority(missingCount, salary, growth, relevance) {
