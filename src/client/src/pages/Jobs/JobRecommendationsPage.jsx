@@ -465,6 +465,198 @@ Please provide detailed analysis covering:
     return salary;
   };
 
+  const JobCard = ({ job, isAI = false }) => (
+    <Card
+      sx={{
+        cursor: 'pointer',
+        transition: 'all 0.3s',
+        border: isAI ? '2px solid' : '1px solid',
+        borderColor: isAI ? 'secondary.main' : 'divider',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: 6,
+          borderColor: isAI ? 'secondary.dark' : 'primary.main'
+        }
+      }}
+      onClick={() => handleJobClick(job)}
+    >
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                {job.title}
+              </Typography>
+              {isAI && (
+                <Chip
+                  label="AI Powered"
+                  color="secondary"
+                  size="small"
+                  icon={<Psychology />}
+                />
+              )}
+              {job.isRealTime && (
+                <Badge badgeContent="LIVE" color="success">
+                  <Chip size="small" label="Real-time" color="success" variant="outlined" />
+                </Badge>
+              )}
+              <Chip
+                label={`${job.matchScore || 75}% Match`}
+                color={getMatchScoreColor(job.matchScore || 75)}
+                size="small"
+                icon={<Star />}
+              />
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Business sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />
+                <Typography variant="body1">
+                  {job.company}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <LocationOn sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />
+                <Typography variant="body2" color="text.secondary">
+                  {job.location}
+                </Typography>
+              </Box>
+              {job.remote && (
+                <Chip label="Remote" size="small" color="primary" variant="outlined" />
+              )}
+            </Box>
+
+            {(job.salary || job.salaryRange) && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <AttachMoney sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />
+                <Typography variant="body2" color="text.secondary">
+                  {formatSalary(job.salary || job.salaryRange)}
+                </Typography>
+              </Box>
+            )}
+
+            {job.description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {job.description.length > 200
+                  ? `${job.description.substring(0, 200)}...`
+                  : job.description
+                }
+              </Typography>
+            )}
+
+            {job.relevanceReason && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>Why this matches:</strong> {job.relevanceReason}
+                </Typography>
+              </Alert>
+            )}
+
+            {(job.requiredSkills || job.skills) && (job.requiredSkills || job.skills).length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" gutterBottom sx={{ fontWeight: 'medium' }}>
+                  Required Skills:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {(job.requiredSkills || job.skills).slice(0, 6).map((skill, idx) => (
+                    <Chip
+                      key={idx}
+                      label={skill}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                  ))}
+                  {(job.requiredSkills || job.skills).length > 6 && (
+                    <Chip
+                      label={`+${(job.requiredSkills || job.skills).length - 6} more`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
+              </Box>
+            )}
+
+            {job.growthPotential && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <TrendingUp sx={{ mr: 1, color: 'success.main' }} />
+                <Typography variant="body2" color="success.main">
+                  {job.growthPotential}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+            <IconButton
+              onClick={(e) => handleSaveJob(job.id || job._id || `${job.title || 'job'}-${job.company || 'company'}`, e)}
+              color={savedJobs.has(job.id || job._id) ? 'primary' : 'default'}
+            >
+              {savedJobs.has(job.id || job._id) ? <Bookmark /> : <BookmarkBorder />}
+            </IconButton>
+
+            {(job.postedDate || job.posted) && (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Schedule sx={{ mr: 0.5, color: 'text.secondary', fontSize: 16 }} />
+                <Typography variant="caption" color="text.secondary">
+                  {job.postedDate ? new Date(job.postedDate).toLocaleDateString() : job.posted}
+                </Typography>
+              </Box>
+            )}
+
+            <Chip
+              label={job.source || (isAI ? 'AI Recommended' : 'Recommended')}
+              size="small"
+              color={job.isRealTime ? 'success' : (isAI ? 'secondary' : 'default')}
+              variant="outlined"
+            />
+          </Box>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={job.isExternal || job.isRealTime ? <Launch /> : <OpenInNew />}
+              onClick={(e) => handleApplyToJob(job, e)}
+            >
+              {job.isExternal || job.isRealTime ? 'Apply Now' : 'View Details'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Share />}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.share?.({
+                  title: job.title,
+                  text: `Check out this job: ${job.title} at ${job.company}`,
+                  url: job.url || window.location.href
+                });
+              }}
+            >
+              Share
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="caption" color="text.secondary">
+              Match: {job.matchScore || 75}%
+            </Typography>
+            {job.applicants && (
+              <Typography variant="caption" color="text.secondary">
+                {job.applicants} applicants
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -924,203 +1116,6 @@ Please provide detailed analysis covering:
           </Grid>
         )}
       </Box>
-
-      {/* Job Card Component */}
-      {(() => {
-        const JobCard = ({ job, isAI = false }) => (
-          <Card 
-            sx={{ 
-              cursor: 'pointer',
-              transition: 'all 0.3s',
-              border: isAI ? '2px solid' : '1px solid',
-              borderColor: isAI ? 'secondary.main' : 'divider',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: 6,
-                borderColor: isAI ? 'secondary.dark' : 'primary.main'
-              }
-            }}
-            onClick={() => handleJobClick(job)}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      {job.title}
-                    </Typography>
-                    {isAI && (
-                      <Chip 
-                        label="AI Powered" 
-                        color="secondary" 
-                        size="small"
-                        icon={<Psychology />}
-                      />
-                    )}
-                    {job.isRealTime && (
-                      <Badge badgeContent="LIVE" color="success">
-                        <Chip size="small" label="Real-time" color="success" variant="outlined" />
-                      </Badge>
-                    )}
-                    <Chip 
-                      label={`${job.matchScore || 75}% Match`}
-                      color={getMatchScoreColor(job.matchScore || 75)}
-                      size="small"
-                      icon={<Star />}
-                    />
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Business sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />
-                      <Typography variant="body1">
-                        {job.company}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <LocationOn sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {job.location}
-                      </Typography>
-                    </Box>
-                    {job.remote && (
-                      <Chip label="Remote" size="small" color="primary" variant="outlined" />
-                    )}
-                  </Box>
-
-                  {(job.salary || job.salaryRange) && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <AttachMoney sx={{ mr: 0.5, color: 'text.secondary', fontSize: 18 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {formatSalary(job.salary || job.salaryRange)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {job.description && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {job.description.length > 200 
-                        ? `${job.description.substring(0, 200)}...` 
-                        : job.description
-                      }
-                    </Typography>
-                  )}
-
-                  {job.relevanceReason && (
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      <Typography variant="body2">
-                        <strong>Why this matches:</strong> {job.relevanceReason}
-                      </Typography>
-                    </Alert>
-                  )}
-
-                  {(job.requiredSkills || job.skills) && (job.requiredSkills || job.skills).length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" gutterBottom sx={{ fontWeight: 'medium' }}>
-                        Required Skills:
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {(job.requiredSkills || job.skills).slice(0, 6).map((skill, idx) => (
-                          <Chip 
-                            key={idx}
-                            label={skill}
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                          />
-                        ))}
-                        {(job.requiredSkills || job.skills).length > 6 && (
-                          <Chip 
-                            label={`+${(job.requiredSkills || job.skills).length - 6} more`}
-                            size="small"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                    </Box>
-                  )}
-
-                  {job.growthPotential && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <TrendingUp sx={{ mr: 1, color: 'success.main' }} />
-                      <Typography variant="body2" color="success.main">
-                        {job.growthPotential}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                  <IconButton 
-                    onClick={(e) => handleSaveJob(job.id || job._id || `temp-${index}`, e)}
-                    color={savedJobs.has(job.id || job._id) ? 'primary' : 'default'}
-                  >
-                    {savedJobs.has(job.id || job._id) ? <Bookmark /> : <BookmarkBorder />}
-                  </IconButton>
-                  
-                  {(job.postedDate || job.posted) && (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Schedule sx={{ mr: 0.5, color: 'text.secondary', fontSize: 16 }} />
-                      <Typography variant="caption" color="text.secondary">
-                        {job.postedDate ? new Date(job.postedDate).toLocaleDateString() : job.posted}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  <Chip 
-                    label={job.source || (isAI ? 'AI Recommended' : 'Recommended')}
-                    size="small"
-                    color={job.isRealTime ? 'success' : (isAI ? 'secondary' : 'default')}
-                    variant="outlined"
-                  />
-                </Box>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={job.isExternal || job.isRealTime ? <Launch /> : <OpenInNew />}
-                    onClick={(e) => handleApplyToJob(job, e)}
-                  >
-                    {job.isExternal || job.isRealTime ? 'Apply Now' : 'View Details'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Share />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.share?.({ 
-                        title: job.title, 
-                        text: `Check out this job: ${job.title} at ${job.company}`,
-                        url: job.url || window.location.href
-                      });
-                    }}
-                  >
-                    Share
-                  </Button>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Match: {job.matchScore || 75}%
-                  </Typography>
-                  {job.applicants && (
-                    <Typography variant="caption" color="text.secondary">
-                      {job.applicants} applicants
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        );
-        
-        return null; // This is just to define the component
-      })()}
 
       {recommendations.length === 0 && aiRecommendations.length === 0 && !loading && (
         <Box sx={{ textAlign: 'center', py: 8 }}>

@@ -22,9 +22,11 @@ const uploadLimiter = rateLimit({
 });
 
 const mlLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 50,
-  message: 'AI processing limit exceeded'
+  windowMs: Number(process.env.ML_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  max: Number(process.env.ML_RATE_LIMIT_MAX || 600),
+  message: { error: 'AI processing limit exceeded' },
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 module.exports = { apiLimiter, authLimiter, uploadLimiter, mlLimiter };
