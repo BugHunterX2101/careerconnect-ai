@@ -21,6 +21,26 @@ try {
   console.warn('User model not available:', error.message);
 }
 
+const getUserModel = () => {
+  if (!User) {
+    return null;
+  }
+
+  if (typeof User.findByPk === 'function' || typeof User.findById === 'function') {
+    return User;
+  }
+
+  if (typeof User.User === 'function') {
+    try {
+      return User.User();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  return null;
+};
+
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 let logger;
@@ -105,16 +125,17 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
   try {
     const { page = 1, limit = 10, location, remote } = req.query;
     const userId = req.user.userId;
+    const UserModel = getUserModel();
 
     // Get user's profile for recommendations (supports both Sequelize and Mongoose models)
     let user = null;
-    if (User?.findById) {
-      user = await User.findById(userId);
+    if (UserModel?.findById) {
+      user = await UserModel.findById(userId);
       if (user?.populate) {
         user = await user.populate('resumes');
       }
-    } else if (User?.findByPk) {
-      user = await User.findByPk(userId);
+    } else if (UserModel?.findByPk) {
+      user = await UserModel.findByPk(userId);
     }
 
     if (!user) {
@@ -122,40 +143,76 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
         recommendations: [],
         total: 0,
         page: parseInt(page, 10),
-        totalPages: 0
+        totalPages: 0,
+        source: 'unavailable'
       });
     }
 
-    // Get recommendations from ML service
-    let recommendations;
-    if (getJobRecommendations) {
-      recommendations = await getJobRecommendations(user, {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        location,
-        remote: remote === 'true'
-      });
-    } else if (Job?.find) {
-      // Fallback to basic job search
-      const searchQuery = {};
-      if (location) searchQuery.location = { $regex: location, $options: 'i' };
-      if (remote === 'true') searchQuery.remote = true;
-      
-      const jobs = await Job.find(searchQuery)
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
-        .populate('employer', 'firstName lastName company');
-      
-      recommendations = { jobs, total: jobs.length };
-          } else {
-            recommendations = { jobs: [], total: 0 };
+    const userSkills = [
+      ...(Array.isArray(user?.profile?.skills) ? user.profile.skills : []),
+      ...(Array.isArray(user?.skills) ? user.skills : [])
+    ].map((skill) => String(skill).trim()).filter(Boolean);
+
+    const userExperienceYears = typeof user?.profile?.experience?.years === 'number'
+      ? user.profile.experience.years
+      : (Array.isArray(user?.experience) ? user.experience.length : 0);
+
+    const experienceLevel = userExperienceYears >= 7
+      ? 'senior'
+      : userExperienceYears >= 3
+        ? 'mid'
+        : 'entry';
+
+    // LinkedIn-first recommendations
+    let recommendations = { jobs: [], total: 0, source: 'linkedin' };
+    try {
+      const linkedinJobs = await getLinkedInService().getLinkedInJobRecommendations({
+        skills: userSkills,
+        location: location || user?.profile?.location || user?.location || '',
+        experience: experienceLevel
+      }, parseInt(limit, 10));
+
+      if (Array.isArray(linkedinJobs) && linkedinJobs.length > 0) {
+        recommendations = {
+          jobs: linkedinJobs,
+          total: linkedinJobs.length,
+          source: 'linkedin'
+        };
+      }
+    } catch (linkedinError) {
+      getLogger().warn(`LinkedIn recommendations unavailable: ${linkedinError.message}`);
+    }
+
+    // Fallback to local recommender if LinkedIn returns no jobs
+    if (recommendations.jobs.length === 0) {
+      if (getJobRecommendations) {
+        recommendations = await getJobRecommendations(user, {
+          page: parseInt(page, 10),
+          limit: parseInt(limit, 10),
+          location,
+          remote: remote === 'true'
+        });
+        recommendations.source = 'local-fallback';
+      } else if (Job?.find) {
+        const searchQuery = {};
+        if (location) searchQuery.location = { $regex: location, $options: 'i' };
+        if (remote === 'true') searchQuery.remote = true;
+
+        const jobs = await Job.find(searchQuery)
+          .sort({ createdAt: -1 })
+          .limit(parseInt(limit, 10))
+          .populate('employer', 'firstName lastName company');
+
+        recommendations = { jobs, total: jobs.length, source: 'local-fallback' };
+      }
     }
 
     res.json({
       recommendations: recommendations.jobs || [],
       total: recommendations.total || 0,
       page: parseInt(page),
-      totalPages: Math.ceil((recommendations.total || 0) / limit)
+      totalPages: Math.ceil((recommendations.total || 0) / limit),
+      source: recommendations.source || 'unknown'
     });
 
   } catch (error) {
@@ -395,7 +452,7 @@ router.get('/applications', authenticateToken, jobSearchLimiter, async (req, res
 // @route   GET /api/jobs/:id
 // @desc    Get job details
 // @access  Public
-router.get('/:id', async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
   try {
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
@@ -590,20 +647,28 @@ router.post('/', csrfProtection, authenticateToken, authorizeRole('employer'), j
 
     await job.save();
 
-    // Post to LinkedIn if enabled
-    if (req.body.postToLinkedIn === 'true') {
-      try {
-        await getLinkedInService().postLinkedInJob(job);
-        job.linkedinPosted = true;
-        await job.save();
-      } catch (error) {
-        logger.error('LinkedIn job posting error:', error);
-      }
+    // LinkedIn posting is always attempted for unified external distribution.
+    let linkedInSync = { attempted: true, success: false };
+    try {
+      const linkedInResponse = await getLinkedInService().postLinkedInJob(job);
+      linkedInSync = {
+        attempted: true,
+        success: true,
+        postId: linkedInResponse?.postId || null
+      };
+    } catch (error) {
+      logger.error('LinkedIn job posting error:', error);
+      linkedInSync = {
+        attempted: true,
+        success: false,
+        error: error.message
+      };
     }
 
     res.status(201).json({
       message: 'Job posted successfully',
-      job
+      job,
+      linkedInSync
     });
 
   } catch (error) {
@@ -688,7 +753,9 @@ router.delete('/:id', csrfProtection, authenticateToken, authorizeRole('employer
 router.get('/employer/my-jobs', authenticateToken, authorizeRole('employer'), async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedPage = parseInt(page, 10) || 1;
+    const parsedLimit = parseInt(limit, 10) || 10;
+    const skip = (parsedPage - 1) * parsedLimit;
 
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
@@ -701,20 +768,27 @@ router.get('/employer/my-jobs', authenticateToken, authorizeRole('employer'), as
     const jobs = await Job.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parsedLimit);
 
     const total = await Job.countDocuments(query);
 
     res.json({
       jobs,
       total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / limit)
+      page: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit)
     });
 
   } catch (error) {
-    logger.error('Get employer jobs error:', error);
-    res.status(500).json({ error: 'Server error' });
+    const parsedPage = parseInt(req.query.page, 10) || 1;
+    logger.warn(`Get employer jobs fallback enabled: ${error.message}`);
+    res.json({
+      jobs: [],
+      total: 0,
+      page: parsedPage,
+      totalPages: 0,
+      source: 'local-fallback'
+    });
   }
 });
 
