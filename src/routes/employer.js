@@ -1,6 +1,8 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
+const { createGMeetEvent } = require('../services/gmeetService');
 
 // Try to import models (optional)
 let Job = null;
@@ -33,8 +35,127 @@ const getLogger = () => {
   }
   return logger;
 };
+let linkedinService;
+const getLinkedInService = () => {
+  if (!linkedinService) {
+    linkedinService = require('../services/linkedinService');
+  }
+  return linkedinService;
+};
 
 const router = express.Router();
+
+const interviewMemoryStore = {
+  items: new Map(),
+  seq: 1
+};
+
+const localJobStore = {
+  items: new Map(),
+  seq: 1
+};
+
+const isMongoObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value));
+const isNumericId = (value) => /^\d+$/.test(String(value));
+const shouldUseInterviewFallback = (interviewerId, payload = {}) => {
+  return !isMongoObjectId(interviewerId) ||
+    !isMongoObjectId(payload.jobId) ||
+    !isMongoObjectId(payload.candidateId);
+};
+
+const getSqlUserModel = () => {
+  if (!User) {
+    return null;
+  }
+
+  if (typeof User.User === 'function') {
+    try {
+      return User.User();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  if (typeof User.findByPk === 'function') {
+    return User;
+  }
+
+  return null;
+};
+
+const buildFallbackInterviewer = async (req) => {
+  const UserModel = getSqlUserModel();
+  const interviewerId = String(req.user.userId);
+
+  if (UserModel) {
+    try {
+      const user = await UserModel.findByPk(Number(interviewerId));
+      if (user) {
+        return {
+          _id: interviewerId,
+          id: interviewerId,
+          firstName: user.firstName || 'Employer',
+          lastName: user.lastName || '',
+          email: user.email || req.user.email || ''
+        };
+      }
+    } catch (error) {
+      // Use token fallback below.
+    }
+  }
+
+  return {
+    _id: interviewerId,
+    id: interviewerId,
+    firstName: req.user.firstName || 'Employer',
+    lastName: req.user.lastName || '',
+    email: req.user.email || ''
+  };
+};
+
+const extractCandidateYears = (candidate) => {
+  if (typeof candidate?.profile?.experience?.years === 'number') {
+    return candidate.profile.experience.years;
+  }
+  if (Array.isArray(candidate?.experience)) {
+    return candidate.experience.length;
+  }
+  return 0;
+};
+
+const scoreCandidateForJob = (jobData, candidate) => {
+  const jobSkills = (jobData.requiredSkills || []).map((skill) => String(skill).toLowerCase());
+  const candidateSkills = [
+    ...(Array.isArray(candidate?.skills) ? candidate.skills : []),
+    ...(Array.isArray(candidate?.profile?.skills) ? candidate.profile.skills : [])
+  ].map((skill) => String(skill).toLowerCase());
+
+  const matchedSkills = jobSkills.filter((skill) =>
+    candidateSkills.some((candidateSkill) => candidateSkill.includes(skill) || skill.includes(candidateSkill))
+  );
+
+  const skillScore = jobSkills.length > 0 ? Math.round((matchedSkills.length / jobSkills.length) * 70) : 0;
+  const requiredYears = jobData.experienceLevel === 'senior' ? 7 : jobData.experienceLevel === 'mid' ? 3 : 0;
+  const candidateYears = extractCandidateYears(candidate);
+  const experienceScore = candidateYears >= requiredYears ? 30 : Math.round((candidateYears / Math.max(requiredYears, 1)) * 30);
+  const matchScore = Math.max(0, Math.min(100, skillScore + experienceScore));
+
+  return {
+    matchScore,
+    matchReasons: [
+      {
+        type: 'skills',
+        message: `Matches ${matchedSkills.length}/${jobSkills.length || 0} required skills`,
+        details: matchedSkills
+      },
+      {
+        type: 'experience',
+        message: `${candidateYears} years experience`,
+        details: { required: requiredYears, candidate: candidateYears }
+      }
+    ]
+  };
+};
 
 // Rate limiting
 const employerLimiter = rateLimit({
@@ -246,31 +367,149 @@ router.post('/jobs', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const jobData = {
-      ...req.body,
-      employer: req.user.userId,
-      requiredSkills: req.body.skills || req.body.requirements || []
+    const employmentTypeMap = {
+      'full-time': 'full-time',
+      'part-time': 'part-time',
+      contract: 'contract',
+      internship: 'internship',
+      temporary: 'contract'
+    };
+    const seniorityMap = {
+      entry: 'entry',
+      junior: 'junior',
+      mid: 'mid-level',
+      'mid-level': 'mid-level',
+      senior: 'senior',
+      lead: 'lead',
+      manager: 'manager',
+      director: 'director',
+      executive: 'executive'
     };
 
-    const job = new Job(jobData);
-    await job.save();
+    const requestedSkills = Array.isArray(req.body.skills)
+      ? req.body.skills
+      : Array.isArray(req.body.requirements)
+        ? req.body.requirements
+        : [];
+
+    const locationValue = typeof req.body.location === 'string' ? req.body.location : '';
+    const [cityPart, statePart, countryPart] = locationValue.split(',').map((part) => part?.trim()).filter(Boolean);
+    const companyName = typeof req.body.company === 'string'
+      ? req.body.company
+      : req.body.company?.name || 'CareerConnect';
+
+    const jobData = {
+      title: req.body.title,
+      description: req.body.description,
+      employerId: req.user.userId,
+      company: {
+        name: companyName,
+        industry: req.body.industry || ''
+      },
+      location: {
+        city: cityPart || locationValue || 'Remote',
+        state: statePart || '',
+        country: countryPart || req.body.country || 'Remote',
+        isRemote: req.body.remote === true || req.body.remote === 'true'
+      },
+      employmentType: employmentTypeMap[req.body.type] || 'full-time',
+      seniorityLevel: seniorityMap[req.body.experienceLevel] || 'mid-level',
+      requirements: {
+        skills: requestedSkills.map((skill) => ({
+          name: String(skill).trim(),
+          level: 'required'
+        }))
+      },
+      benefits: {
+        salary: {
+          min: Number(req.body.salary?.min) || 0,
+          max: Number(req.body.salary?.max) || 0,
+          currency: req.body.salary?.currency || 'USD',
+          period: 'yearly'
+        }
+      },
+      // Legacy fields used in existing route logic
+      requiredSkills: requestedSkills,
+      experienceLevel: req.body.experienceLevel || 'mid',
+      remote: req.body.remote === true || req.body.remote === 'true',
+      status: 'active'
+    };
+
+    let job;
+    const useLocalJobFallback = !isMongoObjectId(req.user.userId);
+    if (useLocalJobFallback) {
+      job = {
+        _id: `local-job-${localJobStore.seq++}`,
+        ...jobData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        source: 'compatibility-fallback'
+      };
+      localJobStore.items.set(job._id, job);
+    } else {
+      job = new Job(jobData);
+      await job.save();
+    }
+
+    // Attempt LinkedIn posting for external distribution consistency.
+    let linkedInSync = { attempted: true, success: false };
+    try {
+      const linkedInResponse = await getLinkedInService().postLinkedInJob(jobData);
+      linkedInSync = {
+        attempted: true,
+        success: true,
+        postId: linkedInResponse?.postId || null
+      };
+    } catch (linkedInError) {
+      getLogger().error('Employer LinkedIn posting error:', linkedInError);
+      linkedInSync = {
+        attempted: true,
+        success: false,
+        error: linkedInError.message
+      };
+    }
 
     // Get matching candidates immediately
     let matchingCandidates = [];
-    try {
-      const candidateMatchingService = require('../services/candidateMatchingService');
-      const matchResults = await candidateMatchingService.getMatchingCandidates(job._id, {
-        limit: 15,
-        minScore: 30
-      });
-      matchingCandidates = matchResults.candidates;
-    } catch (error) {
-      getLogger().error('Candidate matching error:', error);
+    if (useLocalJobFallback) {
+      try {
+        const UserModel = getSqlUserModel();
+        const candidates = UserModel
+          ? await UserModel.findAll({ where: { role: 'jobseeker', isActive: true }, limit: 50 })
+          : [];
+
+        matchingCandidates = candidates
+          .map((candidate) => {
+            const normalizedCandidate = typeof candidate?.toJSON === 'function' ? candidate.toJSON() : candidate;
+            const scored = scoreCandidateForJob(jobData, normalizedCandidate);
+            return {
+              ...normalizedCandidate,
+              ...scored
+            };
+          })
+          .filter((candidate) => candidate.matchScore >= 30)
+          .sort((a, b) => b.matchScore - a.matchScore)
+          .slice(0, 15);
+      } catch (error) {
+        getLogger().error('Candidate matching fallback error:', error);
+      }
+    } else {
+      try {
+        const candidateMatchingService = require('../services/candidateMatchingService');
+        const matchResults = await candidateMatchingService.getMatchingCandidates(job._id, {
+          limit: 15,
+          minScore: 30
+        });
+        matchingCandidates = matchResults.candidates;
+      } catch (error) {
+        getLogger().error('Candidate matching error:', error);
+      }
     }
 
     res.status(201).json({
       message: 'Job created successfully',
       job,
+      linkedInSync,
       matchingCandidates,
       totalMatches: matchingCandidates.length
     });
@@ -587,50 +826,139 @@ router.get('/candidates/search', async (req, res) => {
       // Fallback to basic search
       getLogger().warn('AI matching failed, using basic search:', matchingError);
       
-      const searchQuery = { role: 'jobseeker' };
-      
-      if (skills) {
-        const skillsArray = skills.split(',').map(skill => skill.trim());
-        searchQuery['profile.skills'] = { $in: skillsArray };
-      }
-      
-      if (location) {
-        searchQuery['profile.location'] = { $regex: location, $options: 'i' };
-      }
-      
-      if (experience) {
-        const [min, max] = experience.split('-');
-        if (max === '+') {
-          searchQuery['profile.experience.years'] = { $gte: parseInt(min) };
-        } else {
-          searchQuery['profile.experience.years'] = { 
-            $gte: parseInt(min), 
-            $lte: parseInt(max) 
-          };
+      const parsedPage = parseInt(page, 10) || 1;
+      const parsedLimit = parseInt(limit, 10) || 15;
+      const skip = (parsedPage - 1) * parsedLimit;
+
+      const normalizeCandidate = (candidate) => {
+        if (!candidate) {
+          return null;
         }
+
+        const raw = typeof candidate.toJSON === 'function' ? candidate.toJSON() : candidate;
+        return {
+          _id: raw._id || raw.id,
+          id: raw.id || raw._id,
+          firstName: raw.firstName || '',
+          lastName: raw.lastName || '',
+          email: raw.email || '',
+          profile: raw.profile || {
+            title: '',
+            summary: raw.bio || '',
+            location: raw.location || '',
+            skills: Array.isArray(raw.skills) ? raw.skills : [],
+            experience: raw.experience || []
+          }
+        };
+      };
+
+      let candidates = [];
+      let total = 0;
+
+      if (typeof User.find === 'function' && typeof User.countDocuments === 'function') {
+        const searchQuery = { role: 'jobseeker' };
+
+        if (skills) {
+          const skillsArray = skills.split(',').map(skill => skill.trim());
+          searchQuery['profile.skills'] = { $in: skillsArray };
+        }
+
+        if (location) {
+          searchQuery['profile.location'] = { $regex: location, $options: 'i' };
+        }
+
+        if (experience) {
+          const [min, max] = experience.split('-');
+          if (max === '+') {
+            searchQuery['profile.experience.years'] = { $gte: parseInt(min, 10) };
+          } else {
+            searchQuery['profile.experience.years'] = {
+              $gte: parseInt(min, 10),
+              $lte: parseInt(max, 10)
+            };
+          }
+        }
+
+        if (keywords) {
+          searchQuery.$or = [
+            { 'profile.title': { $regex: keywords, $options: 'i' } },
+            { 'profile.summary': { $regex: keywords, $options: 'i' } },
+            { 'profile.skills': { $in: [new RegExp(keywords, 'i')] } }
+          ];
+        }
+
+        candidates = await User.find(searchQuery)
+          .select('firstName lastName email profile')
+          .skip(skip)
+          .limit(parsedLimit);
+
+        total = await User.countDocuments(searchQuery);
+      } else {
+        const UserModel = getSqlUserModel();
+        if (!UserModel) {
+          return res.status(503).json({ error: 'User model not available' });
+        }
+
+        const allUsers = await UserModel.findAll({ where: { role: 'jobseeker' } });
+        const skillTerms = skills ? skills.split(',').map((term) => term.trim().toLowerCase()).filter(Boolean) : [];
+        const keywordTerm = String(keywords || '').trim().toLowerCase();
+        const locationTerm = String(location || '').trim().toLowerCase();
+
+        let minExp = null;
+        let maxExp = null;
+        if (experience) {
+          const [minRaw, maxRaw] = String(experience).split('-');
+          minExp = Number.parseInt(minRaw, 10);
+          if (maxRaw && maxRaw !== '+') {
+            maxExp = Number.parseInt(maxRaw, 10);
+          }
+        }
+
+        const filtered = allUsers
+          .map(normalizeCandidate)
+          .filter(Boolean)
+          .filter((candidate) => {
+            const profile = candidate.profile || {};
+            const profileSkills = Array.isArray(profile.skills) ? profile.skills.map((s) => String(s).toLowerCase()) : [];
+            const combinedText = [
+              candidate.firstName,
+              candidate.lastName,
+              candidate.email,
+              profile.title,
+              profile.summary,
+              profile.location,
+              ...profileSkills
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+
+            const locationOk = !locationTerm || String(profile.location || '').toLowerCase().includes(locationTerm);
+            const skillsOk = skillTerms.length === 0 || skillTerms.every((term) => profileSkills.some((skill) => skill.includes(term)));
+            const keywordOk = !keywordTerm || combinedText.includes(keywordTerm);
+
+            let experienceYears = 0;
+            if (typeof profile?.experience?.years === 'number') {
+              experienceYears = profile.experience.years;
+            } else if (Array.isArray(profile.experience)) {
+              experienceYears = profile.experience.length;
+            }
+
+            const minExpOk = Number.isFinite(minExp) ? experienceYears >= minExp : true;
+            const maxExpOk = Number.isFinite(maxExp) ? experienceYears <= maxExp : true;
+
+            return locationOk && skillsOk && keywordOk && minExpOk && maxExpOk;
+          });
+
+        total = filtered.length;
+        candidates = filtered.slice(skip, skip + parsedLimit);
       }
-      
-      if (keywords) {
-        searchQuery.$or = [
-          { 'profile.title': { $regex: keywords, $options: 'i' } },
-          { 'profile.summary': { $regex: keywords, $options: 'i' } },
-          { 'profile.skills': { $in: [new RegExp(keywords, 'i')] } }
-        ];
-      }
-      
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const candidates = await User.find(searchQuery)
-        .select('firstName lastName email profile')
-        .skip(skip)
-        .limit(parseInt(limit));
-      
-      const total = await User.countDocuments(searchQuery);
-      
+
       res.json({
         candidates,
         total,
-        page: parseInt(page),
-        totalPages: Math.ceil(total / limit)
+        page: parsedPage,
+        totalPages: Math.ceil(total / parsedLimit)
       });
     }
 
@@ -824,6 +1152,30 @@ router.post('/candidates/:id/invite', async (req, res) => {
 // @access  Private (employer)
 router.get('/interviews', async (req, res) => {
   try {
+    if (!isMongoObjectId(req.user.userId)) {
+      const { page = 1, limit = 20, status } = req.query;
+      const interviewerId = String(req.user.userId);
+      let interviews = Array.from(interviewMemoryStore.items.values())
+        .filter((interview) => interview.interviewer?.id === interviewerId);
+
+      if (status) {
+        interviews = interviews.filter((interview) => interview.status === status);
+      }
+
+      interviews.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
+      const parsedPage = parseInt(page, 10);
+      const parsedLimit = parseInt(limit, 10);
+      const start = (parsedPage - 1) * parsedLimit;
+      const paged = interviews.slice(start, start + parsedLimit);
+
+      return res.json({
+        interviews: paged,
+        total: interviews.length,
+        page: parsedPage,
+        totalPages: Math.ceil(interviews.length / parsedLimit) || 0
+      });
+    }
+
     if (!Interview) {
       return res.json({
         interviews: [],
@@ -872,20 +1224,99 @@ router.get('/interviews', async (req, res) => {
 // @desc    Schedule an interview
 // @access  Private (employer)
 router.post('/interviews', [
-  body('jobId').isMongoId().withMessage('Valid job ID is required'),
-  body('candidateId').isMongoId().withMessage('Valid candidate ID is required'),
+  body('jobId').custom((value) => isMongoObjectId(value) || isNumericId(value)).withMessage('Valid job ID is required'),
+  body('candidateId').custom((value) => isMongoObjectId(value) || isNumericId(value)).withMessage('Valid candidate ID is required'),
   body('scheduledAt').isISO8601().withMessage('Valid date is required'),
   body('duration').isInt({ min: 15, max: 180 }).withMessage('Duration must be between 15 and 180 minutes'),
   body('type').isIn(['phone', 'video', 'onsite']).withMessage('Invalid interview type')
 ], async (req, res) => {
   try {
-    if (!Interview || !Job) {
-      return res.status(503).json({ error: 'Models not available' });
-    }
-
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
+    }
+
+    if (!Interview || !Job || shouldUseInterviewFallback(req.user.userId, req.body)) {
+      const interviewer = await buildFallbackInterviewer(req);
+      const UserModel = getSqlUserModel();
+      let candidate = null;
+
+      if (UserModel) {
+        candidate = await UserModel.findByPk(Number(req.body.candidateId));
+      }
+
+      if (!candidate) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+
+      const startTime = new Date(req.body.scheduledAt);
+      const endTime = new Date(startTime.getTime() + parseInt(req.body.duration, 10) * 60000);
+      let meetLink = null;
+      let meetEventId = null;
+
+      if (req.body.type === 'video') {
+        try {
+          const meetEvent = await createGMeetEvent({
+            summary: `Interview - ${req.body.jobTitle || 'General Position'}`,
+            description: req.body.description || req.body.notes || 'Scheduled interview',
+            startTime,
+            endTime,
+            attendees: [
+              { email: candidate.email, displayName: `${candidate.firstName} ${candidate.lastName}` },
+              { email: interviewer.email, displayName: `${interviewer.firstName} ${interviewer.lastName}`.trim() }
+            ]
+          });
+
+          meetLink = meetEvent?.hangoutLink || null;
+          meetEventId = meetEvent?.id || null;
+        } catch (meetError) {
+          getLogger().warn('Fallback schedule Google Meet creation failed:', meetError.message);
+        }
+      }
+
+      const interview = {
+        _id: `local-i-${interviewMemoryStore.seq++}`,
+        job: {
+          _id: String(req.body.jobId),
+          title: req.body.jobTitle || 'General Position',
+          company: req.body.company || 'CareerConnect'
+        },
+        candidate: {
+          _id: String(req.body.candidateId),
+          id: String(req.body.candidateId),
+          firstName: candidate.firstName || 'Candidate',
+          lastName: candidate.lastName || '',
+          email: candidate.email || ''
+        },
+        interviewer,
+        scheduledAt: startTime.toISOString(),
+        duration: parseInt(req.body.duration, 10),
+        type: req.body.type,
+        notes: req.body.notes || '',
+        description: req.body.description || '',
+        status: 'scheduled',
+        meetLink,
+        meetEventId,
+        source: 'compatibility-fallback',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      interviewMemoryStore.items.set(interview._id, interview);
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`user_${req.body.candidateId}`).emit('interview:scheduled', {
+          interview,
+          job: interview.job.title,
+          employer: `${interviewer.firstName} ${interviewer.lastName}`.trim()
+        });
+      }
+
+      return res.status(201).json({
+        message: 'Interview scheduled successfully',
+        interview
+      });
     }
 
     // Verify job belongs to employer
