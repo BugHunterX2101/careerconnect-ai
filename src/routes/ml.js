@@ -3,6 +3,7 @@ const multer = require('multer');
 const csrf = require('csurf');
 const fs = require('fs').promises;
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 const gptJobsRouter = require('./gpt-jobs');
 // Try to import ML classes (optional)
 let ResumeParser = null;
@@ -28,16 +29,20 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Rate limiting
-const mlLimiter = (() => {
-  const { rateLimit } = require('express-rate-limit');
-  return rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    message: 'Too many ML requests, please try again later.',
-  });
-})();
+const ML_RATE_LIMIT_WINDOW_MS = Number(process.env.ML_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const ML_RATE_LIMIT_MAX = Number(process.env.ML_RATE_LIMIT_MAX || 500);
+
+const mlLimiter = rateLimit({
+  windowMs: ML_RATE_LIMIT_WINDOW_MS,
+  max: ML_RATE_LIMIT_MAX,
+  message: { error: 'Too many ML requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Configure multer for file uploads
 const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
@@ -81,6 +86,7 @@ initializeML();
 // @access  Private
 router.post('/parse-resume', authenticateToken, mlLimiter, upload.single('resume'), async (req, res) => {
   let tempFilePath = null;
+  let uploadedFilePath = null;
   try {
     if (!resumeParser) {
       return res.status(503).json({ error: 'Resume parser not available' });
@@ -100,7 +106,19 @@ router.post('/parse-resume', authenticateToken, mlLimiter, upload.single('resume
     const tempDir = path.resolve('./uploads/temp');
     await fs.mkdir(tempDir, { recursive: true });
     tempFilePath = path.join(tempDir, `resume-${Date.now()}${ext}`);
-    await fs.writeFile(tempFilePath, req.file.buffer);
+
+    const uploadBuffer = req.file.buffer
+      ? req.file.buffer
+      : req.file.path
+        ? await fs.readFile(req.file.path)
+        : null;
+
+    if (!uploadBuffer) {
+      return res.status(400).json({ error: 'Uploaded file content was empty' });
+    }
+
+    uploadedFilePath = req.file.path || null;
+    await fs.writeFile(tempFilePath, uploadBuffer);
 
     const parsedData = await resumeParser.parseResume(tempFilePath);
     const qualityAnalysis = await resumeParser.analyzeResumeQuality(parsedData);
@@ -131,6 +149,14 @@ router.post('/parse-resume', authenticateToken, mlLimiter, upload.single('resume
         await fs.unlink(tempFilePath);
       } catch (cleanupError) {
         console.warn('Temporary resume cleanup failed:', cleanupError.message);
+      }
+    }
+
+    if (uploadedFilePath) {
+      try {
+        await fs.unlink(uploadedFilePath);
+      } catch (cleanupError) {
+        console.warn('Uploaded resume cleanup failed:', cleanupError.message);
       }
     }
   }
