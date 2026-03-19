@@ -5,13 +5,11 @@ const skillGapService = require('../services/skillGapAnalysisService');
 const { authenticateToken } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
-let getResumeModel = null;
+let resumeModelModule = null;
 try {
-  const { Resume: resumeModel, initializeResumeModel } = require('../models/Resume');
-  initializeResumeModel();
-  getResumeModel = resumeModel;
+  resumeModelModule = require('../models/Resume');
 } catch (error) {
-  console.warn('Resume model not available for BERT routes:', error.message);
+  console.warn('Resume model module unavailable for BERT routes:', error.message);
 }
 
 const bertLimiter = rateLimit({
@@ -21,10 +19,17 @@ const bertLimiter = rateLimit({
 });
 
 async function getLatestResumeTextForUser(userId) {
-  if (!getResumeModel) return '';
+  if (!resumeModelModule) return '';
 
   try {
-    const Resume = getResumeModel();
+    const { Resume: getResumeModel, initializeResumeModel } = resumeModelModule;
+    if (typeof initializeResumeModel === 'function') {
+      initializeResumeModel();
+    }
+
+    const Resume = typeof getResumeModel === 'function' ? getResumeModel() : null;
+    if (!Resume) return '';
+
     const latestResume = await Resume.findOne({
       where: { user_id: userId, is_active: true },
       order: [['createdAt', 'DESC']]
