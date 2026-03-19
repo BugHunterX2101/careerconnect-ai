@@ -207,6 +207,38 @@ npm run build:client
 npm start
 ```
 
+Website URL: `http://localhost:3000`
+
+Quick health check:
+
+```bash
+curl http://localhost:3000/health
+```
+
+## OAuth Status (Updated Mar 2026)
+
+Current provider status:
+
+- Google OAuth: working end-to-end
+- LinkedIn OAuth: working end-to-end
+- GitHub OAuth: working end-to-end
+
+Implementation notes:
+
+- LinkedIn callback now prefers OIDC `userinfo` for `openid profile email` flows.
+- Legacy LinkedIn profile/email endpoints are used only as fallback compatibility paths.
+- Auth diagnostics endpoint now reports all providers (`google`, `linkedin`, `github`) consistently.
+
+Verification commands:
+
+```bash
+node scripts/test-oauth.js
+```
+
+```bash
+node -e "const axios=require('axios'); axios.get('http://127.0.0.1:3000/api/auth/test').then(r=>console.log(r.data.oauth));"
+```
+
 ## Testing and Linting
 
 ```bash

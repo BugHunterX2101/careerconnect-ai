@@ -81,11 +81,22 @@ router.get('/test', (req, res) => {
       githubCallback: 'GET /api/auth/github/callback'
     },
     oauth: {
+      google: {
+        configured: isProviderConfigured('google'),
+        hasStrategy: !!(passport._strategies && passport._strategies.google),
+        callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback'
+      },
       linkedin: {
-        configured: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
+        configured: isProviderConfigured('linkedin'),
+        hasStrategy: !!(passport._strategies && passport._strategies.linkedin),
         clientId: process.env.LINKEDIN_CLIENT_ID ? 'Present' : 'Missing',
         clientSecret: process.env.LINKEDIN_CLIENT_SECRET ? 'Present' : 'Missing',
-        callbackUrl: 'http://localhost:3000/api/auth/linkedin/callback'
+        callbackUrl: process.env.LINKEDIN_CALLBACK_URL || 'http://localhost:3000/api/auth/linkedin/callback'
+      },
+      github: {
+        configured: isProviderConfigured('github'),
+        hasRoutes: true,
+        callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/api/auth/github/callback'
       }
     }
   });
@@ -443,6 +454,8 @@ router.get('/linkedin', oauthHeaders, (req, res) => {
 
 router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
   const { code, error } = req.query;
+
+  console.log('LINKEDIN CODE:', code || 'not-provided');
   
   if (error) {
     console.error('❌ LinkedIn OAuth error:', error);
@@ -470,19 +483,56 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
     });
     
     const accessToken = tokenResponse.data.access_token;
+    const expiresIn = tokenResponse.data.expires_in;
+    console.log('ACCESS TOKEN:', accessToken || 'not-returned');
+    console.log('ACCESS TOKEN EXPIRES IN:', expiresIn || 'unknown');
+
+    // Keep the latest member token available for LinkedIn API routes in this process.
+    process.env.LINKEDIN_MEMBER_ACCESS_TOKEN = accessToken;
+
+    // Make the latest LinkedIn OAuth token available to runtime services for testing.
+    try {
+      const { linkedinService } = require('../services/linkedinService');
+      if (linkedinService && typeof linkedinService.setAccessToken === 'function') {
+        linkedinService.setAccessToken(accessToken);
+      }
+    } catch (serviceError) {
+      console.warn('Could not set runtime LinkedIn token:', serviceError.message);
+    }
     
-    // Get user profile
-    const profileResponse = await axios.get('https://api.linkedin.com/v2/me', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
-    // Get user email
-    const emailResponse = await axios.get('https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    
-    const profile = profileResponse.data;
-    const email = emailResponse.data.elements[0]['handle~'].emailAddress;
+    // Prefer OIDC userinfo for openid profile email scopes.
+    let profile;
+    let email;
+    try {
+      const userInfoResponse = await axios.get('https://api.linkedin.com/v2/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      const userInfo = userInfoResponse.data || {};
+      profile = {
+        id: userInfo.sub,
+        localizedFirstName: userInfo.given_name,
+        localizedLastName: userInfo.family_name
+      };
+      email = userInfo.email;
+    } catch (userInfoError) {
+      // Backward-compatible fallback for apps still using legacy LinkedIn profile scopes.
+      const profileResponse = await axios.get('https://api.linkedin.com/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      const emailResponse = await axios.get('https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      profile = profileResponse.data;
+      email = emailResponse.data?.elements?.[0]?.['handle~']?.emailAddress;
+      console.warn('LinkedIn OIDC userinfo unavailable, used legacy profile endpoints:', userInfoError.response?.data || userInfoError.message);
+    }
+
+    if (!email) {
+      throw new Error('LinkedIn account email not available from OAuth profile');
+    }
     
     const user = {
       id: Date.now().toString(),
@@ -491,7 +541,7 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
       lastName: profile.localizedLastName || '',
       role: 'jobseeker',
       provider: 'linkedin',
-      providerId: profile.id
+      providerId: profile.id || profile.sub
     };
     
     console.log('✅ LinkedIn OAuth success, user:', {
@@ -522,7 +572,7 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}&provider=linkedin`;
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard?oauth=success&token=${token}&provider=linkedin`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
