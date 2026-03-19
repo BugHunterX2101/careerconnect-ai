@@ -22,55 +22,55 @@ It combines resume intelligence, smart matching, interview workflows, and analyt
 
 ```mermaid
 flowchart TD
-	U[Users: Job Seekers and Employers]
+    U[Users: Job Seekers and Employers]
 
-	subgraph FE[Presentation Layer - React and Vite]
-		SPA[SPA Pages and Components]
-		CTX[Contexts and Providers]
-		WS[Socket.IO Client]
-	end
+    subgraph FE[Presentation Layer - React and Vite]
+        SPA[SPA Pages and Components]
+        CTX[Contexts and Providers]
+        WS[Socket.IO Client]
+    end
 
-	subgraph API[API Layer - Express]
-		RT[Routes: auth, jobs, employer, employee, bert]
-		MW[Middleware: auth, validation, security, errors]
-		HC[Health and status endpoints]
-	end
+    subgraph API[API Layer - Express]
+        RT[Routes: auth, jobs, employer, employee, bert]
+        MW[Middleware: auth, validation, security, errors]
+        HC[Health and status endpoints]
+    end
 
-	subgraph SRV[Domain and Service Layer]
-		BS[Business Services]
-		REC[Recommendation and Matching Services]
-		NLP[Resume and Skill Intelligence Services]
-		REAL[Real-time Job and Notification Services]
-	end
+    subgraph SRV[Domain and Service Layer]
+        BS[Business Services]
+        REC[Recommendation and Matching Services]
+        NLP[Resume and Skill Intelligence Services]
+        REAL[Real-time Job and Notification Services]
+    end
 
-	subgraph DATA[Data and Integration Layer]
-		SQL[(SQLite via Sequelize)]
-		DOC[(Mongoose-compatible models)]
-		REDIS[(Redis cache optional)]
-		OAUTH[OAuth Providers: Google, LinkedIn, GitHub]
-		EXT[External APIs and meeting integrations]
-	end
+    subgraph DATA[Data and Integration Layer]
+        SQL[(SQLite via Sequelize)]
+        DOC[(Mongoose-compatible models)]
+        REDIS[(Redis cache optional)]
+        OAUTH[OAuth Providers: Google, LinkedIn, GitHub]
+        EXT[External APIs and meeting integrations]
+    end
 
-	U --> SPA
-	SPA --> RT
-	CTX --> RT
-	WS <--> REAL
+    U --> SPA
+    SPA --> RT
+    CTX --> RT
+    WS <--> REAL
 
-	RT --> MW
-	MW --> BS
-	BS --> REC
-	BS --> NLP
-	BS --> REAL
+    RT --> MW
+    MW --> BS
+    BS --> REC
+    BS --> NLP
+    BS --> REAL
 
-	REC --> SQL
-	NLP --> SQL
-	BS --> DOC
-	BS --> REDIS
-	MW --> OAUTH
-	BS --> EXT
+    REC --> SQL
+    NLP --> SQL
+    BS --> DOC
+    BS --> REDIS
+    MW --> OAUTH
+    BS --> EXT
 
-	HC --> SQL
-	HC --> REDIS
+    HC --> SQL
+    HC --> REDIS
 ```
 
 Architecture summary:
@@ -93,42 +93,42 @@ Top-level layout:
 
 ```text
 careerconnect-ai/
-	src/
-		client/                # React frontend
-		config/                # Shared configuration
-		database/              # DB initialization and models wiring
-		middleware/            # Auth, validation, error and request middleware
-		ml/                    # ML-specific helpers and runtime pieces
-		models/                # Data models and schema definitions
-		routes/                # Express route modules
-		server/                # Server bootstrap and auth strategy wiring
-		services/              # Core business and AI orchestration services
-		utils/                 # Shared backend utilities
-		workers/               # Background/async processing workers
-		__tests__/             # Backend-focused tests
-	public/                  # Built static assets served by backend
-	uploads/                 # Runtime upload storage
-	scripts/                 # Setup, seed, test, and operational scripts
-	Dockerfile
-	docker-compose.yml
-	ecosystem.config.js
+    src/
+        client/                # React frontend
+        config/                # Shared configuration
+        database/              # DB initialization and models wiring
+        middleware/            # Auth, validation, error and request middleware
+        ml/                    # ML-specific helpers and runtime pieces
+        models/                # Data models and schema definitions
+        routes/                # Express route modules
+        server/                # Server bootstrap and auth strategy wiring
+        services/              # Core business and AI orchestration services
+        utils/                 # Shared backend utilities
+        workers/               # Background/async processing workers
+        __tests__/             # Backend-focused tests
+    public/                  # Built static assets served by backend
+    uploads/                 # Runtime upload storage
+    scripts/                 # Setup, seed, test, and operational scripts
+    Dockerfile
+    docker-compose.yml
+    ecosystem.config.js
 ```
 
 Frontend structure:
 
 ```text
 src/client/src/
-	components/              # Reusable UI components
-	contexts/                # React contexts (including socket context)
-	hooks/                   # Reusable frontend hooks
-	pages/                   # Route-level pages
-	providers/               # App-level providers
-	services/                # Frontend API clients
-	styles/                  # Global and shared styles
-	theme/                   # Material UI theme configuration
-	utils/                   # Frontend utilities
-	App.jsx                  # Route composition
-	main.jsx                 # App entrypoint
+    components/              # Reusable UI components
+    contexts/                # React contexts (including socket context)
+    hooks/                   # Reusable frontend hooks
+    pages/                   # Route-level pages
+    providers/               # App-level providers
+    services/                # Frontend API clients
+    styles/                  # Global and shared styles
+    theme/                   # Material UI theme configuration
+    utils/                   # Frontend utilities
+    App.jsx                  # Route composition
+    main.jsx                 # App entrypoint
 ```
 
 Backend service examples:
@@ -264,8 +264,8 @@ Additional client checks can be run from `src/client` when needed.
 ```powershell
 $conn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
 if ($conn) {
-	$pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique
-	foreach ($procId in $pids) { Stop-Process -Id $procId -Force }
+    $pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique
+    foreach ($procId in $pids) { Stop-Process -Id $procId -Force }
 }
 ```
 
