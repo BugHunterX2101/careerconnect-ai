@@ -376,6 +376,8 @@ const Layout = ({ children }) => {
             {/* AI Assistant Button */}
             <Tooltip title="AI Assistant">
               <IconButton 
+                onClick={() => navigate('/chat')}
+                aria-label="Open AI assistant"
                 sx={{ 
                   width: 52,
                   height: 52,
