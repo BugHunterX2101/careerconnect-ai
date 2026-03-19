@@ -1,7 +1,6 @@
 const express = require('express');
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { body, validationResult } = require('express-validator');
 // Simple auth middleware since the imported one might be missing
