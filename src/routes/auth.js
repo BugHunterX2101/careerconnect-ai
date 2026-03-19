@@ -23,9 +23,6 @@ const authenticateToken = (req, res, next) => {
   }
 };
 const rateLimit = require('express-rate-limit');
-const csrf = require('csurf');
-
-const csrfProtection = csrf({ cookie: true });
 
 // Try to import User model (optional)
 let UserModelModule = null;
@@ -168,7 +165,7 @@ const validateLogin = [
 
 // @desc    Register a new user
 // @access  Public
-router.post('/register', csrfProtection, authLimiter, validateRegistration, async (req, res) => {
+router.post('/register', authLimiter, validateRegistration, async (req, res) => {
   try {
     console.log('Registration attempt:', {
       email: req.body.email,
