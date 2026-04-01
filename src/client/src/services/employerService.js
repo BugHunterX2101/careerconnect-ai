@@ -363,6 +363,17 @@ export const employerService = {
     }
   },
 
+  // Pipeline Management
+  getPipeline: async () => {
+    try {
+      const response = await api.get('/employer/pipeline');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pipeline:', error);
+      throw error;
+    }
+  },
+
   // Settings
   getSettings: async () => {
     try {
@@ -380,127 +391,6 @@ export const employerService = {
       return response.data;
     } catch (error) {
       console.error('Error updating settings:', error);
-      throw error;
-    }
-  },
-
-  // Enhanced Analytics
-  getAnalytics: async (dateRange = {}) => {
-    try {
-      const params = new URLSearchParams(dateRange);
-      const response = await api.get(`/employer/analytics?${params}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      throw error;
-    }
-  },
-
-  // Pipeline Management
-  getPipeline: async () => {
-    try {
-      const response = await api.get('/employer/pipeline');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching pipeline:', error);
-      throw error;
-    }
-  },
-
-  // Enhanced Team Management
-  getTeamMembers: async () => {
-    try {
-      const response = await api.get('/employer/team');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching team members:', error);
-      throw error;
-    }
-  },
-
-  inviteTeamMember: async (memberData) => {
-    try {
-      const response = await api.post('/employer/team/invite', memberData);
-      return response.data;
-    } catch (error) {
-      console.error('Error inviting team member:', error);
-      throw error;
-    }
-  },
-
-  updateTeamMemberRole: async (memberId, role) => {
-    try {
-      const response = await api.patch(`/employer/team/${memberId}/role`, { role });
-      return response.data;
-    } catch (error) {
-      console.error('Error updating team member role:', error);
-      throw error;
-    }
-  },
-
-  removeTeamMember: async (memberId) => {
-    try {
-      const response = await api.delete(`/employer/team/${memberId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error removing team member:', error);
-      throw error;
-    }
-  },
-
-  // Enhanced Reports and Analytics
-  getHiringReport: async (dateRange = {}) => {
-    try {
-      const params = new URLSearchParams(dateRange);
-      const response = await api.get(`/employer/reports/hiring?${params}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching hiring report:', error);
-      throw error;
-    }
-  },
-
-  getJobPerformanceReport: async (jobId, dateRange = {}) => {
-    try {
-      const params = new URLSearchParams(dateRange);
-      const response = await api.get(`/employer/reports/job-performance/${jobId}?${params}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching job performance report:', error);
-      throw error;
-    }
-  },
-
-  exportReport: async (reportType, format = 'csv', filters = {}) => {
-    try {
-      const params = new URLSearchParams({ ...filters, format });
-      const response = await api.get(`/employer/reports/${reportType}/export?${params}`, {
-        responseType: 'blob'
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error exporting report:', error);
-      throw error;
-    }
-  },
-
-  // Enhanced Notifications
-  getNotifications: async () => {
-    try {
-      const response = await api.get('/employer/notifications');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      throw error;
-    }
-  },
-
-  markNotificationAsRead: async (notificationId) => {
-    try {
-      const response = await api.patch(`/employer/notifications/${notificationId}/read`);
-      return response.data;
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
       throw error;
     }
   },

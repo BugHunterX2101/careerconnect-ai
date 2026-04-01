@@ -118,7 +118,7 @@ const EmployerDashboardPage = () => {
   }, [socket, loadDashboardData]);
 
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && !loading) {
       loadDashboardData({ silent: true });
     }
   }, [isConnected, loadDashboardData]);
@@ -156,7 +156,10 @@ const EmployerDashboardPage = () => {
   };
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    if (!date) return 'Date unavailable';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Invalid date';
+    return d.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -456,6 +459,7 @@ const EmployerDashboardPage = () => {
         
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{
+            cursor: 'pointer',
             background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
             border: '1px solid rgba(139, 111, 71, 0.12)',
             borderRadius: 2,
@@ -465,7 +469,7 @@ const EmployerDashboardPage = () => {
               boxShadow: '0 8px 16px rgba(139, 111, 71, 0.12)',
               borderColor: 'rgba(139, 111, 71, 0.25)'
             }
-          }}>
+          }} onClick={() => navigate('/employer/applications?status=hired')}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Business sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
@@ -713,7 +717,11 @@ const EmployerDashboardPage = () => {
                     )}
                     <IconButton 
                       size="medium" 
-                      onClick={() => navigate(`/chat?user=${interview.candidate._id}`)}
+                      onClick={() => {
+                        const candidateId = interview.candidate?._id || interview.candidate?.id;
+                        if (candidateId) navigate(`/chat?user=${candidateId}`);
+                      }}
+                      disabled={!interview.candidate?._id && !interview.candidate?.id}
                       sx={{ color: '#8B6F47' }}
                     >
                       <Chat sx={{ fontSize: 28 }} />

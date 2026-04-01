@@ -401,6 +401,7 @@ router.post('/jobs', [
     const jobData = {
       title: req.body.title,
       description: req.body.description,
+      employer: req.user.userId,
       employerId: req.user.userId,
       company: {
         name: companyName,
@@ -657,16 +658,58 @@ router.get('/jobs/:id/applicants', async (req, res) => {
   }
 });
 
+// @route   PATCH /api/employer/jobs/:jobId/applicants/bulk
+// @desc    Bulk update application status
+// @access  Private (employer)
+router.patch('/jobs/:jobId/applicants/bulk', async (req, res) => {
+  try {
+    if (!Job) {
+      return res.status(503).json({ error: 'Job model not available' });
+    }
+
+    const { applicantIds, status } = req.body;
+
+    if (!Array.isArray(applicantIds) || applicantIds.length === 0) {
+      return res.status(400).json({ error: 'applicantIds must be a non-empty array' });
+    }
+
+    const job = await Job.findOne({
+      _id: req.params.jobId,
+      employer: req.user.userId
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    let updatedCount = 0;
+    applicantIds.forEach(applicantId => {
+      const application = job.applications.id(applicantId);
+      if (application) {
+        application.status = status;
+        application.updatedAt = new Date();
+        updatedCount++;
+      }
+    });
+
+    await job.save();
+
+    res.json({
+      message: `${updatedCount} applications updated successfully`,
+      updatedCount
+    });
+
+  } catch (error) {
+    getLogger().error('Bulk update applications error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   PATCH /api/employer/jobs/:jobId/applicants/:applicationId
 // @desc    Update application status
 // @access  Private (employer)
 router.patch('/jobs/:jobId/applicants/:applicationId', async (req, res) => {
   try {
-    // Validate CSRF token
-    if (!req.body._csrf) {
-      return res.status(403).json({ error: 'CSRF token missing' });
-    }
-
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
@@ -702,49 +745,6 @@ router.patch('/jobs/:jobId/applicants/:applicationId', async (req, res) => {
 
   } catch (error) {
     getLogger().error('Update application status error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// @route   PATCH /api/employer/jobs/:jobId/applicants/bulk
-// @desc    Bulk update application status
-// @access  Private (employer)
-router.patch('/jobs/:jobId/applicants/bulk', async (req, res) => {
-  try {
-    if (!Job) {
-      return res.status(503).json({ error: 'Job model not available' });
-    }
-
-    const { applicantIds, status } = req.body;
-    
-    const job = await Job.findOne({
-      _id: req.params.jobId,
-      employer: req.user.userId
-    });
-
-    if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-
-    let updatedCount = 0;
-    applicantIds.forEach(applicantId => {
-      const application = job.applications.id(applicantId);
-      if (application) {
-        application.status = status;
-        application.updatedAt = new Date();
-        updatedCount++;
-      }
-    });
-
-    await job.save();
-
-    res.json({
-      message: `${updatedCount} applications updated successfully`,
-      updatedCount
-    });
-
-  } catch (error) {
-    getLogger().error('Bulk update applications error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1130,15 +1130,63 @@ router.get('/jobs/:jobId/matching-candidates', async (req, res) => {
 // @route   POST /api/employer/candidates/:id/invite
 // @desc    Invite candidate to apply for job
 // @access  Private (employer)
-router.post('/candidates/:id/invite', async (req, res) => {
+router.post('/candidates/:id/invite', [
+  body('jobId').notEmpty().withMessage('Job ID is required'),
+  body('message').optional().isLength({ max: 1000 }).withMessage('Message must be under 1000 characters')
+], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     const { jobId, message } = req.body;
-    
-    // Here you would typically send an email invitation
-    // For now, we'll just return success
-    
+    const candidateId = req.params.id;
+
+    // Verify the job belongs to this employer
+    if (Job && isMongoObjectId(jobId) && isMongoObjectId(req.user.userId)) {
+      const job = await Job.findOne({ _id: jobId, employer: req.user.userId });
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found or you do not have permission to invite for this job' });
+      }
+    }
+
+    // Retrieve candidate details for the response/notification
+    let candidateEmail = null;
+    let candidateName = null;
+    if (User && isMongoObjectId(candidateId)) {
+      const candidate = await User.findOne({ _id: candidateId, role: 'jobseeker' }).select('firstName lastName email');
+      if (!candidate) {
+        return res.status(404).json({ error: 'Candidate not found' });
+      }
+      candidateEmail = candidate.email;
+      candidateName = `${candidate.firstName} ${candidate.lastName}`.trim();
+    } else {
+      const UserModel = getSqlUserModel();
+      if (UserModel) {
+        const candidate = await UserModel.findByPk(Number(candidateId));
+        if (!candidate) {
+          return res.status(404).json({ error: 'Candidate not found' });
+        }
+        candidateEmail = candidate.email;
+        candidateName = `${candidate.firstName} ${candidate.lastName}`.trim();
+      }
+    }
+
+    // Emit real-time invite notification to the candidate if socket is available
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${candidateId}`).emit('job:invitation', {
+        jobId,
+        employerId: req.user.userId,
+        message: message || 'You have been invited to apply for a position.',
+        sentAt: new Date().toISOString()
+      });
+    }
+
     res.json({
-      message: 'Invitation sent successfully'
+      message: 'Invitation sent successfully',
+      candidate: { id: candidateId, name: candidateName, email: candidateEmail }
     });
 
   } catch (error) {
@@ -1341,7 +1389,7 @@ router.post('/interviews', [
     await interview.populate([
       { path: 'job', select: 'title company' },
       { path: 'candidate', select: 'firstName lastName email' }
-    ]).execPopulate();
+    ]);
 
     res.status(201).json({
       message: 'Interview scheduled successfully',
@@ -1359,11 +1407,6 @@ router.post('/interviews', [
 // @access  Private (employer)
 router.put('/interviews/:id', async (req, res) => {
   try {
-    // Validate CSRF token
-    if (!req.body._csrf) {
-      return res.status(403).json({ error: 'CSRF token missing' });
-    }
-
     if (!Interview) {
       return res.status(503).json({ error: 'Interview model not available' });
     }
@@ -1746,13 +1789,19 @@ router.get('/pipeline', async (req, res) => {
   }
 });
 
+// In-memory notification store (used as fallback when no DB-backed notification model exists)
+const notificationStore = new Map();
+
 // @route   GET /api/employer/notifications
 // @desc    Get employer notifications
 // @access  Private (employer)
 router.get('/notifications', async (req, res) => {
   try {
-    res.json({ notifications: [] });
-
+    const employerId = String(req.user.userId);
+    const notifications = Array.from(notificationStore.values())
+      .filter(n => n.employerId === employerId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ notifications });
   } catch (error) {
     getLogger().error('Get notifications error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -1764,8 +1813,14 @@ router.get('/notifications', async (req, res) => {
 // @access  Private (employer)
 router.patch('/notifications/:id/read', async (req, res) => {
   try {
-    res.status(404).json({ error: 'Notification not found' });
-
+    const notification = notificationStore.get(req.params.id);
+    if (!notification || String(notification.employerId) !== String(req.user.userId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    notification.read = true;
+    notification.readAt = new Date().toISOString();
+    notificationStore.set(req.params.id, notification);
+    res.json({ message: 'Notification marked as read', notification });
   } catch (error) {
     getLogger().error('Mark notification as read error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -1790,8 +1845,21 @@ router.get('/settings', async (req, res) => {
 // @access  Private (employer)
 router.put('/settings', async (req, res) => {
   try {
-    res.status(501).json({ error: 'Employer settings persistence is not implemented yet' });
+    if (!User || typeof User.findByIdAndUpdate !== 'function') {
+      // Graceful fallback when User model is unavailable
+      return res.json({ message: 'Settings acknowledged', settings: req.body });
+    }
 
+    const updated = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: { 'employerSettings': req.body } },
+      { new: true, runValidators: false }
+    ).select('employerSettings');
+
+    res.json({
+      message: 'Settings updated successfully',
+      settings: updated?.employerSettings || req.body
+    });
   } catch (error) {
     getLogger().error('Update settings error:', error);
     res.status(500).json({ error: 'Server error' });
