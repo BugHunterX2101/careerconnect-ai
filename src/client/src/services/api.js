@@ -27,30 +27,6 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Check if the request requires authorization
-    const checkAuthorization = () => {
-      const token = localStorage.getItem('token')
-      const requiresAuth = response.config?.requiresAuth !== false
-      
-      if (requiresAuth && !token) {
-        throw new Error('No authorization token found for protected route')
-      }
-    }
-
-    try {
-      checkAuthorization()
-    } catch (error) {
-      return Promise.reject(error)
-    }
-
-    // Check for missing or invalid authorization in the response
-    if (response.status === 401 || response.status === 403) {
-      // Remove tokens and redirect to login if unauthorized or forbidden
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      window.location.href = '/login'
-      return Promise.reject(new Error('Authorization required'))
-    }
     return response
   },
   async (error) => {

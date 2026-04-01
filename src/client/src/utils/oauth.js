@@ -44,13 +44,25 @@ export const getStoredReturnPath = (fallbackPath) => {
 };
 
 export const parseOAuthCallback = (search) => {
-  const params = new URLSearchParams(search);
+  // Backend now redirects tokens via URL fragment (#) to prevent them
+  // appearing in server logs or referrer headers. Fall back to query
+  // params for backwards-compatibility with any existing redirects.
+  const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const queryParams = new URLSearchParams(search);
+
+  const get = (key) => fragmentParams.get(key) || queryParams.get(key);
+
+  // Clean the fragment from the URL immediately after reading so the
+  // token is not retained in browser history.
+  if (fragmentParams.has('token')) {
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+  }
 
   return {
-    token: params.get('token'),
-    oauthStatus: params.get('oauth'),
-    oauthError: params.get('error'),
-    provider: params.get('provider') || localStorage.getItem(OAUTH_PROVIDER_KEY)
+    token: get('token'),
+    oauthStatus: get('oauth'),
+    oauthError: get('error'),
+    provider: get('provider') || localStorage.getItem(OAUTH_PROVIDER_KEY)
   };
 };
 

@@ -111,21 +111,25 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+
       const UserModel = getUser();
       if (UserModel) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-        const user = await UserModel.findByPk(decoded.userId);
-      
-        if (user && user.isActive) {
-          req.user = decoded;
-          req.userData = user;
+        try {
+          const user = await UserModel.findByPk(decoded.userId);
+          if (user && user.isActive) {
+            req.userData = user;
+          }
+        } catch (dbError) {
+          // DB lookup failed — req.user already set from token, continue
         }
       }
     }
-    
+
     next();
   } catch (error) {
-    // Continue without authentication
+    // Token invalid or expired — continue without authentication
     next();
   }
 };

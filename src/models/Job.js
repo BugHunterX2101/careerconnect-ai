@@ -6,6 +6,12 @@ const jobSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // 'employer' is stored alongside 'employerId' so both legacy queries
+  // (employer: req.user.userId) and new queries work without migration
+  employer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   title: {
     type: String,
     required: true,

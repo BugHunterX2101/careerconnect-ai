@@ -34,6 +34,7 @@ const EmployeeDashboardPage = lazy(() => import('./pages/Employee/EmployeeDashbo
 const ApplicationsPage = lazy(() => import('./pages/Employee/ApplicationsPage'))
 const InterviewsPage = lazy(() => import('./pages/Employee/InterviewsPage'))
 const EmployerDashboardPage = lazy(() => import('./pages/Employer/EmployerDashboardPage'))
+const EmployerDashboardEnhanced = lazy(() => import('./pages/Employer/EmployerDashboardEnhanced'))
 const JobPostingPage = lazy(() => import('./pages/Employer/JobPostingPage'))
 const JobManagementPage = lazy(() => import('./pages/Employer/JobManagementPage'))
 const ApplicantsPage = lazy(() => import('./pages/Employer/ApplicantsPage'))
@@ -279,6 +280,11 @@ function App() {
       <Route
         path="/employer/dashboard"
         element={renderProtectedRoute(<EmployerDashboardPage />, { skeleton: 'dashboard' })}
+      />
+
+      <Route
+        path="/employer/dashboard/enhanced"
+        element={renderProtectedRoute(<EmployerDashboardEnhanced />, { skeleton: 'dashboard' })}
       />
       
       <Route

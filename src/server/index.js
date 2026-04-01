@@ -95,26 +95,8 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Rate limiting for API endpoints
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
-  message: { error: 'Too many requests from this IP, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === '/api/perf/vitals' || req.path === '/perf/vitals',
-});
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // limit each IP to 30 requests per windowMs
-  message: { error: 'Too many authentication attempts, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply rate limiting
-const { apiLimiter: newApiLimiter, authLimiter: newAuthLimiter, uploadLimiter, mlLimiter } = require('../middleware/rateLimiter');
+// Rate limiting — use centrally defined limiters from rateLimiter.js
+const { apiLimiter, authLimiter, uploadLimiter, mlLimiter } = require('../middleware/rateLimiter');
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/resume/upload', uploadLimiter);
@@ -306,6 +288,7 @@ io.on('connection', (socket) => {
       socket.userId = resolvedUserId;
       socket.join(`user_${resolvedUserId}`);
       authenticated = true;
+      clearTimeout(authTimeout); // Fix 16: clear timeout on successful auth
       socket.emit('authenticated');
       registerSocketEventsOnce();
       return true;
@@ -354,10 +337,6 @@ io.on('connection', (socket) => {
         socket.emit('authentication_error', { message: 'Authentication required' });
         return;
       }
-      socket.broadcast.emit('job_recommendations_ready', data);
-    });
-  
-    socket.on('job_recommendation_request', (data) => {
       socket.broadcast.emit('job_recommendations_ready', data);
     });
   
@@ -422,24 +401,11 @@ io.on('connection', (socket) => {
   }
 });
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-  logger.error('Error occurred:', {
-    message: error.message,
-    stack: error.stack,
-    url: req.url,
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
+// Load proper error handler middleware
+const { errorHandler } = require('../middleware/errorHandler');
 
-  res.status(500).json({
-    success: false,
-    error: {
-      type: 'InternalError',
-      message: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
-    }
-  });
-});
+// Error handling middleware — must be registered AFTER all routes
+app.use(errorHandler);
 
 // Serve static files from the built React app
 const frontendPath = path.join(__dirname, '../client/dist');

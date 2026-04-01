@@ -415,11 +415,12 @@ router.get('/google/callback', oauthHeaders, passport.authenticate('google', { s
         algorithm: 'HS512'
       }
     );
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}`;
+    // Use fragment (#) to prevent token from appearing in server logs or referrer headers
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard#oauth=success&token=${token}&provider=google`;
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Google OAuth error:', err);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error`);
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=google`);
   }
 });
 
@@ -529,13 +530,35 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
     if (!email) {
       throw new Error('LinkedIn account email not available from OAuth profile');
     }
-    
+
+    // Upsert the OAuth user so they persist across sessions
+    let persistedUser = null;
+    const UserModel = getUser();
+    if (UserModel) {
+      try {
+        persistedUser = await UserModel.findOne({ where: { email } });
+        if (!persistedUser) {
+          persistedUser = await UserModel.create({
+            email,
+            firstName: profile.localizedFirstName || 'User',
+            lastName: profile.localizedLastName || '',
+            password: require('crypto').randomBytes(32).toString('hex'), // unusable random password
+            role: 'jobseeker',
+            isVerified: true,
+            isActive: true
+          });
+        }
+      } catch (dbError) {
+        console.warn('Could not upsert LinkedIn user in DB:', dbError.message);
+      }
+    }
+
     const user = {
-      id: Date.now().toString(),
+      id: persistedUser ? persistedUser.id : `li_${profile.id || profile.sub || Date.now()}`,
       email,
       firstName: profile.localizedFirstName || 'User',
       lastName: profile.localizedLastName || '',
-      role: 'jobseeker',
+      role: persistedUser ? persistedUser.role : 'jobseeker',
       provider: 'linkedin',
       providerId: profile.id || profile.sub
     };
@@ -568,7 +591,7 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard?oauth=success&token=${token}&provider=linkedin`;
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard#oauth=success&token=${token}&provider=linkedin`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
@@ -643,12 +666,36 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
     const profile = userResponse.data;
     const primaryEmail = emailResponse.data.find(email => email.primary);
     
+    const githubEmail = primaryEmail?.email || `${profile.login}@github.local`;
+
+    // Upsert the OAuth user so they persist across sessions
+    let persistedGhUser = null;
+    const GhUserModel = getUser();
+    if (GhUserModel) {
+      try {
+        persistedGhUser = await GhUserModel.findOne({ where: { email: githubEmail } });
+        if (!persistedGhUser) {
+          persistedGhUser = await GhUserModel.create({
+            email: githubEmail,
+            firstName: profile.name?.split(' ')[0] || profile.login,
+            lastName: profile.name?.split(' ').slice(1).join(' ') || '',
+            password: require('crypto').randomBytes(32).toString('hex'),
+            role: 'jobseeker',
+            isVerified: true,
+            isActive: true
+          });
+        }
+      } catch (dbError) {
+        console.warn('Could not upsert GitHub user in DB:', dbError.message);
+      }
+    }
+
     const user = {
-      id: Date.now().toString(),
-      email: primaryEmail?.email || `${profile.login}@github.local`,
+      id: persistedGhUser ? persistedGhUser.id : `gh_${profile.id}`,
+      email: githubEmail,
       firstName: profile.name?.split(' ')[0] || profile.login,
-      lastName: profile.name?.split(' ')[1] || '',
-      role: 'jobseeker',
+      lastName: profile.name?.split(' ').slice(1).join(' ') || '',
+      role: persistedGhUser ? persistedGhUser.role : 'jobseeker',
       provider: 'github',
       providerId: profile.id
     };
@@ -675,13 +722,104 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}&provider=github`;
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard#oauth=success&token=${token}&provider=github`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('❌ GitHub OAuth callback error:', error.response?.data || error.message);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=github&reason=token_exchange_failed`);
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset email
+// @access  Public
+router.post('/forgot-password', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: errors.array()[0].msg });
+    }
+
+    const UserModel = getUser();
+    if (!UserModel) {
+      // Don't reveal whether DB is down — always return success to prevent email enumeration
+      return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    const { email } = req.body;
+    const user = await UserModel.findOne({ where: { email } });
+
+    // Always respond with the same message to prevent email enumeration
+    if (!user) {
+      return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    const crypto = require('crypto');
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await user.update({
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: resetExpires
+    });
+
+    // In production, send email here. For now, log the reset URL.
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    console.log(`[Password Reset] Reset URL for ${email}: ${resetUrl}`);
+
+    res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process request' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password using token
+// @access  Public
+router.post('/reset-password', authLimiter, [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: errors.array()[0].msg });
+    }
+
+    const UserModel = getUser();
+    if (!UserModel) {
+      return res.status(503).json({ success: false, error: 'Database not available' });
+    }
+
+    const { token, password } = req.body;
+    const { Op } = require('sequelize');
+
+    const user = await UserModel.findOne({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { [Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
+    }
+
+    await user.update({
+      password,
+      resetPasswordToken: null,
+      resetPasswordExpires: null
+    });
+
+    res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, error: 'Failed to reset password' });
   }
 });
 

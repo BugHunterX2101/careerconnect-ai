@@ -2,7 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const { authenticateToken } = require('../middleware/auth');
-const { csrfProtection } = require('../middleware/csrf');
 let logger;
 const getLogger = () => {
   if (!logger) {
@@ -120,7 +119,7 @@ router.get('/activities', authenticateToken, async (req, res) => {
 // @route   PUT /api/profile
 // @desc    Update user profile
 // @access  Private
-router.put('/', authenticateToken, csrfProtection, profileUpdateLimiter, validateProfileUpdate, async (req, res) => {
+router.put('/', authenticateToken, profileUpdateLimiter, validateProfileUpdate, async (req, res) => {
   try {
     if (!User) {
       return res.status(503).json({ error: 'User model not available' });
@@ -187,7 +186,7 @@ router.put('/', authenticateToken, csrfProtection, profileUpdateLimiter, validat
 // @route   POST /api/profile/avatar
 // @desc    Upload profile avatar
 // @access  Private
-router.post('/avatar', authenticateToken, upload.single('avatar'), csrfProtection, async (req, res) => {
+router.post('/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
   try {
     if (!User) {
       return res.status(503).json({ error: 'User model not available' });
@@ -282,7 +281,7 @@ router.delete('/avatar', authenticateToken, async (req, res) => {
 // @route   PUT /api/profile/skills
 // @desc    Update user skills
 // @access  Private
-router.put('/skills', authenticateToken, csrfProtection, validateSkills, async (req, res) => {
+router.put('/skills', authenticateToken, validateSkills, async (req, res) => {
   try {
     if (!User) {
       return res.status(503).json({ error: 'User model not available' });
@@ -316,7 +315,7 @@ router.put('/skills', authenticateToken, csrfProtection, validateSkills, async (
 // @route   PUT /api/profile/experience
 // @desc    Update user experience
 // @access  Private
-router.put('/experience', authenticateToken, csrfProtection, async (req, res) => {
+router.put('/experience', authenticateToken, async (req, res) => {
   // Verify token payload matches the user making the request
   if (!req.user || !req.user.userId) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -380,7 +379,7 @@ const validateEducation = [
  */
 router.put('/education', 
   authenticateToken, 
-  csrfProtection, 
+  
   validateEducation,
   async (req, res) => {
     // Verify token payload matches the user making the request
@@ -504,7 +503,7 @@ router.get('/public/:userId', authenticateToken, async (req, res) => {
 // @route   POST /api/profile/export
 // @desc    Export user profile data
 // @access  Private
-router.post('/export', authenticateToken, csrfProtection, async (req, res) => {
+router.post('/export', authenticateToken, async (req, res) => {
   try {
     if (!User) {
       return res.status(503).json({ error: 'User model not available' });

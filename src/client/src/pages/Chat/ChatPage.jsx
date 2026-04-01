@@ -39,7 +39,12 @@ import { useSearchParams } from 'react-router-dom';
 const ChatPage = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { socket, connected, joinConversation, leaveConversation, startTyping, stopTyping } = useSocket();
+  const { socket, isConnected } = useSocket();
+  // Inline helpers replacing the non-existent SocketContext methods
+  const joinConversation = (id) => socket?.emit('join_conversation', id);
+  const leaveConversation = (id) => socket?.emit('leave_conversation', id);
+  const startTyping = (id) => socket?.emit('typing_start', { conversationId: id });
+  const stopTyping = (id) => socket?.emit('typing_stop', { conversationId: id });
   const [searchParams] = useSearchParams();
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
@@ -65,7 +70,7 @@ const ChatPage = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    if (socket && connected) {
+    if (socket && isConnected) {
       socket.on('new_message', handleNewMessage);
       socket.on('user_typing', handleUserTyping);
       socket.on('user_stopped_typing', handleUserStoppedTyping);
@@ -84,7 +89,7 @@ const ChatPage = () => {
         socket.off('message_read');
       };
     }
-  }, [socket, connected]);
+  }, [socket, isConnected]);
 
   useEffect(() => {
     scrollToBottom();

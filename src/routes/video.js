@@ -1,13 +1,11 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const csrf = require('csurf');
 // Try to import models (optional)
 let Interview = null;
 let User = null;
 let Job = null;
 
 // Initialize CSRF protection
-const csrfProtection = csrf({ cookie: true });
 
 try {
   Interview = require('../models/Interview');
@@ -28,7 +26,7 @@ try {
 }
 
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { rateLimit } = require('express-rate-limit');
+const rateLimit = require('express-rate-limit');
 const logger = require('../middleware/logger');
 const { createGMeetEvent, updateGMeetEvent, deleteGMeetEvent } = require('../services/gmeetService');
 
@@ -86,10 +84,12 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
     }
 
     // Check for scheduling conflicts
+    const scheduledAtDate = new Date(scheduledAt);
+    const endAtDate = new Date(scheduledAtDate.getTime() + duration * 60000);
     const conflictingInterview = await Interview.findOne({
       $or: [
-        { candidate: candidateId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } },
-        { interviewer: req.user.userId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } }
+        { candidate: candidateId, scheduledAt: { $lt: endAtDate, $gt: scheduledAtDate } },
+        { interviewer: req.user.userId, scheduledAt: { $lt: endAtDate, $gt: scheduledAtDate } }
       ],
       status: { $in: ['scheduled', 'confirmed'] }
     });

@@ -1,15 +1,6 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-let csrf;
-let csrfProtection;
-const getCsrfProtection = () => {
-  if (!csrf) {
-    csrf = require('csurf');
-    csrfProtection = csrf({ cookie: true });
-  }
-  return csrfProtection;
-};
 // Try to import models (optional)
 let Conversation = null;
 let Message = null;
@@ -34,7 +25,7 @@ try {
 }
 
 const { authenticateToken } = require('../middleware/auth');
-const { rateLimit } = require('express-rate-limit');
+const rateLimit = require('express-rate-limit');
 let logger;
 const getLogger = () => {
   if (!logger) {
@@ -435,7 +426,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 // @route   PUT /api/chat/messages/:id
 // @desc    Update a message
 // @access  Private
-router.put('/messages/:id', authenticateToken, getCsrfProtection(), validateMessage, async (req, res) => {
+router.put('/messages/:id', authenticateToken, validateMessage, async (req, res) => {
   try {
     if (!Message) {
       return res.status(503).json({ error: 'Message model not available' });

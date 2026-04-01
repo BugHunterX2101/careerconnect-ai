@@ -5,7 +5,8 @@ class GMeetService {
   constructor() {
     this.calendar = null;
     this.requestCounter = 0;
-    this.initializeCalendar();
+    // Calendar is initialized lazily on first use via initializeCalendar()
+    // to avoid swallowing async errors in the constructor
   }
 
   // Initialize Google Calendar API
