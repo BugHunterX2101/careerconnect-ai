@@ -24,36 +24,63 @@ const cleanTempUploads = async () => {
 
 const cleanOrphanedFiles = async () => {
   console.log('Starting orphaned file cleanup...');
-  
+
   try {
-    const Resume = require('../models/Resume');
-    const User = require('../models/User');
-    
     const resumeDir = path.join(process.cwd(), 'uploads', 'resumes');
     const avatarDir = path.join(process.cwd(), 'uploads', 'avatars');
 
-    const resumeFiles = await fs.readdir(resumeDir);
-    const dbResumes = await Resume.find({}, 'filePath').lean();
-    const validResumeFiles = new Set(dbResumes.map(r => path.basename(r.filePath)));
+    // Resume cleanup
+    try {
+      const { Resume: getResumeModel } = require('../models/Resume');
+      const Resume = getResumeModel();
+      const resumeFiles = await fs.readdir(resumeDir);
 
-    for (const file of resumeFiles) {
-      if (file === '.gitkeep') continue;
-      if (!validResumeFiles.has(file)) {
-        await fs.unlink(path.join(resumeDir, file));
-        console.log(`Deleted orphaned resume: ${file}`);
+      let validResumeFiles = new Set();
+      if (typeof Resume.findAll === 'function') {
+        const dbResumes = await Resume.findAll({ attributes: ['file_path'] });
+        validResumeFiles = new Set(dbResumes.map(r => path.basename(r.file_path || r.filePath || '')));
+      } else if (typeof Resume.find === 'function') {
+        const dbResumes = await Resume.find({}, 'filePath').lean();
+        validResumeFiles = new Set(dbResumes.map(r => path.basename(r.filePath || '')));
       }
+
+      for (const file of resumeFiles) {
+        if (file === '.gitkeep') continue;
+        if (!validResumeFiles.has(file)) {
+          await fs.unlink(path.join(resumeDir, file));
+          console.log(`Deleted orphaned resume: ${file}`);
+        }
+      }
+    } catch (resumeError) {
+      console.error('Resume cleanup error:', resumeError.message);
     }
 
-    const avatarFiles = await fs.readdir(avatarDir);
-    const dbUsers = await User.find({ avatar: { $exists: true } }, 'avatar').lean();
-    const validAvatarFiles = new Set(dbUsers.filter(u => u.avatar).map(u => path.basename(u.avatar)));
+    // Avatar cleanup
+    try {
+      const { User: getUserModel } = require('../models/User');
+      const User = getUserModel();
+      const avatarFiles = await fs.readdir(avatarDir);
 
-    for (const file of avatarFiles) {
-      if (file === '.gitkeep') continue;
-      if (!validAvatarFiles.has(file)) {
-        await fs.unlink(path.join(avatarDir, file));
-        console.log(`Deleted orphaned avatar: ${file}`);
+      let validAvatarFiles = new Set();
+      if (typeof User.findAll === 'function') {
+        const dbUsers = await User.findAll({ attributes: ['profilePicture'] });
+        validAvatarFiles = new Set(
+          dbUsers.filter(u => u.profilePicture).map(u => path.basename(u.profilePicture))
+        );
+      } else if (typeof User.find === 'function') {
+        const dbUsers = await User.find({ avatar: { $exists: true } }, 'avatar').lean();
+        validAvatarFiles = new Set(dbUsers.filter(u => u.avatar).map(u => path.basename(u.avatar)));
       }
+
+      for (const file of avatarFiles) {
+        if (file === '.gitkeep') continue;
+        if (!validAvatarFiles.has(file)) {
+          await fs.unlink(path.join(avatarDir, file));
+          console.log(`Deleted orphaned avatar: ${file}`);
+        }
+      }
+    } catch (avatarError) {
+      console.error('Avatar cleanup error:', avatarError.message);
     }
   } catch (error) {
     console.error('Orphaned file cleanup error:', error);

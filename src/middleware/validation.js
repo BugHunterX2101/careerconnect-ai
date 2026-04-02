@@ -27,7 +27,7 @@ const authValidators = {
       .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/)
       .withMessage('Password must be 8+ chars with uppercase, lowercase, number, and special char'),
     body('firstName').trim().notEmpty().isLength({ max: 50 }).matches(/^[a-zA-Z\s]+$/).withMessage('Valid first name required'),
-    body('role').isIn(['employee', 'employer', 'admin']).withMessage('Invalid role')
+    body('role').isIn(['jobseeker', 'employer', 'admin']).withMessage('Invalid role')
   ],
   login: [
     body('email').isEmail().normalizeEmail(),

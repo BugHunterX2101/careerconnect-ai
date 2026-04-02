@@ -252,6 +252,53 @@ router.get('/applications', async (req, res) => {
   }
 });
 
+// @route   GET /api/employee/applications/:id
+// @desc    Get a single application by ID
+// @access  Private (jobseeker)
+router.get('/applications/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId || req.user?.id;
+
+    let application = null;
+
+    if (Interview) {
+      try {
+        const interviews = await getCandidateInterviews(userId, { page: 1, limit: 500 });
+        const match = (interviews || []).find(
+          (i) => String(i.id || i._id) === String(id)
+        );
+        if (match) {
+          application = {
+            id: match.id || match._id,
+            job: {
+              id: match.jobId,
+              title: match.jobTitle || 'Job Position',
+              company: match.company || 'Company Name',
+              location: match.location || 'Location TBD'
+            },
+            status: match.status || 'applied',
+            appliedAt: match.createdAt || new Date(),
+            updatedAt: match.updatedAt || new Date(),
+            interviewType: match.type
+          };
+        }
+      } catch (dbError) {
+        getLogger().warn('Could not fetch application by ID:', dbError.message);
+      }
+    }
+
+    if (!application) {
+      return res.status(404).json({ success: false, error: 'Application not found' });
+    }
+
+    res.json({ success: true, data: { application } });
+  } catch (error) {
+    getLogger().error('Get application by ID error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch application' });
+  }
+});
+
 // @route   DELETE /api/employee/applications/:id
 // @desc    Withdraw job application
 // @access  Private (jobseeker)
@@ -271,7 +318,7 @@ router.delete('/applications/:id', async (req, res) => {
     }
     
     const application = job.applications.id(id);
-    if (!application || application.applicant.toString() !== userId) {
+    if (!application || String(application.applicant) !== String(userId)) {
       return res.status(403).json({ error: 'Not authorized to withdraw this application' });
     }
     
@@ -546,13 +593,19 @@ router.get('/salary-insights', async (req, res) => {
   }
 });
 
+// In-memory employee notification store (mirrors employer implementation)
+const employeeNotificationStore = new Map();
+
 // @route   GET /api/employee/notifications
 // @desc    Get user notifications
 // @access  Private (jobseeker)
-router.get('/notifications', authenticateToken, authorizeRole('jobseeker'), async (req, res) => {
+router.get('/notifications', async (req, res) => {
   try {
-    res.json({ notifications: [] });
-
+    const userId = String(req.user?.userId || req.user?.id);
+    const notifications = Array.from(employeeNotificationStore.values())
+      .filter(n => n.userId === userId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ notifications });
   } catch (error) {
     getLogger().error('Get notifications error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -564,8 +617,15 @@ router.get('/notifications', authenticateToken, authorizeRole('jobseeker'), asyn
 // @access  Private (jobseeker)
 router.patch('/notifications/:id/read', async (req, res) => {
   try {
-    res.status(404).json({ error: 'Notification not found' });
-
+    const notification = employeeNotificationStore.get(req.params.id);
+    const userId = String(req.user?.userId || req.user?.id);
+    if (!notification || notification.userId !== userId) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    notification.read = true;
+    notification.readAt = new Date().toISOString();
+    employeeNotificationStore.set(req.params.id, notification);
+    res.json({ message: 'Notification marked as read', notification });
   } catch (error) {
     getLogger().error('Mark notification as read error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -582,7 +642,12 @@ router.get('/settings', async (req, res) => {
     }
 
     const userId = req.user.userId;
-    const user = await User.findById(userId).select('settings');
+    let UserModel = null;
+    try {
+      UserModel = typeof User.findByPk === 'function' ? User : (typeof User.User === 'function' ? User.User() : null);
+    } catch (_) {}
+
+    const user = UserModel ? await UserModel.findByPk(userId) : null;
     
     const defaultSettings = {
       emailNotifications: {
@@ -825,25 +890,107 @@ router.put('/settings', async (req, res) => {
 
     const userId = req.user.userId;
     const { settings } = req.body;
-    
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { settings },
-      { new: true, runValidators: true }
-    ).select('settings');
-    
+
+    let UserModel = null;
+    try {
+      UserModel = typeof User.findByPk === 'function' ? User : (typeof User.User === 'function' ? User.User() : null);
+    } catch (_) {}
+
+    if (!UserModel) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
+    const user = await UserModel.findByPk(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
+    await user.update({ preferences: settings });
+
     res.json({
       message: 'Settings updated successfully',
-      settings: user.settings
+      settings: user.preferences || settings
     });
 
   } catch (error) {
     getLogger().error('Update settings error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/employee/job-recommendations
+// @desc    Get AI-powered job recommendations for the logged-in jobseeker
+// @access  Private (jobseeker)
+router.get('/job-recommendations', async (req, res) => {
+  try {
+    const { limit = 10, page = 1 } = req.query;
+    const userId = req.user?.userId || req.user?.id;
+
+    let recommendations = [];
+
+    if (Job) {
+      try {
+        const user = await getUserById(userId);
+        const userSkills = Array.isArray(user?.skills)
+          ? user.skills.map((s) => String(s).toLowerCase())
+          : [];
+
+        let jobs = [];
+        if (typeof Job.find === 'function') {
+          jobs = await Job.find({ status: 'active' })
+            .limit(200)
+            .select('title company location employmentType benefits requirements requiredSkills _id');
+        } else if (typeof Job.findAll === 'function') {
+          jobs = await Job.findAll({ where: { status: 'active' }, limit: 200 });
+        }
+
+        recommendations = (jobs || [])
+          .map((job) => {
+            const jobSkills = [
+              ...(Array.isArray(job?.requirements?.skills) ? job.requirements.skills.map((s) => String(s?.name || s).toLowerCase()) : []),
+              ...(Array.isArray(job?.requiredSkills) ? job.requiredSkills.map((s) => String(s).toLowerCase()) : [])
+            ];
+            const matchCount = userSkills.filter((skill) =>
+              jobSkills.some((js) => js.includes(skill) || skill.includes(js))
+            ).length;
+            const matchScore = jobSkills.length > 0
+              ? Math.round((matchCount / jobSkills.length) * 100)
+              : 0;
+            return { job, matchScore };
+          })
+          .filter(({ matchScore }) => matchScore > 0)
+          .sort((a, b) => b.matchScore - a.matchScore)
+          .slice(0, parseInt(limit, 10))
+          .map(({ job, matchScore }) => ({
+            id: job._id || job.id,
+            title: job.title,
+            company: job.company?.name || job.company,
+            location: job.location?.city || job.location,
+            type: job.employmentType || job.type,
+            salary: job.benefits?.salary || job.salary,
+            matchScore
+          }));
+      } catch (dbError) {
+        getLogger().warn('Could not fetch job recommendations:', dbError.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        recommendations,
+        total: recommendations.length,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+      }
+    });
+  } catch (error) {
+    getLogger().error('Get job recommendations error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch job recommendations',
+      data: { recommendations: [], total: 0 }
+    });
   }
 });
 

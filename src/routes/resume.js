@@ -79,16 +79,13 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-  const maxSize = 10 * 1024 * 1024; // 10MB
 
   if (!allowedTypes.includes(file.mimetype)) {
     return cb(new Error('Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed.'), false);
   }
 
-  if (file.size > maxSize) {
-    return cb(new Error('File too large. Maximum size is 10MB.'), false);
-  }
-
+  // Note: file size is enforced by limits.fileSize in the multer config below.
+  // file.size is not populated in fileFilter (it's always 0 at this stage).
   cb(null, true);
 };
 
@@ -194,6 +191,7 @@ router.get('/', authenticateToken, async (req, res) => {
     // Build query
     const where = { userId: req.user.userId };
     if (status) where.processingStatus = status;
+    if (search) where.title = { [Op.like]: `%${search}%` };
 
     const resumes = await Resume.findAll({
       where,

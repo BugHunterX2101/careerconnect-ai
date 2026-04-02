@@ -7,10 +7,57 @@ const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
+const crypto = require('crypto');
 
+// Helper: upsert an OAuth user into the DB
+const upsertOAuthUser = async ({ email, firstName, lastName, provider, providerId }) => {
+  let UserModel = null;
+  try {
+    const { User } = require('../models/User');
+    UserModel = User();
+  } catch (_) {
+    // DB unavailable — return a transient user object so auth still works
+  }
 
-// Mock user model for OAuth
-const mockUsers = new Map();
+  if (UserModel) {
+    try {
+      let user = await UserModel.findOne({ where: { email } });
+      if (!user) {
+        user = await UserModel.create({
+          email,
+          firstName: firstName || 'User',
+          lastName: lastName || '',
+          password: crypto.randomBytes(32).toString('hex'), // unusable random password
+          role: 'jobseeker',
+          isVerified: true,
+          isActive: true
+        });
+      }
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        provider,
+        providerId
+      };
+    } catch (dbError) {
+      console.warn(`Could not upsert ${provider} user in DB:`, dbError.message);
+    }
+  }
+
+  // Fallback: transient object (survives this request only)
+  return {
+    id: `${provider}_${providerId || Date.now()}`,
+    email,
+    firstName: firstName || 'User',
+    lastName: lastName || '',
+    role: 'jobseeker',
+    provider,
+    providerId
+  };
+};
 
 // JWT Strategy
 passport.use(new JwtStrategy({
@@ -37,22 +84,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         if (!email) {
           return done(new Error('No email found in Google profile'), null);
         }
-        
-        let user = mockUsers.get(email);
-        
-        if (!user) {
-          user = {
-            id: Date.now().toString(),
-            email,
-            firstName: profile.name?.givenName || 'User',
-            lastName: profile.name?.familyName || '',
-            role: 'jobseeker',
-            provider: 'google',
-            providerId: profile.id
-          };
-          mockUsers.set(email, user);
-        }
-        
+
+        const user = await upsertOAuthUser({
+          email,
+          firstName: profile.name?.givenName || 'User',
+          lastName: profile.name?.familyName || '',
+          provider: 'google',
+          providerId: profile.id
+        });
+
         return done(null, user);
       } catch (error) {
         return done(error, null);
@@ -77,33 +117,21 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
       state: false
     }, async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log('LinkedIn profile received:', profile);
-        
         const email = profile.email || profile.emails?.[0]?.value;
         if (!email) {
-          console.log('No email found in LinkedIn profile');
           return done(new Error('No email found in LinkedIn profile'), null);
         }
-        
-        let user = mockUsers.get(email);
-        
-        if (!user) {
-          user = {
-            id: Date.now().toString(),
-            email,
-            firstName: profile.name?.givenName || profile.given_name || 'User',
-            lastName: profile.name?.familyName || profile.family_name || '',
-            role: 'jobseeker',
-            provider: 'linkedin',
-            providerId: profile.id
-          };
-          mockUsers.set(email, user);
-          console.log('Created new LinkedIn user:', user.email);
-        }
-        
+
+        const user = await upsertOAuthUser({
+          email,
+          firstName: profile.name?.givenName || profile.given_name || 'User',
+          lastName: profile.name?.familyName || profile.family_name || '',
+          provider: 'linkedin',
+          providerId: profile.id
+        });
+
         return done(null, user);
       } catch (error) {
-        console.error('LinkedIn strategy error:', error);
         return done(error, null);
       }
     }));
@@ -125,21 +153,15 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value || `${profile.username}@github.local`;
-        let user = mockUsers.get(email);
-        
-        if (!user) {
-          user = {
-            id: Date.now().toString(),
-            email,
-            firstName: profile.displayName?.split(' ')[0] || profile.username,
-            lastName: profile.displayName?.split(' ')[1] || '',
-            role: 'jobseeker',
-            provider: 'github',
-            providerId: profile.id
-          };
-          mockUsers.set(email, user);
-        }
-        
+
+        const user = await upsertOAuthUser({
+          email,
+          firstName: profile.displayName?.split(' ')[0] || profile.username || 'User',
+          lastName: profile.displayName?.split(' ').slice(1).join(' ') || '',
+          provider: 'github',
+          providerId: String(profile.id)
+        });
+
         return done(null, user);
       } catch (error) {
         return done(error, null);

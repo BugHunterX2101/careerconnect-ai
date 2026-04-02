@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Email } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
 
 const ForgotPasswordPage = () => {
   const theme = useTheme();
@@ -24,15 +25,27 @@ const ForgotPasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
     setLoading(true);
     setError('');
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSuccess(true);
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccess(true);
+      } else {
+        setError(data.error || 'Failed to send reset email. Please try again.');
+      }
     } catch (err) {
-      setError('Failed to send reset email. Please try again.');
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

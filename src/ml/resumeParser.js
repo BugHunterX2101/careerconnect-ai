@@ -40,11 +40,16 @@ class ResumeParser {
 
       // Validate and sanitize file path to prevent path traversal
       const normalizedPath = path.normalize(filePath);
-      const allowedDir = path.resolve('./uploads');
+      // Use __dirname-based path so the check is stable regardless of cwd
+      const allowedDir = path.resolve(__dirname, '../../uploads');
       const resolvedPath = path.resolve(normalizedPath);
-      
+
       if (!resolvedPath.startsWith(allowedDir)) {
-        throw new Error('Invalid file path - access denied');
+        // Also allow OS temp dir for files written by the ML route before parsing
+        const osTmpDir = require('os').tmpdir();
+        if (!resolvedPath.startsWith(osTmpDir)) {
+          throw new Error('Invalid file path - access denied');
+        }
       }
 
       const fileExtension = path.extname(resolvedPath).toLowerCase();

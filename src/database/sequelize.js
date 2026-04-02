@@ -46,9 +46,13 @@ const connectDB = async () => {
 
     await sequelize.authenticate();
     logger.info('SQLite database connected successfully');
-    
-    // Sync database tables
-    await sequelize.sync({ alter: true });
+
+    // In production, use plain sync() to avoid schema-altering data loss.
+    // In development/test, alter:true keeps the schema in sync with model changes.
+    const syncOptions = process.env.NODE_ENV === 'production'
+      ? {}
+      : { alter: true };
+    await sequelize.sync(syncOptions);
     logger.info('Database tables synchronized');
     
     logger.info('Database connection and sync completed');

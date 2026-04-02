@@ -30,32 +30,52 @@ class JobRecommender {
 
   async loadJobDatabase() {
     try {
-      // This would typically load from your database
-      // For now, we'll use a placeholder
-      this.jobDatabase = [
-        {
-          id: '1',
-          title: 'Software Engineer',
-          company: 'Tech Corp',
-          location: 'San Francisco, CA',
-          description: 'Full-stack development with React and Node.js',
-          requirements: ['javascript', 'react', 'node.js', 'mongodb'],
-          salary: { min: 80000, max: 120000 },
-          type: 'full-time',
-          remote: true
-        },
-        {
-          id: '2',
-          title: 'Data Scientist',
-          company: 'AI Solutions',
-          location: 'New York, NY',
-          description: 'Machine learning and data analysis',
-          requirements: ['python', 'machine learning', 'statistics', 'sql'],
-          salary: { min: 90000, max: 140000 },
-          type: 'full-time',
+      let Job = null;
+      try {
+        Job = require('../models/Job');
+      } catch (_) {}
+
+      if (Job && typeof Job.find === 'function') {
+        const jobs = await Job.find({ status: 'active' })
+          .limit(500)
+          .select('_id title company location description requirements requiredSkills benefits employmentType')
+          .lean();
+        this.jobDatabase = (jobs || []).map(job => ({
+          id: String(job._id),
+          title: job.title,
+          company: job.company?.name || job.company || '',
+          location: job.location?.city
+            ? `${job.location.city}${job.location.state ? ', ' + job.location.state : ''}`
+            : '',
+          description: job.description || '',
+          requirements: [
+            ...(Array.isArray(job.requirements?.skills) ? job.requirements.skills.map(s => s?.name || s) : []),
+            ...(Array.isArray(job.requiredSkills) ? job.requiredSkills : [])
+          ],
+          salary: job.benefits?.salary || {},
+          type: job.employmentType || 'full-time',
+          remote: job.location?.isRemote || false
+        }));
+        console.log(`JobRecommender: loaded ${this.jobDatabase.length} jobs from DB`);
+      } else if (Job && typeof Job.findAll === 'function') {
+        const jobs = await Job.findAll({ where: { status: 'active' }, limit: 500 });
+        this.jobDatabase = (jobs || []).map(job => ({
+          id: String(job.id),
+          title: job.title || '',
+          company: job.company || '',
+          location: job.location || '',
+          description: job.description || '',
+          requirements: Array.isArray(job.requiredSkills) ? job.requiredSkills : [],
+          salary: {},
+          type: job.type || 'full-time',
           remote: false
-        }
-      ];
+        }));
+        console.log(`JobRecommender: loaded ${this.jobDatabase.length} jobs from DB (Sequelize)`);
+      } else {
+        // No DB available — start empty; recommendations will return nothing
+        this.jobDatabase = [];
+        console.warn('JobRecommender: Job model not available, job database is empty');
+      }
     } catch (error) {
       console.error('Error loading job database:', error);
       this.jobDatabase = [];

@@ -533,13 +533,22 @@ router.post('/apply/:id', authenticateToken, upload.single('resume'), async (req
     job.applications.push(application);
     await job.save();
 
-    // Update user's applied jobs
-    if (!User) {
-      return res.status(503).json({ error: 'User model not available' });
+    // Update user's applied jobs list if User model supports it
+    const UserModel = getUserModel();
+    if (UserModel && typeof UserModel.findByPk === 'function') {
+      try {
+        const user = await UserModel.findByPk(userId);
+        if (user) {
+          const appliedJobs = Array.isArray(user.appliedJobs) ? user.appliedJobs : [];
+          if (!appliedJobs.includes(id)) {
+            await user.update({ appliedJobs: [...appliedJobs, id] });
+          }
+        }
+      } catch (updateErr) {
+        // Non-critical — application already saved to Job
+        console.warn('Could not update user appliedJobs:', updateErr.message);
+      }
     }
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { appliedJobs: id }
-    });
 
     res.json({ 
       message: 'Application submitted successfully',
@@ -568,13 +577,22 @@ router.post('/save/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    // Add to saved jobs
-    if (!User) {
+    // Add to saved jobs using Sequelize-compatible approach
+    const UserModel = getUserModel();
+    if (!UserModel) {
       return res.status(503).json({ error: 'User model not available' });
     }
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { savedJobs: id }
-    });
+    if (typeof UserModel.findByPk === 'function') {
+      const user = await UserModel.findByPk(userId);
+      if (user) {
+        const savedJobs = Array.isArray(user.savedJobs) ? user.savedJobs : [];
+        if (!savedJobs.includes(id)) {
+          await user.update({ savedJobs: [...savedJobs, id] });
+        }
+      }
+    } else if (typeof UserModel.findByIdAndUpdate === 'function') {
+      await UserModel.findByIdAndUpdate(userId, { $addToSet: { savedJobs: id } });
+    }
 
     res.json({ message: 'Job saved successfully' });
 
@@ -592,12 +610,19 @@ router.delete('/save/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    if (!User) {
+    const UserModel = getUserModel();
+    if (!UserModel) {
       return res.status(503).json({ error: 'User model not available' });
     }
-    await User.findByIdAndUpdate(userId, {
-      $pull: { savedJobs: id }
-    });
+    if (typeof UserModel.findByPk === 'function') {
+      const user = await UserModel.findByPk(userId);
+      if (user) {
+        const savedJobs = Array.isArray(user.savedJobs) ? user.savedJobs : [];
+        await user.update({ savedJobs: savedJobs.filter(jobId => String(jobId) !== String(id)) });
+      }
+    } else if (typeof UserModel.findByIdAndUpdate === 'function') {
+      await UserModel.findByIdAndUpdate(userId, { $pull: { savedJobs: id } });
+    }
 
     res.json({ message: 'Job removed from saved' });
 

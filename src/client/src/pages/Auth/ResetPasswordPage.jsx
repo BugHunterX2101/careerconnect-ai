@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Lock, Visibility, VisibilityOff } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
 const ResetPasswordPage = () => {
   const theme = useTheme();
   const { token } = useParams();
@@ -45,8 +46,8 @@ const ResetPasswordPage = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
       return;
     }
 
@@ -54,13 +55,21 @@ const ResetPasswordPage = () => {
     setError('');
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      navigate('/login', { 
-        state: { message: 'Password reset successfully! Please log in with your new password.' }
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: formData.password })
       });
+      const data = await response.json();
+      if (response.ok) {
+        navigate('/login', {
+          state: { message: 'Password reset successfully! Please log in with your new password.' }
+        });
+      } else {
+        setError(data.error || 'Failed to reset password. Your link may have expired.');
+      }
     } catch (err) {
-      setError('Failed to reset password. Please try again.');
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

@@ -390,8 +390,15 @@ const setupJobProcessors = () => {
 
       // Cache recommendations in Redis
       if (redisClient) {
-        const cacheKey = `recommendations:${userId}:${resumeId}`;
-        await redisClient().setEx(cacheKey, 3600, JSON.stringify(recommendations)); // 1 hour TTL
+        try {
+          const client = redisClient();
+          if (client && typeof client.setEx === 'function') {
+            const cacheKey = `recommendations:${userId}:${resumeId}`;
+            await client.setEx(cacheKey, 3600, JSON.stringify(recommendations));
+          }
+        } catch (cacheErr) {
+          logger.warn('Redis cache write failed:', cacheErr.message);
+        }
       }
 
       logger.info(`Generated ${recommendations.recommendations.length} job recommendations`);
@@ -698,8 +705,15 @@ const processJobRecommendationsSynchronously = async (userId, resumeId, options 
 
     // Cache recommendations in Redis if available
     if (redisClient) {
-      const cacheKey = `recommendations:${userId}:${resumeId}`;
-      await redisClient().setEx(cacheKey, 3600, JSON.stringify(recommendations)); // 1 hour TTL
+      try {
+        const client = redisClient();
+        if (client && typeof client.setEx === 'function') {
+          const cacheKey = `recommendations:${userId}:${resumeId}`;
+          await client.setEx(cacheKey, 3600, JSON.stringify(recommendations));
+        }
+      } catch (cacheErr) {
+        logger.warn('Redis cache write failed:', cacheErr.message);
+      }
     }
 
     logger.info(`Generated ${recommendations.recommendations.length} job recommendations synchronously`);
