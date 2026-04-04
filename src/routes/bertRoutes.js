@@ -87,13 +87,21 @@ router.post('/parse', [authenticateToken, bertLimiter], async (req, res) => {
 
     const parsed = await bertPoolManager.parseResume(resumeText);
     
+    const skillNames = (parsed.skills?.all || []).map(s => typeof s === 'object' ? s.name : s);
     res.json({
       success: true,
+      skills: {
+        all: parsed.skills?.all || [],
+        categorised: parsed.skills?.categorised || {},
+        names: skillNames
+      },
       data: {
-        skills: parsed.skills.technical,
+        skills: parsed.skills?.all || [],
         experience: parsed.experience,
         education: parsed.education,
-        summary: parsed.summary
+        summary: parsed.summary,
+        personalInfo: parsed.personalInfo,
+        qualityScore: parsed.qualityScore
       }
     });
   } catch (error) {

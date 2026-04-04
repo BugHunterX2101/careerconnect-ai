@@ -240,12 +240,12 @@ async function generateGPTRecommendations(keywords, parsedData) {
     const query = { status: 'active' };
     if (skillPattern) {
       query.$or = [
-        { title: { $regex: skillPattern, $options: 'i' } },
-        { 'requirements.skills.name': { $regex: skillPattern, $options: 'i' } }
+        { title: { [Op.like]: `%${skillPattern}%` } }
       ];
     }
 
-    const jobs = await Job.find(query).sort({ createdAt: -1 }).limit(7);
+    let jobs = [];
+    try { jobs = await resolveJobModel(Job).findAll({ where: query, order: [['createdAt','DESC']], limit: 7 }); } catch(_){}
     return jobs.map((job) => {
       const skills = Array.isArray(job?.requirements?.skills)
         ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
@@ -253,7 +253,7 @@ async function generateGPTRecommendations(keywords, parsedData) {
       const minSalary = job?.benefits?.salary?.min;
       const maxSalary = job?.benefits?.salary?.max;
       return {
-        id: String(job._id),
+        id: String(job.id || job._id),
         title: job.title,
         company: job?.company?.name || 'Unknown Company',
         location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ') || 'Remote',
@@ -325,12 +325,12 @@ async function fetchInternalRecommendations(keywords, parsedData) {
     const query = { status: 'active' };
     if (skillPattern) {
       query.$or = [
-        { title: { $regex: skillPattern, $options: 'i' } },
-        { 'requirements.skills.name': { $regex: skillPattern, $options: 'i' } }
+        { title: { [Op.like]: `%${skillPattern}%` } }
       ];
     }
 
-    const jobs = await Job.find(query).sort({ createdAt: -1 }).limit(5);
+    let jobs = [];
+    try { jobs = await resolveJobModel(Job).findAll({ where: query, order: [['createdAt','DESC']], limit: 5 }); } catch(_){}
     return jobs.map((job) => {
       const skills = Array.isArray(job?.requirements?.skills)
         ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
@@ -338,7 +338,7 @@ async function fetchInternalRecommendations(keywords, parsedData) {
       const minSalary = job?.benefits?.salary?.min;
       const maxSalary = job?.benefits?.salary?.max;
       return {
-        id: String(job._id),
+        id: String(job.id || job._id),
         title: job.title,
         company: job?.company?.name || 'Unknown Company',
         location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ') || 'Unknown',
@@ -497,10 +497,12 @@ router.post('/job-recommendations', authenticateToken, mlLimiter, async (req, re
 // @access  Private
 router.post('/skill-analysis', authenticateToken, mlLimiter, async (req, res) => {
   try {
-    const { skills, targetRole, targetIndustry } = req.body;
+    const rawSkills = req.body.skills || req.body.currentSkills;
+    const { targetRole, targetIndustry } = req.body;
+    const skills = Array.isArray(rawSkills) ? rawSkills : [];
 
-    if (!skills || !Array.isArray(skills) || skills.length === 0) {
-      return res.status(400).json({ error: 'Skills array is required' });
+    if (skills.length === 0) {
+      return res.status(400).json({ error: 'Skills array is required (use "skills" or "currentSkills")' });
     }
 
     // Basic skill analysis
@@ -613,8 +615,6 @@ router.post('/train-model', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/predict-salary', authenticateToken, mlLimiter, async (req, res) => {
   try {
-    }
-    
     const { skills, experience, location, jobTitle } = req.body;
 
     if (!skills || !experience) {
@@ -671,8 +671,7 @@ router.get('/market-insights', authenticateToken, mlLimiter, async (req, res) =>
         const query = { status: 'active' };
         if (location) {
           query.$or = [
-            { 'location.city': { $regex: location, $options: 'i' } },
-            { 'location.state': { $regex: location, $options: 'i' } },
+            { locationCity: { [Op.like]: `%${location}%` } },
             { 'location.country': { $regex: location, $options: 'i' } }
           ];
         }

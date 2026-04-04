@@ -36,6 +36,7 @@ const connectDB = async () => {
     
     sequelize = new Sequelize({
       dialect: 'sqlite',
+      dialectModule: require('./sqljs-shim'),
       storage: databasePath,
       logging: process.env.NODE_ENV === 'development' ? console.log : false,
       define: {
@@ -47,11 +48,20 @@ const connectDB = async () => {
     await sequelize.authenticate();
     logger.info('SQLite database connected successfully');
 
-    // In production, use plain sync() to avoid schema-altering data loss.
-    // In development/test, alter:true keeps the schema in sync with model changes.
-    const syncOptions = process.env.NODE_ENV === 'production'
-      ? {}
-      : { alter: true };
+    // Initialize ALL models before syncing so every table gets created
+    try { require('../models/User').initializeUserModel(); } catch(_) {}
+    try { require('../models/Resume').initializeResumeModel(); } catch(_) {}
+    try { require('../models/Job').initializeJobModel(); } catch(_) {}
+    try { require('../models/Conversation').initializeConversationModel(); } catch(_) {}
+    try { require('../models/Message').initializeMessageModel(); } catch(_) {}
+    try { require('../models/Interview').initializeInterviewModel(); } catch(_) {}
+
+    // Use force:false (safe default) — tables are created if missing, not altered.
+    // This eliminates the expensive backup/restore cycle on every startup.
+    // Run with ALTER_DB=true env var to apply schema changes during development.
+    const syncOptions = process.env.ALTER_DB === 'true'
+      ? { alter: true }
+      : {};
     await sequelize.sync(syncOptions);
     logger.info('Database tables synchronized');
     

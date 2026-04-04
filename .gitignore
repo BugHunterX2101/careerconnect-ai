@@ -18,3 +18,5 @@ uploads/temp/*
 !uploads/temp/.gitkeep
 package-lock.json
 yarn.lock
+database.sqlite
+*.sqlite

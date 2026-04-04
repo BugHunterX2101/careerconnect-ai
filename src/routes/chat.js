@@ -1,4 +1,26 @@
+const { Op } = require('sequelize');
 const express = require('express');
+
+// Sequelize model resolver — handles both getter-function and direct exports
+const resolveModel = (mod) => {
+  if (!mod) return null;
+  if (typeof mod === 'function' && !mod.findAll) {
+    try { return mod(); } catch (_) { return null; }
+  }
+  if (mod && typeof mod === 'object') {
+    const keys = Object.keys(mod);
+    for (const k of keys) {
+      if (typeof mod[k] === 'function') {
+        try {
+          const r = mod[k]();
+          if (r && r.findAll) return r;
+        } catch (_) {}
+      }
+    }
+  }
+  return mod;
+};
+
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 // Try to import models (optional)
@@ -105,18 +127,15 @@ router.get('/conversations', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const { page = 1, limit = 20 } = req.query;
 
-    const conversations = await Conversation.find({
-      participants: userId
-    })
-    .populate('participants', 'firstName lastName email profile.avatar')
-    .populate('lastMessage')
-    .sort({ updatedAt: -1 })
-    .skip((parseInt(page) - 1) * parseInt(limit))
-    .limit(parseInt(limit));
-
-    const total = await Conversation.countDocuments({
-      participants: userId
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const conversations = await resolveModel(Conversation).findAll({
+      where: { participants: { [Op.like]: `%${userId}%` } },
+      order: [['updatedAt', 'DESC']],
+      offset,
+      limit: parseInt(limit)
     });
+
+    const total = conversations.length;
 
     res.json({
       conversations,
@@ -140,53 +159,56 @@ router.post('/conversations', authenticateToken, async (req, res) => {
       return res.status(503).json({ error: 'Models not available' });
     }
 
-    const { participantIds, title, type = 'direct' } = req.body;
-    const userId = req.user.userId;
+    // Accept both participantId (singular) and participantIds (plural)
+    const rawParticipants = req.body.participantIds || (req.body.participantId ? [req.body.participantId] : []);
+    const { title, type = 'direct', message: firstMessage } = req.body;
+    const userId = parseInt(req.user.userId, 10);
 
-    // Validate participants
-    if (!participantIds || participantIds.length === 0) {
+    if (rawParticipants.length === 0) {
       return res.status(400).json({ error: 'At least one participant is required' });
     }
 
-    // Add current user to participants if not already included
-    const allParticipants = [...new Set([userId, ...participantIds])];
+    const allParticipants = [...new Set([userId, ...rawParticipants.map(Number)])];
 
-    // Check if conversation already exists (for direct messages)
+    // Check for existing direct conversation (stored as JSON array in SQLite)
+    const ConvModel = resolveModel(Conversation);
+    const UserModel = resolveModel(User);
+
     if (type === 'direct' && allParticipants.length === 2) {
-      const existingConversation = await Conversation.findOne({
-        type: 'direct',
-        participants: { $all: allParticipants, $size: allParticipants.length }
-      });
-
-      if (existingConversation) {
-        return res.json({
-          message: 'Conversation already exists',
-          conversation: existingConversation
-        });
+      const existing = await ConvModel.findOne({ where: { type: 'direct' } });
+      if (existing && existing.participants.map(Number).sort().join(',') === allParticipants.sort().join(',')) {
+        return res.json({ message: 'Conversation already exists', conversation: existing });
       }
     }
 
-    // Verify all participants exist
-    const participants = await User.find({
-      _id: { $in: allParticipants }
-    }).select('firstName lastName email');
-
-    if (participants.length !== allParticipants.length) {
-      return res.status(400).json({ error: 'One or more participants not found' });
-    }
-
-    // Create conversation
-    const conversation = new Conversation({
-      title: title || `${participants.map(p => p.firstName).join(', ')}`,
-      type,
-      participants: allParticipants,
-      createdBy: userId
+    // Verify participants exist
+    const participantRecords = await UserModel.findAll({
+      where: { id: allParticipants },
+      attributes: ['id', 'firstName', 'lastName', 'email']
     });
 
-    await conversation.save();
+    const conversationTitle = title || participantRecords.map(p => p.firstName).join(', ') || 'Conversation';
 
-    // Populate participants for response
-    await conversation.populate('participants', 'firstName lastName email profile.avatar');
+    const conversation = await ConvModel.create({
+      title: conversationTitle,
+      type,
+      participants: allParticipants,
+      createdById: userId,
+      unreadBy: allParticipants.filter(id => id !== userId)
+    });
+
+    // Optionally create the first message
+    if (firstMessage) {
+      const MsgModel = resolveModel(Message);
+      if (MsgModel) {
+        await MsgModel.create({
+          conversationId: conversation.id,
+          senderId: userId,
+          content: firstMessage,
+          type: 'text'
+        });
+      }
+    }
 
     res.status(201).json({
       message: 'Conversation created successfully',
@@ -211,12 +233,12 @@ router.get('/conversations/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const conversation = await Conversation.findOne({
-      _id: id,
-      participants: userId
-    })
-    .populate('participants', 'firstName lastName email profile.avatar')
-    .populate('lastMessage');
+    const conversation = await resolveModel(Conversation).findOne({ where: {
+      id: parseInt(id, 10),
+      participants: { [Op.like]: `%${parseInt(userId,10)}%` }
+    } })
+    
+    ;
 
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
@@ -243,39 +265,35 @@ router.put('/conversations/:id', authenticateToken, async (req, res) => {
     const { title, participantIds } = req.body;
     const userId = req.user.userId;
 
-    const conversation = await Conversation.findOne({
-      _id: id,
-      participants: userId
-    });
+    const conversation = await resolveModel(Conversation).findOne({ where: {
+      id: parseInt(id, 10),
+      participants: { [Op.like]: `%${parseInt(userId,10)}%` }
+    } });
 
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
     // Only allow updates for group conversations or if user is creator
-    if (conversation.type === 'direct' && conversation.createdBy.toString() !== userId) {
+    if (conversation.type === 'direct' && String(conversation.createdById) !== String(userId)) {
       return res.status(403).json({ error: 'Not authorized to update this conversation' });
     }
 
-    if (title) {
-      conversation.title = title;
-    }
+    const updates = {};
+    if (title) updates.title = title;
 
     if (participantIds) {
-      // Validate new participants
-      const participants = await User.find({
-        _id: { $in: participantIds }
-      });
-
+      const UserModel = resolveModel(User);
+      const participants = UserModel
+        ? await UserModel.findAll({ where: { id: participantIds } })
+        : [];
       if (participants.length !== participantIds.length) {
         return res.status(400).json({ error: 'One or more participants not found' });
       }
-
-      conversation.participants = participantIds;
+      updates.participants = participantIds;
     }
 
-    await conversation.save();
-    await conversation.populate('participants', 'firstName lastName email profile.avatar');
+    await conversation.update(updates);
 
     res.json({
       message: 'Conversation updated successfully',
@@ -302,28 +320,30 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
     const userId = req.user.userId;
 
     // Verify user is part of conversation
-    const conversation = await Conversation.findOne({
-      _id: id,
-      participants: userId
-    });
+    const conversation = await resolveModel(Conversation).findOne({ where: {
+      id: parseInt(id, 10),
+      participants: { [Op.like]: `%${parseInt(userId,10)}%` }
+    } });
 
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
     // Build query
-    const query = { conversation: id };
+    const query = { conversationId: id };
     if (before) {
-      query.createdAt = { $lt: new Date(before) };
+      query.createdAt = { [Op.lt]: new Date(before) };
     }
 
-    const messages = await Message.find(query)
-      .populate('sender', 'firstName lastName email profile.avatar')
-      .sort({ createdAt: -1 })
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .limit(parseInt(limit));
+    const msgOffset = (parseInt(page) - 1) * parseInt(limit);
+    const messages = await resolveModel(Message).findAll({
+      where: query,
+      order: [['createdAt', 'DESC']],
+      offset: msgOffset,
+      limit: parseInt(limit)
+    });
 
-    const total = await Message.countDocuments({ conversation: id });
+    const total = await resolveModel(Message).count({ where: { conversationId: id } });
 
     res.json({
       messages: messages.reverse(), // Return in chronological order
@@ -357,10 +377,10 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
     const userId = req.user.userId;
 
     // Verify user is part of conversation
-    const conversation = await Conversation.findOne({
-      _id: id,
-      participants: userId
-    });
+    const conversation = await resolveModel(Conversation).findOne({ where: {
+      id: parseInt(id, 10),
+      participants: { [Op.like]: `%${parseInt(userId,10)}%` }
+    } });
 
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
@@ -368,15 +388,13 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 
     // Create message
     const messageData = {
-      conversation: id,
-      sender: userId,
+      conversationId: id,
+      senderId: parseInt(userId, 10),
       content,
       type: 'text'
     };
 
-    if (replyTo) {
-      messageData.replyTo = replyTo;
-    }
+    if (replyTo) messageData.replyToId = parseInt(replyTo, 10);
 
     if (req.file) {
       messageData.type = 'file';
@@ -384,20 +402,15 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
         filename: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        data: req.file.buffer
+        // Store file path reference, not raw buffer, to avoid memory exhaustion
+        path: req.file.path || null
       };
     }
 
-    const message = new Message(messageData);
-    await message.save();
+    const message = await resolveModel(Message).create(messageData);
 
-    // Update conversation's last message and timestamp
-    conversation.lastMessage = message._id;
-    conversation.updatedAt = new Date();
-    await conversation.save();
-
-    // Populate sender for response
-    await message.populate('sender', 'firstName lastName email profile.avatar');
+    // Update conversation's lastMessageId
+    await conversation.update({ lastMessageId: message.id });
 
     // Emit to Socket.IO for real-time delivery
     const io = req.app.get('io');
@@ -441,13 +454,13 @@ router.put('/messages/:id', authenticateToken, validateMessage, async (req, res)
     const { content } = req.body;
     const userId = req.user.userId;
 
-    const message = await Message.findById(id);
+    const message = await resolveModel(Message).findByPk(id);
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }
 
     // Check if user owns the message
-    if (message.sender.toString() !== userId) {
+    if (String(message.senderId) !== userId) {
       return res.status(403).json({ error: 'Not authorized to edit this message' });
     }
 
@@ -457,16 +470,11 @@ router.put('/messages/:id', authenticateToken, validateMessage, async (req, res)
       return res.status(400).json({ error: 'Message is too old to edit' });
     }
 
-    message.content = content;
-    message.edited = true;
-    message.editedAt = new Date();
-    await message.save();
-
-    await message.populate('sender', 'firstName lastName email profile.avatar');
+    await message.update({ content, edited: true, editedAt: new Date() });
 
     res.json({
       message: 'Message updated successfully',
-      message: message
+      data: message
     });
 
   } catch (error) {
@@ -487,17 +495,17 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    const message = await Message.findById(id);
+    const message = await resolveModel(Message).findByPk(id);
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }
 
     // Check if user owns the message or is admin
-    if (message.sender.toString() !== userId) {
+    if (String(message.senderId) !== userId) {
       return res.status(403).json({ error: 'Not authorized to delete this message' });
     }
 
-    await Message.findByIdAndDelete(id);
+    await (async () => { const _d = await resolveModel(Message).findByPk(id); if (_d) await _d.destroy(); })();
 
     res.json({ message: 'Message deleted successfully' });
 
@@ -521,7 +529,7 @@ router.post('/conversations/:id/read', authenticateToken, async (req, res) => {
 
     // Update unread count for this user in this conversation
     await Conversation.updateOne(
-      { _id: id, participants: userId },
+      { id: id, participants: userId },
       { $pull: { unreadBy: userId } }
     );
 
@@ -551,15 +559,15 @@ router.get('/search', authenticateToken, async (req, res) => {
 
     // Build search query
     const searchQuery = {
-      content: { $regex: q, $options: 'i' }
+      content: { [Op.like]: q, $options: 'i' }
     };
 
     if (conversationId) {
       // Verify user is part of conversation
-      const conversation = await Conversation.findOne({
+      const conversation = await resolveModel(Conversation).findOne({ where: {
         _id: conversationId,
         participants: userId
-      });
+      } });
 
       if (!conversation) {
         return res.status(404).json({ error: 'Conversation not found' });
@@ -568,21 +576,22 @@ router.get('/search', authenticateToken, async (req, res) => {
       searchQuery.conversation = conversationId;
     } else {
       // Search across all user's conversations
-      const userConversations = await Conversation.find({
-        participants: userId
-      }).select('_id');
-
-      searchQuery.conversation = { $in: userConversations.map(c => c._id) };
+      const userConversations = await resolveModel(Conversation).findAll({
+        where: { participants: { [Op.like]: `%${userId}%` } },
+        attributes: ['id']
+      });
+      searchQuery.conversationId = { [Op.in]: userConversations.map(c => c.id) };
     }
 
-    const messages = await Message.find(searchQuery)
-      .populate('sender', 'firstName lastName email profile.avatar')
-      .populate('conversation', 'title')
-      .sort({ createdAt: -1 })
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .limit(parseInt(limit));
+    const searchOffset = (parseInt(page) - 1) * parseInt(limit);
+    const messages = await resolveModel(Message).findAll({
+      where: searchQuery,
+      order: [['createdAt', 'DESC']],
+      offset: searchOffset,
+      limit: parseInt(limit)
+    });
 
-    const total = await Message.countDocuments(searchQuery);
+    const total = await resolveModel(Message).count({ where: searchQuery });
 
     res.json({
       messages,
@@ -609,7 +618,7 @@ router.get('/attachments/:messageId', authenticateToken, async (req, res) => {
     const { messageId } = req.params;
     const userId = req.user.userId;
 
-    const message = await Message.findById(messageId);
+    const message = await resolveModel(Message).findByPk(messageId);
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }
@@ -619,10 +628,10 @@ router.get('/attachments/:messageId', authenticateToken, async (req, res) => {
     }
 
     // Verify user is part of conversation
-    const conversation = await Conversation.findOne({
+    const conversation = await resolveModel(Conversation).findOne({ where: {
       _id: message.conversation,
       participants: userId
-    });
+    } });
 
     if (!conversation) {
       return res.status(403).json({ error: 'Not authorized to access this attachment' });

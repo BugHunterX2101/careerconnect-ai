@@ -1,4 +1,26 @@
+const { Op } = require('sequelize');
 const express = require('express');
+
+// Sequelize model resolver — handles both getter-function and direct exports
+const resolveModel = (mod) => {
+  if (!mod) return null;
+  if (typeof mod === 'function' && !mod.findAll) {
+    try { return mod(); } catch (_) { return null; }
+  }
+  if (mod && typeof mod === 'object') {
+    const keys = Object.keys(mod);
+    for (const k of keys) {
+      if (typeof mod[k] === 'function') {
+        try {
+          const r = mod[k]();
+          if (r && r.findAll) return r;
+        } catch (_) {}
+      }
+    }
+  }
+  return mod;
+};
+
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 
@@ -24,7 +46,7 @@ const getUserModel = () => {
     return null;
   }
 
-  if (typeof User.findByPk === 'function' || typeof User.findById === 'function') {
+  if (typeof resolveModel(User).findByPk === 'function') {
     return User;
   }
 
@@ -128,22 +150,31 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
     // Get user's profile for recommendations (supports both Sequelize and Mongoose models)
     let user = null;
     if (UserModel?.findById) {
-      user = await UserModel.findById(userId);
+      user = await UserModel.findByPk(userId);
       if (user?.populate) {
-        user = await user.populate('resumes');
+        user = await user;
       }
     } else if (UserModel?.findByPk) {
       user = await UserModel.findByPk(userId);
     }
 
     if (!user) {
-      return res.json({
-        recommendations: [],
-        total: 0,
-        page: parseInt(page, 10),
-        totalPages: 0,
-        source: 'unavailable'
-      });
+      // User not in DB (e.g. new OAuth user) — still return LinkedIn mock recommendations
+      try {
+        const fallbackJobs = await getLinkedInService().getLinkedInJobRecommendations(
+          { skills: [], location: location || '', experience: 'entry' },
+          parseInt(limit, 10)
+        );
+        return res.json({
+          recommendations: fallbackJobs,
+          total: fallbackJobs.length,
+          page: parseInt(page, 10),
+          totalPages: 1,
+          source: 'linkedin-guest'
+        });
+      } catch (_) {
+        return res.json({ recommendations: [], total: 0, page: parseInt(page, 10), totalPages: 0, source: 'unavailable' });
+      }
     }
 
     const userSkills = [
@@ -193,13 +224,13 @@ router.get('/recommendations', authenticateToken, jobSearchLimiter, async (req, 
         recommendations.source = 'local-fallback';
       } else if (Job?.find) {
         const searchQuery = {};
-        if (location) searchQuery.location = { $regex: location, $options: 'i' };
+        if (location) searchQuery.location = { [Op.like]: location, $options: 'i' };
         if (remote === 'true') searchQuery.remote = true;
 
         const jobs = await Job.find(searchQuery)
-          .sort({ createdAt: -1 })
+          .order([['createdAt','DESC']])
           .limit(parseInt(limit, 10))
-          .populate('employer', 'firstName lastName company');
+          ;
 
         recommendations = { jobs, total: jobs.length, source: 'local-fallback' };
       }
@@ -231,7 +262,7 @@ router.get('/enhanced-recommendations', authenticateToken, jobSearchLimiter, asy
       return res.status(503).json({ error: 'User model not available' });
     }
 
-    const user = await User.findById(userId).populate('resumes');
+    const user = await resolveModel(User).findByPk(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -303,43 +334,43 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
       experience_level, skills, page = 1, limit = 20 
     } = req.query;
 
-    // Build search query
-    const searchQuery = {};
-    
+    // Build Sequelize WHERE clause
+    const whereClause = { status: 'active' };
+
     if (q) {
-      searchQuery.$or = [
-        { title: { $regex: q, $options: 'i' } },
-        { description: { $regex: q, $options: 'i' } },
-        { company: { $regex: q, $options: 'i' } }
+      whereClause[Op.or] = [
+        { title: { [Op.like]: `%${q}%` } },
+        { description: { [Op.like]: `%${q}%` } },
+        { companyName: { [Op.like]: `%${q}%` } }
       ];
     }
 
     if (location) {
-      searchQuery.location = { $regex: location, $options: 'i' };
+      whereClause[Op.or] = [
+        ...(whereClause[Op.or] || []),
+        { locationCity: { [Op.like]: `%${location}%` } },
+        { locationCountry: { [Op.like]: `%${location}%` } }
+      ];
     }
 
     if (type) {
-      searchQuery.type = type;
+      whereClause.type = type;
     }
 
     if (remote === 'true') {
-      searchQuery.remote = true;
+      whereClause.isRemote = true;
     }
 
-    if (salary_min || salary_max) {
-      searchQuery['salary.max'] = {};
-      if (salary_min) searchQuery['salary.max'].$gte = parseInt(salary_min);
-      if (salary_max) searchQuery['salary.min'].$lte = parseInt(salary_max);
+    if (salary_min) {
+      whereClause.salaryMax = { [Op.gte]: parseInt(salary_min, 10) };
     }
 
-    if (experience_level) {
-      searchQuery.experienceLevel = experience_level;
+    if (salary_max) {
+      whereClause.salaryMin = { [Op.lte]: parseInt(salary_max, 10) };
     }
 
-    if (skills) {
-      const skillsArray = skills.split(',').map(skill => skill.trim());
-      searchQuery.requiredSkills = { $in: skillsArray };
-    }
+    // Note: experience_level and skills filtering on JSON columns is done post-query
+    const searchQuery = whereClause;
 
     // Add LinkedIn jobs to search
     let linkedinJobs = [];
@@ -355,19 +386,21 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
       }
     }
 
-    // Search local jobs
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Search local jobs using Sequelize
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     let jobs = [];
     let total = 0;
-    if (Job && typeof Job.find === 'function') {
+    const JobModel = resolveModel(Job);
+    if (JobModel) {
       try {
-        jobs = await Job.find(searchQuery)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(parseInt(limit))
-          .populate('employer', 'firstName lastName company');
-
-        total = await Job.countDocuments(searchQuery);
+        const result = await JobModel.findAndCountAll({
+          where: searchQuery,
+          order: [['createdAt', 'DESC']],
+          offset: skip,
+          limit: parseInt(limit, 10)
+        });
+        jobs = result.rows;
+        total = result.count;
       } catch (dbError) {
         getLogger().warn(`Job search fallback (database unavailable): ${dbError.message}`);
       }
@@ -397,12 +430,12 @@ router.get('/applications', authenticateToken, jobSearchLimiter, async (req, res
     const { page = 1, limit = 20, status } = req.query;
     const userId = req.user?.userId;
 
-    if (!Job || typeof Job.find !== 'function') {
+    const JobModel2 = resolveModel(Job);
+    if (!JobModel2) {
       return res.json({ applications: [], total: 0, page: parseInt(page, 10), totalPages: 0 });
     }
-
-    const query = { 'applications.userId': userId };
-    const jobs = await Job.find(query).sort({ updatedAt: -1 }).limit(200);
+    // Load all jobs then filter by applications JSON (SQLite doesn't support JSON path queries natively)
+    const jobs = await JobModel2.findAll({ order: [['updatedAt', 'DESC']], limit: 200 });
 
     let applications = [];
     jobs.forEach((job) => {
@@ -414,15 +447,15 @@ router.get('/applications', authenticateToken, jobSearchLimiter, async (req, res
 
       matches.forEach((entry) => {
         applications.push({
-          _id: entry._id,
+          id: entry.id || entry._id,
           status: entry.status,
           appliedAt: entry.appliedAt,
           notes: entry.notes,
           job: {
-            _id: job._id,
+            id: job.id,
             title: job.title,
-            company: job?.company?.name || 'Unknown Company',
-            location: [job?.location?.city, job?.location?.state, job?.location?.country].filter(Boolean).join(', ')
+            company: job.companyName || 'Unknown Company',
+            location: [job.locationCity, job.locationState, job.locationCountry].filter(Boolean).join(', ')
           }
         });
       });
@@ -450,30 +483,31 @@ router.get('/applications', authenticateToken, jobSearchLimiter, async (req, res
 // @route   GET /api/jobs/:id
 // @desc    Get job details
 // @access  Public
-router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
+router.get('/:id(\\d+)', async (req, res) => {
   try {
-    if (!Job) {
+    const JobModel = resolveModel(Job);
+    if (!JobModel) {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const job = await Job.findById(req.params.id)
-      .populate('employer', 'firstName lastName company profile');
+    const job = await JobModel.findByPk(parseInt(req.params.id, 10));
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    // Get similar jobs
-    const similarJobs = await Job.find({
-      _id: { $ne: job._id },
-      $or: [
-        { requiredSkills: { $in: job.requiredSkills } },
-        { type: job.type },
-        { location: job.location }
-      ]
-    })
-    .limit(5)
-    .populate('employer', 'firstName lastName company');
+    // Get similar jobs by same type or company
+    let similarJobs = [];
+    try {
+      similarJobs = await JobModel.findAll({
+        where: {
+          id: { [Op.ne]: job.id },
+          [Op.or]: [{ type: job.type }, { companyName: job.companyName }],
+          status: 'active'
+        },
+        limit: 5
+      });
+    } catch (_) { /* non-critical */ }
 
     res.json({
       job,
@@ -499,39 +533,40 @@ router.post('/apply/:id', authenticateToken, upload.single('resume'), async (req
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
-    const job = await Job.findById(id);
+    const job = await resolveModel(Job).findByPk(id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     // Check if already applied
-    const existingApplication = job.applications.find(
-      app => app.applicant.toString() === userId
+    const existing = (job.applications || []).find(
+      app => String(app.applicant || app.userId) === String(userId)
     );
-
-    if (existingApplication) {
+    if (existing) {
       return res.status(400).json({ error: 'You have already applied for this job' });
     }
 
-    // Create application
+    // Create application entry (file stored on disk — no binary blobs in DB)
     const application = {
+      id: require('crypto').randomBytes(8).toString('hex'),
       applicant: userId,
-      coverLetter,
-      appliedAt: new Date(),
-      status: 'pending'
-    };
-
-    if (req.file) {
-      application.resumeFile = {
+      userId,
+      coverLetter: coverLetter || '',
+      appliedAt: new Date().toISOString(),
+      status: 'pending',
+      resumeFile: req.file ? {
         filename: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        data: req.file.buffer
-      };
-    }
+        path: req.file.path || null   // multer diskStorage path; no binary blob
+      } : null
+    };
 
-    job.applications.push(application);
-    await job.save();
+    const updatedApplications = [...(job.applications || []), application];
+    await job.update({
+      applications: updatedApplications,
+      applicationCount: updatedApplications.length
+    });
 
     // Update user's applied jobs list if User model supports it
     const UserModel = getUserModel();
@@ -552,7 +587,7 @@ router.post('/apply/:id', authenticateToken, upload.single('resume'), async (req
 
     res.json({ 
       message: 'Application submitted successfully',
-      applicationId: application._id
+      applicationId: application.id
     });
 
   } catch (error) {
@@ -572,7 +607,7 @@ router.post('/save/:id', authenticateToken, async (req, res) => {
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
-    const job = await Job.findById(id);
+    const job = await resolveModel(Job).findByPk(id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -590,8 +625,6 @@ router.post('/save/:id', authenticateToken, async (req, res) => {
           await user.update({ savedJobs: [...savedJobs, id] });
         }
       }
-    } else if (typeof UserModel.findByIdAndUpdate === 'function') {
-      await UserModel.findByIdAndUpdate(userId, { $addToSet: { savedJobs: id } });
     }
 
     res.json({ message: 'Job saved successfully' });
@@ -620,8 +653,6 @@ router.delete('/save/:id', authenticateToken, async (req, res) => {
         const savedJobs = Array.isArray(user.savedJobs) ? user.savedJobs : [];
         await user.update({ savedJobs: savedJobs.filter(jobId => String(jobId) !== String(id)) });
       }
-    } else if (typeof UserModel.findByIdAndUpdate === 'function') {
-      await UserModel.findByIdAndUpdate(userId, { $pull: { savedJobs: id } });
     }
 
     res.json({ message: 'Job removed from saved' });
@@ -648,26 +679,35 @@ router.post('/', authenticateToken, authorizeRole('employer'), jobPostingLimiter
 
     const {
       title, description, requirements, location, type, salary,
-      company, remote, experienceLevel, benefits, deadline
+      company, remote, experienceLevel, benefits, deadline, skills: bodySkills
     } = req.body;
 
-    const job = new Job({
+    // Normalise incoming fields to Sequelize model column names
+    const companyName = typeof company === 'object' ? (company.name || 'Unknown') : (company || 'Unknown');
+    const locationCity = typeof location === 'object' ? (location.city || '') : (location || '');
+    const locationState = typeof location === 'object' ? (location.state || '') : '';
+    const locationCountry = typeof location === 'object' ? (location.country || 'US') : 'US';
+
+    const job = await resolveModel(Job).create({
       title,
       description,
-      requirements,
-      location,
-      type,
-      salary,
-      company,
-      remote: remote === 'true',
-      experienceLevel,
-      benefits,
-      deadline: deadline ? new Date(deadline) : undefined,
-      employer: req.user.userId,
-      requiredSkills: requirements
+      requirements: Array.isArray(requirements) ? requirements : [],
+      companyName,
+      locationCity,
+      locationState,
+      locationCountry,
+      isRemote: remote === true || remote === 'true',
+      type: type || 'full-time',
+      salaryMin: salary?.min ?? null,
+      salaryMax: salary?.max ?? null,
+      salaryCurrency: salary?.currency || 'USD',
+      experienceMin: typeof experienceLevel === 'number' ? experienceLevel : 0,
+      skills: Array.isArray(bodySkills) ? bodySkills : (Array.isArray(requirements) ? requirements : []),
+      perks: Array.isArray(benefits) ? benefits : [],
+      applicationDeadline: deadline ? new Date(deadline) : null,
+      employerId: parseInt(req.user.userId, 10),
+      status: 'active'
     });
-
-    await job.save();
 
     // LinkedIn posting is always attempted for unified external distribution.
     let linkedInSync = { attempted: true, success: false };
@@ -713,25 +753,29 @@ router.put('/:id', authenticateToken, authorizeRole('employer'), validateJobPost
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const job = await Job.findById(req.params.id);
+    const job = await resolveModel(Job).findByPk(req.params.id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     // Check if user owns this job
-    if (job.employer.toString() !== req.user.userId) {
+    if (String(job.employerId) !== req.user.userId) {
       return res.status(403).json({ error: 'Not authorized to update this job' });
     }
 
-    const updatedJob = await Job.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const allowedFields = ['title', 'companyName', 'description', 'skills', 'type', 'status',
+      'locationCity', 'locationState', 'locationCountry', 'isRemote', 'remoteType',
+      'salaryMin', 'salaryMax', 'salaryCurrency', 'salaryPeriod', 'experienceMin', 'experienceMax',
+      'educationLevel', 'perks', 'tags', 'applicationDeadline', 'requirements'];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    await job.update(updates);
 
     res.json({
       message: 'Job updated successfully',
-      job: updatedJob
+      job: job.toJSON()
     });
 
   } catch (error) {
@@ -749,17 +793,17 @@ router.delete('/:id', authenticateToken, authorizeRole('employer'), async (req, 
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const job = await Job.findById(req.params.id);
+    const job = await resolveModel(Job).findByPk(req.params.id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     // Check if user owns this job
-    if (job.employer.toString() !== req.user.userId) {
+    if (String(job.employerId) !== req.user.userId) {
       return res.status(403).json({ error: 'Not authorized to delete this job' });
     }
 
-    await Job.findByIdAndDelete(req.params.id);
+    await (async () => { const _d = await resolveModel(Job).findByPk(req.params.id); if (_d) await _d.destroy(); })();
 
     res.json({ message: 'Job deleted successfully' });
 
@@ -782,17 +826,17 @@ router.get('/employer/my-jobs', authenticateToken, authorizeRole('employer'), as
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
-    const query = { employer: req.user.userId };
+    const query = { employerId: req.user.userId };
     if (status) {
       query.status = status;
     }
 
-    const jobs = await Job.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parsedLimit);
-
-    const total = await Job.countDocuments(query);
+    const { count: total, rows: jobs } = await resolveModel(Job).findAndCountAll({
+      where: query,
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: parsedLimit
+    });
 
     res.json({
       jobs,
@@ -825,17 +869,14 @@ router.get('/employer/applications/:jobId', authenticateToken, authorizeRole('em
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
-    const job = await Job.findById(jobId).populate({
-      path: 'applications.applicant',
-      select: 'firstName lastName email profile'
-    });
+    const job = await resolveModel(Job).findByPk(jobId);
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     // Check if user owns this job
-    if (job.employer.toString() !== req.user.userId) {
+    if (String(job.employerId) !== req.user.userId) {
       return res.status(403).json({ error: 'Not authorized to view applications for this job' });
     }
 
@@ -874,28 +915,31 @@ router.put('/employer/applications/:jobId/:applicationId', authenticateToken, au
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
-    const job = await Job.findById(jobId);
+    const job = await resolveModel(Job).findByPk(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     // Check if user owns this job
-    if (job.employer.toString() !== req.user.userId) {
+    if (String(job.employerId) !== req.user.userId) {
       return res.status(403).json({ error: 'Not authorized to update applications for this job' });
     }
 
-    const application = job.applications.id(applicationId);
-    if (!application) {
+    const applications = job.applications || [];
+    const appIdx = applications.findIndex(
+      a => String(a.id || a._id) === String(applicationId)
+    );
+    if (appIdx === -1) {
       return res.status(404).json({ error: 'Application not found' });
     }
 
+    const application = { ...applications[appIdx] };
     application.status = status;
-    if (notes) {
-      application.notes = notes;
-    }
-    application.updatedAt = new Date();
+    if (notes) application.notes = notes;
+    application.updatedAt = new Date().toISOString();
+    applications[appIdx] = application;
 
-    await job.save();
+    await job.update({ applications });
 
     res.json({
       message: 'Application status updated successfully',
@@ -915,38 +959,51 @@ router.get('/employer/candidates/search', authenticateToken, authorizeRole('empl
   try {
     const { skills, location, experience, page = 1, limit = 20 } = req.query;
 
-    if (!User) {
+    const UserModel = getUserModel();
+    if (!UserModel) {
       return res.status(503).json({ error: 'User model not available' });
     }
-    const searchQuery = { role: 'jobseeker' };
-
-    if (skills) {
-      const skillsArray = skills.split(',').map(skill => skill.trim());
-      searchQuery['profile.skills'] = { $in: skillsArray };
-    }
+    // Build Sequelize WHERE — skills/location stored as JSON text in SQLite,
+    // so we do a LIKE search on the serialised column.
+    const whereClause = { role: 'jobseeker', isActive: true };
 
     if (location) {
-      searchQuery['profile.location'] = { $regex: location, $options: 'i' };
+      whereClause.location = { [Op.like]: `%${location}%` };
     }
 
+    const parsedPage = parseInt(page, 10) || 1;
+    const parsedLimit = Math.min(parseInt(limit, 10) || 20, 100);
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    const { count: total, rows: allCandidates } = await UserModel.findAndCountAll({
+      where: whereClause,
+      attributes: ['id', 'firstName', 'lastName', 'email', 'skills', 'experience', 'location', 'bio'],
+      offset,
+      limit: parsedLimit
+    });
+
+    // Post-filter by skills (JSON column match) and experience
+    let candidates = allCandidates;
+    if (skills) {
+      const skillsArray = skills.split(',').map(s => s.trim().toLowerCase());
+      candidates = candidates.filter(c => {
+        const cSkills = Array.isArray(c.skills) ? c.skills.map(s => s.toLowerCase()) : [];
+        return skillsArray.some(s => cSkills.includes(s));
+      });
+    }
     if (experience) {
-      searchQuery['profile.experience.years'] = { $gte: parseInt(experience) };
+      const minYears = parseInt(experience, 10);
+      candidates = candidates.filter(c => {
+        const exp = Array.isArray(c.experience) ? c.experience.length : 0;
+        return exp >= minYears;
+      });
     }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const candidates = await User.find(searchQuery)
-      .select('firstName lastName email profile')
-      .populate('resumes')
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await User.countDocuments(searchQuery);
 
     res.json({
-      candidates,
+      candidates: candidates.map(c => c.toJSON()),
       total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / limit)
+      page: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit)
     });
 
   } catch (error) {

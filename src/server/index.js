@@ -86,7 +86,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://graph.linkedin.com", "https://api.github.com", "https://"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://oauth2.googleapis.com", "https://graph.linkedin.com", "https://api.github.com", "https://api.linkedin.com", "https://www.linkedin.com"],
       frameSrc: ["'self'", "https://accounts.google.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
     },
@@ -126,6 +126,19 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(passport.initialize());
+
+// CSRF protection — skips JWT bearer-authenticated requests automatically
+// This guards browser form-based flows (OAuth redirects, etc.)
+try {
+  const { csrfWithJWT } = require('../middleware/csrf');
+  app.use(csrfWithJWT);
+  // Expose CSRF token to templates/SPAs
+  app.get('/api/csrf-token', (req, res) => {
+    res.json({ csrfToken: req.csrfToken ? req.csrfToken() : null });
+  });
+} catch (csrfErr) {
+  console.warn('CSRF middleware not loaded (csurf may not be installed):', csrfErr.message);
+}
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
@@ -274,6 +287,9 @@ io.on('connection', (socket) => {
     registerSocketEvents(socket);
   };
 
+  // Declare authTimeout early so authenticateSocket closure can reference it
+  let authTimeout = null;
+
   const authenticateSocket = (rawToken) => {
     if (!rawToken) return false;
     try {
@@ -288,7 +304,7 @@ io.on('connection', (socket) => {
       socket.userId = resolvedUserId;
       socket.join(`user_${resolvedUserId}`);
       authenticated = true;
-      clearTimeout(authTimeout); // Fix 16: clear timeout on successful auth
+      clearTimeout(authTimeout); // safe — authTimeout declared above
       socket.emit('authenticated');
       registerSocketEventsOnce();
       return true;
@@ -313,7 +329,7 @@ io.on('connection', (socket) => {
   });
 
   // Disconnect unauthorized clients after a timeout
-  const authTimeout = setTimeout(() => {
+  authTimeout = setTimeout(() => {
     if (!authenticated) {
       socket.emit('authentication_error', { message: 'Authentication timeout' });
       socket.disconnect();

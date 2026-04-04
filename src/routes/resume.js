@@ -126,7 +126,7 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
 
     // Create resume record
     const resume = await Resume.create({
-      userId: req.user.userId,
+      user_id: parseInt(req.user.userId, 10),
       title: title || req.file.originalname,
       originalFileName: req.file.originalname,
       filePath: req.file.path,
@@ -189,7 +189,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Build query
-    const where = { userId: req.user.userId };
+    const where = { user_id: parseInt(req.user.userId, 10) };
     if (status) where.processingStatus = status;
     if (search) where.title = { [Op.like]: `%${search}%` };
 

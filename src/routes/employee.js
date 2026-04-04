@@ -26,6 +26,12 @@ try {
 }
 
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+
+// Helper: get a model's Sequelize instance safely
+const resolveModel = (model) => {
+  if (!model) throw new Error('Model not available');
+  return typeof model === 'function' && !model.findAll ? model() : model;
+};
 let logger;
 const getLogger = () => {
   if (!logger) {
@@ -39,8 +45,8 @@ const getUserById = async (userId) => {
   if (typeof User.findByPk === 'function') {
     return User.findByPk(userId);
   }
-  if (typeof User.findById === 'function') {
-    return User.findById(userId);
+  if (typeof User.findByPk === 'function') {
+    return User.findByPk(userId);
   }
   return null;
 };
@@ -60,13 +66,15 @@ const getCandidateInterviews = async (userId, { page = 1, limit = 20, status } =
       });
     }
 
-    if (typeof Interview.find === 'function') {
+    if (typeof Interview !== 'undefined' && Interview) {
       const query = { candidate: userId };
       if (status) query.status = status;
-      return Interview.find(query)
-        .sort({ scheduledAt: -1 })
-        .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
-        .limit(parseInt(limit, 10));
+      return resolveModel(Interview).findAll({
+        where: { candidateId: parseInt(userId, 10), ...(status ? { status } : {}) },
+        order: [['scheduledAt', 'DESC']],
+        offset: (parseInt(page, 10) - 1) * parseInt(limit, 10),
+        limit: parseInt(limit, 10)
+      });
     }
 
     return [];
@@ -312,7 +320,9 @@ router.delete('/applications/:id', async (req, res) => {
     const userId = req.user.userId;
     
     // Find the job with this application
-    const job = await Job.findOne({ 'applications._id': id });
+    // Applications stored as JSON in job.applications — find by scanning
+    const allJobs = await resolveModel(Job).findAll();
+    const job = allJobs.find(j => (j.applications || []).some(a => String(a.id || a._id) === String(id)));
     if (!job) {
       return res.status(404).json({ error: 'Application not found' });
     }
@@ -329,7 +339,7 @@ router.delete('/applications/:id', async (req, res) => {
     
     // Remove the application
     job.applications.pull(id);
-    await job.save();
+    await job.update({ applications: job.applications });
     
     res.json({ message: 'Application withdrawn successfully' });
 
@@ -444,10 +454,7 @@ router.patch('/interviews/:id', async (req, res) => {
       { _id: id, candidate: userId },
       { status, updatedAt: new Date() },
       { new: true }
-    ).populate([
-      { path: 'job', select: 'title company' },
-      { path: 'interviewer', select: 'firstName lastName email' }
-    ]);
+    );
     
     if (!interview) {
       return res.status(404).json({ error: 'Interview not found' });
@@ -548,12 +555,12 @@ router.get('/salary-insights', async (req, res) => {
     let jobs = [];
     if (Job && typeof Job.find === 'function') {
       const query = {
-        title: { $regex: jobTitle, $options: 'i' }
+        title: { [Op.like]: `%${jobTitle}%` }
       };
 
       if (location) {
         query.$or = [
-          { 'location.city': { $regex: location, $options: 'i' } },
+          { locationCity: { [Op.like]: `%${location}%` } },
           { 'location.state': { $regex: location, $options: 'i' } },
           { 'location.country': { $regex: location, $options: 'i' } }
         ];

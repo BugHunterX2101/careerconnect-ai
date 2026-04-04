@@ -564,7 +564,8 @@ router.delete('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Password is required to delete account' });
     }
 
-    const user = await User.findById(req.user.userId).select('+password');
+    const UserModel = typeof User === 'function' ? User() : User;
+    const user = UserModel ? await UserModel.findByPk(parseInt(req.user.userId, 10)) : null;
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

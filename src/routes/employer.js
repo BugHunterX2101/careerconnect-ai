@@ -1,7 +1,28 @@
+const { Op } = require('sequelize');
 const express = require('express');
+
+// Sequelize model resolver — handles both getter-function and direct exports
+const resolveModel = (mod) => {
+  if (!mod) return null;
+  if (typeof mod === 'function' && !mod.findAll) {
+    try { return mod(); } catch (_) { return null; }
+  }
+  if (mod && typeof mod === 'object') {
+    const keys = Object.keys(mod);
+    for (const k of keys) {
+      if (typeof mod[k] === 'function') {
+        try {
+          const r = mod[k]();
+          if (r && r.findAll) return r;
+        } catch (_) {}
+      }
+    }
+  }
+  return mod;
+};
+
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
-const mongoose = require('mongoose');
 const { createGMeetEvent } = require('../services/gmeetService');
 
 // Try to import models (optional)
@@ -76,7 +97,7 @@ const getSqlUserModel = () => {
     }
   }
 
-  if (typeof User.findByPk === 'function') {
+  if (typeof resolveModel(User).findByPk === 'function') {
     return User;
   }
 
@@ -193,7 +214,7 @@ router.get('/dashboard/stats', async (req, res) => {
     const employerId = req.user.userId;
     
     // Get job statistics
-    const jobs = await Job.find({ employer: employerId });
+    const jobs = await resolveModel(Job).findAll({ where: { employer: employerId } });
     const activeJobs = jobs.filter(job => job.status === 'active').length;
     const totalJobs = jobs.length;
     
@@ -206,7 +227,7 @@ router.get('/dashboard/stats', async (req, res) => {
     }, 0);
     
     // Get interview statistics
-    const interviews = await Interview.find({ interviewer: employerId });
+    const interviews = await resolveModel(Interview).findAll({ where: { interviewer: employerId } });
     const scheduledInterviews = interviews.filter(interview => 
       ['scheduled', 'confirmed'].includes(interview.status)
     ).length;
@@ -295,12 +316,13 @@ router.get('/jobs', async (req, res) => {
     }
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    const jobs = await Job.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    const total = await Job.countDocuments(query);
+    const jobs = await resolveModel(Job).findAll({
+      where: { employerId: parseInt(employerId, 10), ...(status ? { status } : {}) },
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: parseInt(limit)
+    });
+    const total = jobs.length;
     
     res.json({
       jobs,
@@ -329,10 +351,10 @@ router.get('/jobs/:id', async (req, res) => {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: req.params.id,
       employer: req.user.userId
-    }).populate('applications.applicant', 'firstName lastName email profile');
+    } });
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -446,10 +468,10 @@ router.post('/jobs', [
         updatedAt: new Date().toISOString(),
         source: 'compatibility-fallback'
       };
-      localJobStore.items.set(job._id, job);
+      localJobStore.items.set(job.id, job);
     } else {
       job = new Job(jobData);
-      await job.save();
+      await job.save?.() || await job.update?.({});
     }
 
     // Attempt LinkedIn posting for external distribution consistency.
@@ -497,7 +519,7 @@ router.post('/jobs', [
     } else {
       try {
         const candidateMatchingService = require('../services/candidateMatchingService');
-        const matchResults = await candidateMatchingService.getMatchingCandidates(job._id, {
+        const matchResults = await candidateMatchingService.getMatchingCandidates(job.id, {
           limit: 15,
           minScore: 30
         });
@@ -622,13 +644,10 @@ router.get('/jobs/:id/applicants', async (req, res) => {
 
     const { page = 1, limit = 20, status } = req.query;
     
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: req.params.id,
       employer: req.user.userId
-    }).populate({
-      path: 'applications.applicant',
-      select: 'firstName lastName email profile'
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -673,10 +692,10 @@ router.patch('/jobs/:jobId/applicants/bulk', async (req, res) => {
       return res.status(400).json({ error: 'applicantIds must be a non-empty array' });
     }
 
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: req.params.jobId,
       employer: req.user.userId
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -692,7 +711,7 @@ router.patch('/jobs/:jobId/applicants/bulk', async (req, res) => {
       }
     });
 
-    await job.save();
+    await job.save?.() || await job.update?.({});
 
     res.json({
       message: `${updatedCount} applications updated successfully`,
@@ -716,10 +735,10 @@ router.patch('/jobs/:jobId/applicants/:applicationId', async (req, res) => {
 
     const { status, notes } = req.body;
     
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: req.params.jobId,
       employer: req.user.userId
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -736,7 +755,7 @@ router.patch('/jobs/:jobId/applicants/:applicationId', async (req, res) => {
     }
     application.updatedAt = new Date();
 
-    await job.save();
+    await job.save?.() || await job.update?.({});
 
     res.json({
       message: 'Application status updated successfully',
@@ -758,10 +777,10 @@ router.get('/jobs/:jobId/applicants/:applicationId/resume', async (req, res) => 
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: req.params.jobId,
       employer: req.user.userId
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -837,7 +856,7 @@ router.get('/candidates/search', async (req, res) => {
 
         const raw = typeof candidate.toJSON === 'function' ? candidate.toJSON() : candidate;
         return {
-          _id: raw._id || raw.id,
+          _id: raw.id,
           id: raw.id || raw._id,
           firstName: raw.firstName || '',
           lastName: raw.lastName || '',
@@ -860,36 +879,36 @@ router.get('/candidates/search', async (req, res) => {
 
         if (skills) {
           const skillsArray = skills.split(',').map(skill => skill.trim());
-          searchQuery['profile.skills'] = { $in: skillsArray };
+          searchQuery['profile.skills'] = { [Op.in]: skillsArray };
         }
 
         if (location) {
-          searchQuery['profile.location'] = { $regex: location, $options: 'i' };
+          searchQuery['profile.location'] = { [Op.like]: location, $options: 'i' };
         }
 
         if (experience) {
           const [min, max] = experience.split('-');
           if (max === '+') {
-            searchQuery['profile.experience.years'] = { $gte: parseInt(min, 10) };
+            searchQuery['profile.experience.years'] = { [Op.gte]: parseInt(min, 10) };
           } else {
             searchQuery['profile.experience.years'] = {
-              $gte: parseInt(min, 10),
-              $lte: parseInt(max, 10)
+              [Op.gte]: parseInt(min, 10),
+              [Op.lte]: parseInt(max, 10)
             };
           }
         }
 
         if (keywords) {
           searchQuery.$or = [
-            { 'profile.title': { $regex: keywords, $options: 'i' } },
-            { 'profile.summary': { $regex: keywords, $options: 'i' } },
-            { 'profile.skills': { $in: [new RegExp(keywords, 'i')] } }
+            { 'profile.title': { [Op.like]: keywords, $options: 'i' } },
+            { 'profile.summary': { [Op.like]: keywords, $options: 'i' } },
+            { 'profile.skills': { [Op.in]: [new RegExp(keywords, 'i')] } }
           ];
         }
 
         candidates = await User.find(searchQuery)
           .select('firstName lastName email profile')
-          .skip(skip)
+          .offset(skip)
           .limit(parsedLimit);
 
         total = await User.countDocuments(searchQuery);
@@ -977,10 +996,10 @@ router.get('/candidates/:id', async (req, res) => {
       return res.status(503).json({ error: 'User model not available' });
     }
 
-    const candidate = await User.findOne({
+    const candidate = await resolveModel(User).findOne({ where: {
       _id: req.params.id,
       role: 'jobseeker'
-    }).select('firstName lastName email profile').populate('resumes');
+    } }).select('firstName lastName email profile');
 
     if (!candidate) {
       return res.status(404).json({ error: 'Candidate not found' });
@@ -1010,20 +1029,20 @@ router.post('/candidates/:id/rating', async (req, res) => {
     }
 
     // Get candidate profile and resume
-    const candidate = await User.findOne({
+    const candidate = await resolveModel(User).findOne({ where: {
       _id: req.params.id,
       role: 'jobseeker'
-    }).select('firstName lastName email profile').populate('resumes');
+    } }).select('firstName lastName email profile');
 
     if (!candidate) {
       return res.status(404).json({ error: 'Candidate not found' });
     }
 
     // Get job posting (verify it belongs to employer)
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: jobId,
       employer: req.user.userId
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found or unauthorized' });
@@ -1052,7 +1071,7 @@ router.post('/candidates/:id/rating', async (req, res) => {
         email: candidate.email
       },
       job: {
-        id: job._id,
+        id: job.id,
         title: job.title,
         company: job.company
       },
@@ -1090,10 +1109,10 @@ router.get('/jobs/:jobId/matching-candidates', async (req, res) => {
     const { limit = 15, minScore = 30 } = req.query;
 
     // Verify job belongs to employer
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: jobId,
       employer: req.user.userId
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -1145,7 +1164,7 @@ router.post('/candidates/:id/invite', [
 
     // Verify the job belongs to this employer
     if (Job && isMongoObjectId(jobId) && isMongoObjectId(req.user.userId)) {
-      const job = await Job.findOne({ _id: jobId, employer: req.user.userId });
+      const job = await resolveModel(Job).findOne({ where: { _id: jobId, employer: req.user.userId } });
       if (!job) {
         return res.status(404).json({ error: 'Job not found or you do not have permission to invite for this job' });
       }
@@ -1155,7 +1174,7 @@ router.post('/candidates/:id/invite', [
     let candidateEmail = null;
     let candidateName = null;
     if (User && isMongoObjectId(candidateId)) {
-      const candidate = await User.findOne({ _id: candidateId, role: 'jobseeker' }).select('firstName lastName email');
+      const candidate = await resolveModel(User).findOne({ where: { _id: candidateId, role: 'jobseeker' } }).select('firstName lastName email');
       if (!candidate) {
         return res.status(404).json({ error: 'Candidate not found' });
       }
@@ -1242,10 +1261,10 @@ router.get('/interviews', async (req, res) => {
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const interviews = await Interview.find(query)
-      .populate('job', 'title company')
-      .populate('candidate', 'firstName lastName email')
-      .sort({ scheduledAt: -1 })
-      .skip(skip)
+      
+      
+      .order([['scheduledAt','DESC']])
+      .offset(skip)
       .limit(parseInt(limit));
     
     const total = await Interview.countDocuments(query);
@@ -1368,10 +1387,10 @@ router.post('/interviews', [
     }
 
     // Verify job belongs to employer
-    const job = await Job.findOne({
+    const job = await resolveModel(Job).findOne({ where: {
       _id: req.body.jobId,
       employer: req.user.userId
-    });
+    } });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -1386,10 +1405,7 @@ router.post('/interviews', [
     const interview = new Interview(interviewData);
     await interview.save();
 
-    await interview.populate([
-      { path: 'job', select: 'title company' },
-      { path: 'candidate', select: 'firstName lastName email' }
-    ]);
+    await interview;
 
     res.status(201).json({
       message: 'Interview scheduled successfully',
@@ -1415,10 +1431,7 @@ router.put('/interviews/:id', async (req, res) => {
       { _id: req.params.id, interviewer: req.user.userId },
       req.body,
       { new: true }
-    ).populate([
-      { path: 'job', select: 'title company' },
-      { path: 'candidate', select: 'firstName lastName email' }
-    ]);
+    );
 
     if (!interview) {
       return res.status(404).json({ error: 'Interview not found' });
@@ -1483,7 +1496,7 @@ router.get('/analytics', async (req, res) => {
     let interviews = [];
     try {
       if (Job && typeof Job.find === 'function') {
-        jobs = await Job.find({ employer: employerId });
+        jobs = await resolveModel(Job).findAll({ where: { employer: employerId } });
       }
     } catch (error) {
       getLogger().warn(`Employer analytics jobs query unavailable: ${error.message}`);
@@ -1491,7 +1504,7 @@ router.get('/analytics', async (req, res) => {
 
     try {
       if (Interview && typeof Interview.find === 'function') {
-        interviews = await Interview.find({ interviewer: employerId });
+        interviews = await resolveModel(Interview).findAll({ where: { interviewer: employerId } });
       }
     } catch (error) {
       getLogger().warn(`Employer analytics interviews query unavailable: ${error.message}`);
@@ -1690,7 +1703,7 @@ router.get('/reports/hiring', async (req, res) => {
     let jobs = [];
     if (Job && typeof Job.find === 'function') {
       try {
-        jobs = await Job.find({ employer: employerId });
+        jobs = await resolveModel(Job).findAll({ where: { employer: employerId } });
       } catch (jobQueryError) {
         getLogger().warn(`Hiring report jobs query unavailable: ${jobQueryError.message}`);
       }
@@ -1740,7 +1753,7 @@ router.get('/pipeline', async (req, res) => {
     let jobs = [];
     if (Job && typeof Job.find === 'function') {
       try {
-        jobs = await Job.find({ employer: employerId });
+        jobs = await resolveModel(Job).findAll({ where: { employer: employerId } });
       } catch (jobQueryError) {
         getLogger().warn(`Pipeline jobs query unavailable: ${jobQueryError.message}`);
       }
@@ -1850,15 +1863,20 @@ router.put('/settings', async (req, res) => {
       return res.json({ message: 'Settings acknowledged', settings: req.body });
     }
 
-    const updated = await User.findByIdAndUpdate(
-      req.user.userId,
-      { $set: { 'employerSettings': req.body } },
-      { new: true, runValidators: false }
-    ).select('employerSettings');
+    const UserModel = resolveModel(User);
+    const user = await UserModel.findByPk(parseInt(req.user.userId, 10));
+    if (user) {
+      const allowed = ['companyName', 'companyWebsite', 'companyIndustry', 'companySize', 'bio', 'phone', 'location'];
+      const updates = {};
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) updates[key] = req.body[key];
+      }
+      await user.update(updates);
+    }
 
     res.json({
       message: 'Settings updated successfully',
-      settings: updated?.employerSettings || req.body
+      settings: req.body
     });
   } catch (error) {
     getLogger().error('Update settings error:', error);

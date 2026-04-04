@@ -15,9 +15,11 @@ class SkillGapAnalysisService {
 
   async analyzeSkillGaps(resumeText, currentSalary = 0) {
     const parsed = await bertService.parseResumeWithBERT(resumeText);
-    const currentSkills = parsed.skills.technical;
+    // Normalize skill objects to strings (BERT service returns [{name, confidence}])
+    const rawSkills = parsed.skills?.all || parsed.skills?.technical || [];
+    const currentSkills = rawSkills.map(s => (typeof s === 'object' ? s.name || '' : s)).filter(Boolean);
     
-    const gaps = await this.identifyGaps(currentSkills, parsed.skills.embedding);
+    const gaps = await this.identifyGaps(currentSkills, parsed.skills?.embedding || null);
     const recommendations = this.generateRecommendations(gaps, currentSalary);
     const learningPath = this.createLearningPath(gaps);
 
@@ -308,11 +310,11 @@ class SkillGapAnalysisService {
     );
 
     const matchingSkills = resumeParsed.skills.technical.filter(skill =>
-      jobParsed.skills.technical.some(js => js.toLowerCase().includes(skill.toLowerCase()))
+      (jobParsed.skills?.all||jobParsed.skills?.technical||[]).map(s=>typeof s==='object'?s.name||'':s).some(js => js.toLowerCase().includes(skill.toLowerCase()))
     );
 
     const missingSkills = jobParsed.skills.technical.filter(skill =>
-      !resumeParsed.skills.technical.some(rs => rs.toLowerCase().includes(skill.toLowerCase()))
+      !(resumeParsed.skills?.all||resumeParsed.skills?.technical||[]).map(s=>typeof s==='object'?s.name||'':s).some(rs => rs.toLowerCase().includes(skill.toLowerCase()))
     );
 
     return {

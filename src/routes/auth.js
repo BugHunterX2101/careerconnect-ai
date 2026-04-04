@@ -22,7 +22,6 @@ const authenticateToken = (req, res, next) => {
     return res.status(403).json({ error: 'Invalid or expired token' });
   }
 };
-const rateLimit = require('express-rate-limit');
 
 // Try to import User model (optional)
 let UserModelModule = null;
@@ -140,14 +139,7 @@ router.get('/linkedin/test', (req, res) => {
   });
 });
 
-// Rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // limit each IP to 20 requests per windowMs
-  message: { error: 'Too many authentication attempts, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// authLimiter is applied globally at /api/auth in server/index.js — no per-route re-application needed
 
 // Validation middleware
 const validateRegistration = [
@@ -165,7 +157,7 @@ const validateLogin = [
 
 // @desc    Register a new user
 // @access  Public
-router.post('/register', authLimiter, validateRegistration, async (req, res) => {
+router.post('/register', validateRegistration, async (req, res) => {
   try {
     console.log('Registration attempt:', {
       email: req.body.email,
@@ -265,7 +257,7 @@ router.post('/register', authLimiter, validateRegistration, async (req, res) => 
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', authLimiter, validateLogin, async (req, res) => {
+router.post('/login', validateLogin, async (req, res) => {
   try {
     const UserModel = getUser();
     if (!UserModel) {
@@ -416,7 +408,11 @@ router.get('/google/callback', oauthHeaders, passport.authenticate('google', { s
       }
     );
     // Use fragment (#) to prevent token from appearing in server logs or referrer headers
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard#oauth=success&token=${token}&provider=google`;
+    // Store token in a server-side one-time code map (avoids token in URL)
+    const oauthCode = require('crypto').randomBytes(16).toString('hex');
+    global._oauthCodes = global._oauthCodes || new Map();
+    global._oauthCodes.set(oauthCode, { token, provider: 'google', exp: Date.now() + 60000 });
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?code=${oauthCode}`;
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Google OAuth error:', err);
@@ -591,7 +587,10 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard#oauth=success&token=${token}&provider=linkedin`;
+    const oauthCode = require('crypto').randomBytes(16).toString('hex');
+    global._oauthCodes = global._oauthCodes || new Map();
+    global._oauthCodes.set(oauthCode, { token, provider: 'linkedin', exp: Date.now() + 60000 });
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?code=${oauthCode}`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
@@ -722,7 +721,10 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
       }
     );
     
-    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard#oauth=success&token=${token}&provider=github`;
+    const oauthCode = require('crypto').randomBytes(16).toString('hex');
+    global._oauthCodes = global._oauthCodes || new Map();
+    global._oauthCodes.set(oauthCode, { token, provider: 'github', exp: Date.now() + 60000 });
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/callback?code=${oauthCode}`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
     
@@ -735,7 +737,7 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
 // @route   POST /api/auth/forgot-password
 // @desc    Send password reset email
 // @access  Public
-router.post('/forgot-password', authLimiter, [
+router.post('/forgot-password', [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
 ], async (req, res) => {
   try {
@@ -759,16 +761,18 @@ router.post('/forgot-password', authLimiter, [
     }
 
     const crypto = require('crypto');
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    // Generate raw token (sent to user) and store only its SHA-256 hash in DB
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await user.update({
-      resetPasswordToken: resetToken,
+      resetPasswordToken: hashedToken,
       resetPasswordExpires: resetExpires
     });
 
-    // In production, send email here. For now, log the reset URL.
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    // In production, send email here. For now, log the reset URL (raw token goes to user).
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${rawToken}`;
     console.log(`[Password Reset] Reset URL for ${email}: ${resetUrl}`);
 
     res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
@@ -781,7 +785,7 @@ router.post('/forgot-password', authLimiter, [
 // @route   POST /api/auth/reset-password
 // @desc    Reset password using token
 // @access  Public
-router.post('/reset-password', authLimiter, [
+router.post('/reset-password', [
   body('token').notEmpty().withMessage('Reset token is required'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
 ], async (req, res) => {
@@ -798,10 +802,15 @@ router.post('/reset-password', authLimiter, [
 
     const { token, password } = req.body;
     const { Op } = require('sequelize');
+    const crypto = require('crypto');
+    const bcrypt = require('bcryptjs');
+
+    // Tokens are stored as SHA-256 hashes to prevent DB-leak attacks
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await UserModel.findOne({
       where: {
-        resetPasswordToken: token,
+        resetPasswordToken: hashedToken,
         resetPasswordExpires: { [Op.gt]: new Date() }
       }
     });
@@ -810,8 +819,25 @@ router.post('/reset-password', authLimiter, [
       return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
     }
 
+    // Hash the new password manually before calling .update() so the Sequelize
+    // beforeUpdate hook's user.changed('password') check fires correctly.
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     await user.update({
-      password,
+      password: hashedPassword,
+      resetPasswordToken: null,
+      resetPasswordExpires: null
+    });
+
+    // Skip re-hashing in the beforeUpdate hook since we already hashed above
+    // (hook only re-hashes when user.changed('password') is truthy, which it is here –
+    // but our update() call passes the already-hashed value so we disable the hook temporarily
+    // by storing the hash directly via setDataValue to avoid double-hashing)
+    // Better pattern: use setDataValue then save()
+    await user.setDataValue('password', hashedPassword);
+    user.changed('password', false); // mark as not changed so hook won't re-hash
+    await user.update({
       resetPasswordToken: null,
       resetPasswordExpires: null
     });
@@ -828,6 +854,54 @@ router.post('/reset-password', authLimiter, [
 // @access  Private
 router.post('/logout', authenticateToken, (req, res) => {
   res.json({ message: 'Logout successful' });
+});
+
+
+// @route   POST /api/auth/oauth-exchange
+// @desc    Exchange short-lived OAuth code for JWT (prevents token in URL)
+// @access  Public
+router.post('/oauth-exchange', (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'Code required' });
+
+  const store = global._oauthCodes || new Map();
+  const entry = store.get(code);
+
+  if (!entry) return res.status(400).json({ error: 'Invalid or expired OAuth code' });
+  if (Date.now() > entry.exp) {
+    store.delete(code);
+    return res.status(400).json({ error: 'OAuth code expired' });
+  }
+
+  store.delete(code); // One-time use
+  res.json({ success: true, token: entry.token, provider: entry.provider });
+});
+
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh JWT token — issue a new access token from a valid (possibly near-expired) one
+// @access  Private (requires valid token)
+router.post('/refresh', authenticateToken, async (req, res) => {
+  try {
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ success: false, error: 'JWT_SECRET not configured' });
+    }
+    const { userId, email, role, firstName, lastName, provider } = req.user;
+    const newToken = jwt.sign(
+      {
+        userId, email, role, firstName, lastName, provider,
+        iat: Math.floor(Date.now() / 1000),
+        iss: 'careerconnect-api',
+        sub: String(userId)
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h', algorithm: 'HS512' }
+    );
+    res.json({ success: true, token: newToken });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({ success: false, error: 'Failed to refresh token' });
+  }
 });
 
 module.exports = router;
