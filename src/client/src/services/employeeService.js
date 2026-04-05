@@ -1,11 +1,18 @@
 import api from './api';
 
 export const employeeService = {
+  normalizePayload: (responseData) => {
+    if (responseData && typeof responseData === 'object' && responseData.data && typeof responseData.data === 'object') {
+      return responseData.data;
+    }
+    return responseData;
+  },
+
   // Dashboard
   getDashboardStats: async () => {
     try {
       const response = await api.get('/employee/dashboard/stats');
-      return response.data;
+      return employeeService.normalizePayload(response.data);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       throw error;
@@ -17,7 +24,7 @@ export const employeeService = {
     try {
       const params = new URLSearchParams(filters);
       const response = await api.get(`/employee/applications?${params}`);
-      return response.data;
+      return employeeService.normalizePayload(response.data);
     } catch (error) {
       console.error('Error fetching applications:', error);
       throw error;
@@ -49,7 +56,7 @@ export const employeeService = {
     try {
       const params = new URLSearchParams(filters);
       const response = await api.get(`/employee/interviews?${params}`);
-      return response.data;
+      return employeeService.normalizePayload(response.data);
     } catch (error) {
       console.error('Error fetching interviews:', error);
       throw error;

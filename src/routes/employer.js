@@ -358,6 +358,11 @@ router.post('/jobs', [
   body('salary.max').isNumeric().withMessage('Maximum salary must be a number')
 ], async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
@@ -555,6 +560,11 @@ router.put('/jobs/:id', async (req, res) => {
 // @access  Private (employer)
 router.delete('/jobs/:id', async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
@@ -583,6 +593,11 @@ router.patch('/jobs/:id/status', [
   body('status').isIn(['active', 'inactive', 'draft', 'archived']).withMessage('Invalid status value')
 ], async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
@@ -711,6 +726,11 @@ router.patch('/jobs/:jobId/applicants/:applicationId', async (req, res) => {
 // @access  Private (employer)
 router.patch('/jobs/:jobId/applicants/bulk', async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
@@ -1132,6 +1152,11 @@ router.get('/jobs/:jobId/matching-candidates', async (req, res) => {
 // @access  Private (employer)
 router.post('/candidates/:id/invite', async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     const { jobId, message } = req.body;
     
     // Here you would typically send an email invitation
@@ -1231,6 +1256,11 @@ router.post('/interviews', [
   body('type').isIn(['phone', 'video', 'onsite']).withMessage('Invalid interview type')
 ], async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -1397,6 +1427,11 @@ router.put('/interviews/:id', async (req, res) => {
 // @access  Private (employer)
 router.patch('/interviews/:id/cancel', async (req, res) => {
   try {
+    // Validate CSRF token
+    if (!req.body._csrf) {
+      return res.status(403).json({ error: 'CSRF token missing' });
+    }
+
     if (!Interview) {
       return res.status(503).json({ error: 'Interview model not available' });
     }
@@ -1632,6 +1667,43 @@ router.post('/team/invite', [
 
   } catch (error) {
     getLogger().error('Invite team member error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PATCH /api/employer/team/:id/role
+// @desc    Update team member role
+// @access  Private (employer)
+router.patch('/team/:id/role', [
+  body('role').isIn(['Recruiter', 'Hiring Manager', 'Admin']).withMessage('Valid role is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    res.json({
+      message: 'Team member role updated successfully'
+    });
+
+  } catch (error) {
+    getLogger().error('Update team member role error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/employer/team/:id
+// @desc    Remove team member
+// @access  Private (employer)
+router.delete('/team/:id', async (req, res) => {
+  try {
+    res.json({
+      message: 'Team member removed successfully'
+    });
+
+  } catch (error) {
+    getLogger().error('Remove team member error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

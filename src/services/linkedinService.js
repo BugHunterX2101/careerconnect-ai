@@ -4,40 +4,94 @@ const logger = require('../middleware/logger');
 class LinkedInService {
   constructor() {
     this.baseURL = 'https://api.linkedin.com/v2';
-    this.accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
+    this.accessToken = process.env.LINKEDIN_MEMBER_ACCESS_TOKEN || process.env.LINKEDIN_ACCESS_TOKEN;
+    this.runtimeAccessToken = null;
     this.clientId = process.env.LINKEDIN_CLIENT_ID;
     this.clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
     this.organizationId = process.env.LINKEDIN_ORGANIZATION_ID;
   }
 
-  // Get access token using client credentials
+  setAccessToken(token) {
+    this.runtimeAccessToken = token ? String(token).trim() : null;
+  }
+
+  getLinkedInErrorMessage(error, fallbackMessage) {
+    const responseData = error?.response?.data;
+    if (!responseData) {
+      return fallbackMessage;
+    }
+
+    if (typeof responseData === 'string' && responseData.trim()) {
+      return responseData;
+    }
+
+    if (typeof responseData?.message === 'string' && responseData.message.trim()) {
+      return responseData.message;
+    }
+
+    if (typeof responseData?.error_description === 'string' && responseData.error_description.trim()) {
+      return responseData.error_description;
+    }
+
+    if (typeof responseData?.error === 'string' && responseData.error.trim()) {
+      return responseData.error;
+    }
+
+    return fallbackMessage;
+  }
+
+  // LinkedIn restricted endpoints require a member OAuth token.
   async getAccessToken() {
     try {
-      const params = new URLSearchParams();
-      params.append('grant_type', 'client_credentials');
-      params.append('client_id', this.clientId);
-      params.append('client_secret', this.clientSecret);
+      if (this.runtimeAccessToken) {
+        return this.runtimeAccessToken;
+      }
 
-      const response = await axios.post('https://www.linkedin.com/oauth/v2/accessToken', params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
+      const envToken = process.env.LINKEDIN_MEMBER_ACCESS_TOKEN || process.env.LINKEDIN_ACCESS_TOKEN;
+      if (envToken) {
+        this.accessToken = envToken;
+      }
 
-      return response.data.access_token;
+      if (this.accessToken) {
+        return this.accessToken;
+      }
+
+      throw new Error('LinkedIn member access token not configured');
     } catch (error) {
       logger.error('LinkedIn access token error:', error.response?.data || error.message);
-      throw new Error('Failed to get LinkedIn access token');
+      throw error;
     }
   }
 
   // Search jobs on LinkedIn using Job Search API
   async searchJobs({ keywords, location, limit = 10, start = 0 }) {
     try {
-      // LinkedIn Job Search API integration is unavailable in this environment.
-      return [];
+      const token = await this.getAccessToken();
+      const params = {
+        count: limit,
+        start
+      };
+
+      if (keywords) {
+        params.keywords = keywords;
+      }
+
+      if (location) {
+        params.location = location;
+      }
+
+      const response = await axios.get(`${this.baseURL}/jobSearch`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-Restli-Protocol-Version': '2.0.0'
+        },
+        params
+      });
+
+      const elements = response?.data?.elements || [];
+      return this.formatJobResults(elements);
     } catch (error) {
-      logger.error('LinkedIn job search error:', error);
+      logger.error('LinkedIn job search error:', this.getLinkedInErrorMessage(error, error.message));
       return [];
     }
   }
@@ -77,8 +131,9 @@ class LinkedInService {
         message: 'Job posted to LinkedIn successfully'
       };
     } catch (error) {
-      logger.error('LinkedIn job posting error:', error);
-      throw new Error('Failed to post job to LinkedIn');
+      const detail = this.getLinkedInErrorMessage(error, error.message || 'Unknown LinkedIn posting error');
+      logger.error('LinkedIn job posting error:', detail);
+      throw new Error(`Failed to post job to LinkedIn: ${detail}`);
     }
   }
 

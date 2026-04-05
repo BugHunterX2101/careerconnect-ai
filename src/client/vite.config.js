@@ -86,6 +86,14 @@ export default defineConfig({
             return 'vendor-motion'
           }
 
+          if (pkg === 'three' || pkg?.startsWith('@react-three/')) {
+            return 'vendor-three'
+          }
+
+          if (pkg?.startsWith('@tsparticles/') || pkg?.startsWith('tsparticles')) {
+            return 'vendor-particles'
+          }
+
           if (pkg === 'i18next' || pkg === 'react-i18next') {
             return 'vendor-i18n'
           }
@@ -109,7 +117,7 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5179,
+    port: 3000,
     host: true,
     open: true
   }

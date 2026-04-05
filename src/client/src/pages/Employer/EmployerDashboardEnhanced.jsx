@@ -114,6 +114,12 @@ const EmployerDashboardEnhanced = () => {
     });
   };
 
+  const formatLocation = (location) => {
+    if (!location) return 'Not specified';
+    if (typeof location === 'string') return location;
+    return [location.city, location.state, location.country].filter(Boolean).join(', ');
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'warning';
@@ -543,7 +549,7 @@ const EmployerDashboardEnhanced = () => {
                         secondary={
                           <Box>
                             <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem', mt: 0.5 }}>
-                              {job.location} • {job.type}
+                              {formatLocation(job.location)} • {job.type}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                               <Chip 

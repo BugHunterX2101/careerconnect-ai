@@ -456,6 +456,7 @@ router.get('/saved-jobs', async (req, res) => {
 router.get('/career-insights', async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log('career-insights userId:', userId);
     const user = await getUserById(userId);
     
     if (!user) {

@@ -32,6 +32,8 @@ const EmployeeDashboardPage = () => {
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
 
+  const resolveEntityId = (entity) => entity?._id || entity?.id || null;
+
   const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
     if (isRefreshingRef.current) {
       return;
@@ -525,8 +527,8 @@ const EmployeeDashboardPage = () => {
                   Recent Applications
                 </Typography>
                 <List>
-                  {recentApplications.map((application) => (
-                    <ListItem key={application._id} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
+                  {recentApplications.map((application, index) => (
+                    <ListItem key={resolveEntityId(application) || `${application?.job?.id || 'job'}-${application?.appliedAt || index}`} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
                       <ListItemAvatar>
                         <Avatar sx={{ bgcolor: '#8B6F47', width: 48, height: 48 }}>
                           <Business />
@@ -647,8 +649,8 @@ const EmployeeDashboardPage = () => {
           <Box sx={{ p: 4 }}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>Recommended Jobs</Typography>
             <List>
-              {jobRecommendations.map((job) => (
-                <ListItem key={job._id} sx={{ 
+              {jobRecommendations.map((job, index) => (
+                <ListItem key={resolveEntityId(job) || `${job?.title || 'job'}-${index}`} sx={{ 
                   border: 2, 
                   borderColor: 'rgba(139, 111, 71, 0.3)', 
                   borderRadius: 3, 
@@ -681,7 +683,13 @@ const EmployeeDashboardPage = () => {
                   />
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Tooltip title="View Job">
-                      <IconButton onClick={() => navigate(`/jobs/${job._id}`)} sx={{ color: '#8B6F47' }}>
+                      <IconButton
+                        onClick={() => {
+                          const jobId = resolveEntityId(job);
+                          if (jobId) navigate(`/jobs/${jobId}`);
+                        }}
+                        sx={{ color: '#8B6F47' }}
+                      >
                         <Visibility sx={{ fontSize: 28 }} />
                       </IconButton>
                     </Tooltip>
@@ -731,8 +739,8 @@ const EmployeeDashboardPage = () => {
           <Box sx={{ p: 4 }}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>Upcoming Interviews</Typography>
             <List>
-              {upcomingInterviews.map((interview) => (
-                <ListItem key={interview._id} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
+              {upcomingInterviews.map((interview, index) => (
+                <ListItem key={resolveEntityId(interview) || `${interview?.scheduledAt || 'interview'}-${index}`} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
                   <ListItemAvatar>
                     <Avatar sx={{ bgcolor: '#6B5544', width: 48, height: 48 }}>
                       <Schedule />
@@ -758,7 +766,15 @@ const EmployeeDashboardPage = () => {
                       </Tooltip>
                     )}
                     <Tooltip title="Message Interviewer">
-                      <IconButton onClick={() => navigate(`/chat?user=${interview.interviewer._id}`)} sx={{ color: '#8B6F47' }}>
+                      <IconButton
+                        onClick={() => {
+                          const interviewerId = interview?.interviewer?._id || interview?.interviewer?.id;
+                          if (interviewerId) {
+                            navigate(`/chat?user=${interviewerId}`);
+                          }
+                        }}
+                        sx={{ color: '#8B6F47' }}
+                      >
                         <Chat sx={{ fontSize: 28 }} />
                       </IconButton>
                     </Tooltip>

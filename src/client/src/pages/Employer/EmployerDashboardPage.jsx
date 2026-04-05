@@ -32,6 +32,8 @@ const EmployerDashboardPage = () => {
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
 
+  const resolveEntityId = (entity) => entity?._id || entity?.id || null;
+
   const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
     if (isRefreshingRef.current) {
       return;
@@ -56,14 +58,19 @@ const EmployerDashboardPage = () => {
       
       // Get recent applications from jobs
       if (jobsData.jobs?.length > 0) {
-        const jobPromises = jobsData.jobs.slice(0, 3).map(job => 
-          employerService.getJobApplicants(job._id, { limit: 3 })
+        const jobPromises = jobsData.jobs.slice(0, 3).map(job => {
+          const jobId = resolveEntityId(job);
+          if (!jobId) {
+            return Promise.resolve([]);
+          }
+
+          return employerService.getJobApplicants(jobId, { limit: 3 })
             .then(appData => (appData.applications || []).map(app => ({ ...app, jobTitle: job.title })))
             .catch(error => {
               console.error('Error loading applications:', error);
               return [];
-            })
-        );
+            });
+        });
         
         const applicationsArrays = await Promise.all(jobPromises);
         const applications = applicationsArrays.flat().slice(0, 5);
@@ -162,6 +169,12 @@ const EmployerDashboardPage = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatLocation = (location) => {
+    if (!location) return 'Not specified';
+    if (typeof location === 'string') return location;
+    return [location.city, location.state, location.country].filter(Boolean).join(', ');
   };
 
   if (loading) {
@@ -529,9 +542,9 @@ const EmployerDashboardPage = () => {
                   Recent Job Posts
                 </Typography>
                 <List>
-                  {recentJobs.map((job) => (
+                  {recentJobs.map((job, index) => (
                     <ListItem 
-                      key={job._id} 
+                      key={resolveEntityId(job) || `${job?.title || 'job'}-${index}`} 
                       sx={{ 
                         cursor: 'pointer',
                         mb: 2,
@@ -539,14 +552,17 @@ const EmployerDashboardPage = () => {
                         borderRadius: 2,
                         '&:hover': { background: 'rgba(139, 111, 71, 0.05)' }
                       }}
-                      onClick={() => navigate(`/employer/jobs/${job._id}/applicants`)}
+                      onClick={() => {
+                        const jobId = resolveEntityId(job);
+                        if (jobId) navigate(`/employer/jobs/${jobId}/applicants`);
+                      }}
                     >
                       <ListItemText
                         primary={<Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#6B5544' }}>{job.title}</Typography>}
                         secondary={
                           <Box>
                             <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem', mt: 0.5 }}>
-                              {job.location} • {job.type}
+                              {formatLocation(job.location)} • {job.type}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                               <Chip 
@@ -609,8 +625,8 @@ const EmployerDashboardPage = () => {
                   Recent Applications
                 </Typography>
                 <List>
-                  {recentApplications.map((application) => (
-                    <ListItem key={application._id} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
+                  {recentApplications.map((application, index) => (
+                    <ListItem key={resolveEntityId(application) || `${application?.jobTitle || 'application'}-${index}`} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
                       <ListItemAvatar>
                         <Avatar src={application.applicant?.profile?.avatar} sx={{ bgcolor: '#8B6F47', width: 48, height: 48 }}>
                           {application.applicant?.firstName?.[0]}
@@ -682,8 +698,8 @@ const EmployerDashboardPage = () => {
               Upcoming Interviews
             </Typography>
             <List>
-              {upcomingInterviews.map((interview) => (
-                <ListItem key={interview._id} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
+              {upcomingInterviews.map((interview, index) => (
+                <ListItem key={resolveEntityId(interview) || `${interview?.scheduledAt || 'interview'}-${index}`} sx={{ mb: 2, p: 2, borderRadius: 2, '&:hover': { background: 'rgba(139, 111, 71, 0.05)' } }}>
                   <ListItemAvatar>
                     <Avatar src={interview.candidate?.profile?.avatar} sx={{ bgcolor: '#6B5544', width: 48, height: 48 }}>
                       {interview.candidate?.firstName?.[0]}
@@ -713,7 +729,12 @@ const EmployerDashboardPage = () => {
                     )}
                     <IconButton 
                       size="medium" 
-                      onClick={() => navigate(`/chat?user=${interview.candidate._id}`)}
+                      onClick={() => {
+                        const candidateId = interview?.candidate?._id || interview?.candidate?.id;
+                        if (candidateId) {
+                          navigate(`/chat?user=${candidateId}`);
+                        }
+                      }}
                       sx={{ color: '#8B6F47' }}
                     >
                       <Chat sx={{ fontSize: 28 }} />

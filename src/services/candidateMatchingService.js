@@ -9,23 +9,90 @@ class CandidateMatchingService {
 
   initializeModels() {
     try {
-      this.User = require('../models/User');
+      const userModule = require('../models/User');
+      if (typeof userModule?.User === 'function') {
+        this.User = userModule.User();
+      } else {
+        this.User = userModule;
+      }
       this.Job = require('../models/Job');
     } catch (error) {
       console.warn('Models not available for candidate matching:', error.message);
     }
   }
 
+  getCandidateSkills(candidate) {
+    const profileSkills = Array.isArray(candidate?.profile?.skills) ? candidate.profile.skills : [];
+    const rootSkills = Array.isArray(candidate?.skills) ? candidate.skills : [];
+    return [...profileSkills, ...rootSkills]
+      .map((skill) => String(skill).trim())
+      .filter(Boolean);
+  }
+
+  getCandidateLocation(candidate) {
+    if (typeof candidate?.profile?.location === 'string' && candidate.profile.location.trim()) {
+      return candidate.profile.location;
+    }
+    if (typeof candidate?.location === 'string' && candidate.location.trim()) {
+      return candidate.location;
+    }
+    return '';
+  }
+
+  getCandidateExperienceYears(candidate) {
+    const profileYears = candidate?.profile?.experience?.years;
+    if (typeof profileYears === 'number') {
+      return profileYears;
+    }
+
+    if (Array.isArray(candidate?.experience) && candidate.experience.length > 0) {
+      return candidate.experience.length;
+    }
+
+    return 0;
+  }
+
+  getJobSkills(job) {
+    const requiredSkills = Array.isArray(job?.requiredSkills) ? job.requiredSkills : [];
+    if (requiredSkills.length > 0) {
+      return requiredSkills.map((skill) => String(skill).trim()).filter(Boolean);
+    }
+
+    const schemaSkills = Array.isArray(job?.requirements?.skills)
+      ? job.requirements.skills.map((skillEntry) => skillEntry?.name)
+      : [];
+    if (schemaSkills.length > 0) {
+      return schemaSkills.map((skill) => String(skill).trim()).filter(Boolean);
+    }
+
+    if (Array.isArray(job?.requirements)) {
+      return job.requirements.map((skill) => String(skill).trim()).filter(Boolean);
+    }
+
+    return [];
+  }
+
+  getRequiredExperienceYears(job) {
+    const jobExpMap = { entry: 0, junior: 1, mid: 3, senior: 7, lead: 10 };
+    if (typeof job?.experienceLevel === 'string') {
+      return jobExpMap[job.experienceLevel] || 0;
+    }
+
+    return 0;
+  }
+
   // Calculate match score between job requirements and candidate profile
   calculateMatchScore(job, candidate) {
     let score = 0;
     let maxScore = 0;
+    const candidateSkillsRaw = this.getCandidateSkills(candidate);
+    const candidateSkills = candidateSkillsRaw.map((skill) => skill.toLowerCase());
+    const jobSkillsRaw = this.getJobSkills(job);
+    const jobSkills = jobSkillsRaw.map((skill) => skill.toLowerCase());
 
     // Skills matching (40% weight)
     const skillsWeight = 40;
-    if (job.requiredSkills && candidate.profile?.skills) {
-      const jobSkills = job.requiredSkills.map(s => s.toLowerCase());
-      const candidateSkills = candidate.profile.skills.map(s => s.toLowerCase());
+    if (jobSkills.length > 0 && candidateSkills.length > 0) {
       const matchingSkills = jobSkills.filter(skill => 
         candidateSkills.some(cSkill => cSkill.includes(skill) || skill.includes(cSkill))
       );
@@ -36,10 +103,9 @@ class CandidateMatchingService {
 
     // Experience matching (25% weight)
     const experienceWeight = 25;
-    if (job.experienceLevel && candidate.profile?.experience?.years !== undefined) {
-      const jobExpMap = { 'entry': 0, 'mid': 3, 'senior': 7, 'lead': 10 };
-      const requiredExp = jobExpMap[job.experienceLevel] || 0;
-      const candidateExp = candidate.profile.experience.years;
+    if (job.experienceLevel) {
+      const requiredExp = this.getRequiredExperienceYears(job);
+      const candidateExp = this.getCandidateExperienceYears(candidate);
       
       if (candidateExp >= requiredExp) {
         score += experienceWeight;
@@ -53,9 +119,10 @@ class CandidateMatchingService {
 
     // Location matching (15% weight)
     const locationWeight = 15;
-    if (job.location && candidate.profile?.location) {
-      const jobLocation = job.location.toLowerCase();
-      const candidateLocation = candidate.profile.location.toLowerCase();
+    const candidateLocationRaw = this.getCandidateLocation(candidate);
+    if (job.location && candidateLocationRaw) {
+      const jobLocation = String(job.location).toLowerCase();
+      const candidateLocation = candidateLocationRaw.toLowerCase();
       if (candidateLocation.includes(jobLocation) || jobLocation.includes(candidateLocation)) {
         score += locationWeight;
       } else if (job.remote) {
@@ -108,30 +175,47 @@ class CandidateMatchingService {
         throw new Error('Job not found');
       }
 
-      // Build candidate search query
-      const searchQuery = { 
-        role: 'jobseeker',
-        'profile.isActive': { $ne: false }
-      };
-
-      // Add skill-based filtering for better performance
-      if (job.requiredSkills && job.requiredSkills.length > 0) {
-        searchQuery['profile.skills'] = { 
-          $in: job.requiredSkills.map(skill => new RegExp(skill, 'i'))
+      let candidates = [];
+      if (typeof this.User.find === 'function') {
+        const searchQuery = {
+          role: 'jobseeker',
+          'profile.isActive': { $ne: false }
         };
+
+        const requiredSkills = this.getJobSkills(job);
+        if (requiredSkills.length > 0) {
+          searchQuery.$or = [
+            { 'profile.skills': { $in: requiredSkills.map((skill) => new RegExp(skill, 'i')) } },
+            { skills: { $in: requiredSkills.map((skill) => new RegExp(skill, 'i')) } }
+          ];
+        }
+
+        candidates = await this.User.find(searchQuery)
+          .select('firstName lastName email profile resumes skills experience location role')
+          .populate('resumes', 'filename skills experience')
+          .limit(limit * 3);
+      } else if (typeof this.User.findAll === 'function') {
+        candidates = await this.User.findAll({
+          where: { role: 'jobseeker', isActive: true },
+          limit: limit * 5
+        });
       }
 
-      // Get candidates
-      const candidates = await this.User.find(searchQuery)
-        .select('firstName lastName email profile resumes')
-        .populate('resumes', 'filename skills experience')
-        .limit(limit * 3); // Get more candidates to filter by score
+      const normalizedCandidates = candidates.map((candidate) => {
+        if (typeof candidate?.toObject === 'function') {
+          return candidate.toObject();
+        }
+        if (typeof candidate?.toJSON === 'function') {
+          return candidate.toJSON();
+        }
+        return candidate;
+      });
 
       // Calculate match scores and sort
-      const candidatesWithScores = candidates.map(candidate => {
+      const candidatesWithScores = normalizedCandidates.map(candidate => {
         const matchScore = this.calculateMatchScore(job, candidate);
         return {
-          ...candidate.toObject(),
+          ...candidate,
           matchScore,
           matchReasons: this.getMatchReasons(job, candidate)
         };
@@ -163,29 +247,30 @@ class CandidateMatchingService {
   // Get detailed match reasons
   getMatchReasons(job, candidate) {
     const reasons = [];
+    const jobSkills = this.getJobSkills(job);
+    const candidateSkills = this.getCandidateSkills(candidate);
 
     // Skills match
-    if (job.requiredSkills && candidate.profile?.skills) {
-      const jobSkills = job.requiredSkills.map(s => s.toLowerCase());
-      const candidateSkills = candidate.profile.skills.map(s => s.toLowerCase());
-      const matchingSkills = jobSkills.filter(skill => 
-        candidateSkills.some(cSkill => cSkill.includes(skill) || skill.includes(cSkill))
+    if (jobSkills.length > 0 && candidateSkills.length > 0) {
+      const normalizedJobSkills = jobSkills.map((s) => s.toLowerCase());
+      const normalizedCandidateSkills = candidateSkills.map((s) => s.toLowerCase());
+      const matchingSkills = normalizedJobSkills.filter(skill => 
+        normalizedCandidateSkills.some(cSkill => cSkill.includes(skill) || skill.includes(cSkill))
       );
       
       if (matchingSkills.length > 0) {
         reasons.push({
           type: 'skills',
-          message: `Matches ${matchingSkills.length}/${jobSkills.length} required skills`,
+          message: `Matches ${matchingSkills.length}/${normalizedJobSkills.length} required skills`,
           details: matchingSkills
         });
       }
     }
 
     // Experience match
-    if (job.experienceLevel && candidate.profile?.experience?.years !== undefined) {
-      const jobExpMap = { 'entry': 0, 'mid': 3, 'senior': 7, 'lead': 10 };
-      const requiredExp = jobExpMap[job.experienceLevel] || 0;
-      const candidateExp = candidate.profile.experience.years;
+    if (job.experienceLevel) {
+      const requiredExp = this.getRequiredExperienceYears(job);
+      const candidateExp = this.getCandidateExperienceYears(candidate);
       
       if (candidateExp >= requiredExp) {
         reasons.push({
@@ -197,14 +282,15 @@ class CandidateMatchingService {
     }
 
     // Location match
-    if (job.location && candidate.profile?.location) {
-      const jobLocation = job.location.toLowerCase();
-      const candidateLocation = candidate.profile.location.toLowerCase();
-      if (candidateLocation.includes(jobLocation) || jobLocation.includes(candidateLocation)) {
+    const candidateLocation = this.getCandidateLocation(candidate);
+    if (job.location && candidateLocation) {
+      const jobLocation = String(job.location).toLowerCase();
+      const normalizedCandidateLocation = candidateLocation.toLowerCase();
+      if (normalizedCandidateLocation.includes(jobLocation) || jobLocation.includes(normalizedCandidateLocation)) {
         reasons.push({
           type: 'location',
-          message: `Located in ${candidate.profile.location}`,
-          details: { job: job.location, candidate: candidate.profile.location }
+          message: `Located in ${candidateLocation}`,
+          details: { job: job.location, candidate: candidateLocation }
         });
       }
     }

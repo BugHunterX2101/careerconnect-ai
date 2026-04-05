@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense, lazy } from 'react'
 import {
   Box,
   Container,
@@ -43,6 +43,11 @@ import {
 } from '@mui/icons-material'
 import { keyframes } from '@mui/system'
 import { useNavigate } from 'react-router-dom'
+import Tilt3DCard from '../components/3d/Tilt3DCard'
+import SlotCounter from '../components/3d/SlotCounter'
+import ParticleBackground from '../components/3d/ParticleBackground'
+
+const NeuralNetwork3D = lazy(() => import('../components/3d/NeuralNetwork3D'))
 
 const orbitSpin = keyframes`
   from {
@@ -403,27 +408,10 @@ const LandingPage = () => {
           alignItems: 'center',
           position: 'relative',
           overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'radial-gradient(circle at 10% 20%, rgba(58, 90, 140, 0.15) 0%, transparent 50%), radial-gradient(circle at 90% 80%, rgba(13, 148, 136, 0.1) 0%, transparent 50%), radial-gradient(circle at 50% 50%, rgba(20, 184, 166, 0.08) 0%, transparent 60%)',
-          },
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            top: '-10%',
-            left: '-5%',
-            width: '120%',
-            height: '120%',
-            background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-            pointerEvents: 'none',
-          },
         }}
       >
+        {/* Particle constellation background */}
+        <ParticleBackground id="hero-particles" variant="hero" />
         <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
           <Grid container spacing={{ xs: 4, md: 8 }} alignItems="center">
             <Grid item xs={12} md={6}>
@@ -579,68 +567,13 @@ const LandingPage = () => {
                   position: 'relative',
                 }}
               >
-                {/* Animated Background Elements */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    width: '100%',
-                    height: '100%',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: '10%',
-                      left: '10%',
-                      width: 120,
-                      height: 120,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-                      opacity: 0.2,
-                    },
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      bottom: '20%',
-                      right: '15%',
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
-                      opacity: 0.3,
-                    },
-                  }}
-                />
-                
-                {/* Main Logo Container */}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 6,
-                    borderRadius: 6,
-                    background: alpha('#ffffff', 0.15),
-                    backdropFilter: 'blur(30px)',
-                    border: '2px solid rgba(255, 255, 255, 0.3)',
-                    textAlign: 'center',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.2)',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 4,
-                      background: 'linear-gradient(90deg, #3A5A8C, #0D9488, #14B8A6, #3A5A8C)',
-                      backgroundSize: '400% 100%',
-                    },
-                  }}
-                >
-                  {/* Animated Logo Stack */}
-                  <Stack spacing={3} alignItems="center">
-                    {/* Main AI Brain Icon */}
+                {/* 3D Neural Network Brain */}
+                <Suspense
+                  fallback={
                     <Box
                       sx={{
-                        position: 'relative',
+                        width: '100%',
+                        height: '100%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -656,149 +589,11 @@ const LandingPage = () => {
                       >
                         <Psychology sx={{ fontSize: 60, color: 'white' }} />
                       </Avatar>
-                      
-                      {/* Orbiting Elements */}
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          width: 200,
-                          height: 200,
-                          borderRadius: '50%',
-                          border: '2px dashed rgba(255, 255, 255, 0.3)',
-                          animation: enableMotion ? `${orbitSpin} 16s linear infinite` : 'none',
-                          transformOrigin: '50% 50%',
-                          willChange: 'transform',
-                        }}
-                      >
-                        <Tooltip title="Interview Ready" arrow placement="top">
-                          <Avatar
-                            sx={{
-                              position: 'absolute',
-                              top: -20,
-                              left: '50%',
-                              transform: 'translateX(-50%)',
-                              width: 40,
-                              height: 40,
-                              background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-                              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.25)',
-                              animation: enableMotion ? `${orbitCounterSpin} 16s linear infinite` : 'none',
-                              transformOrigin: '50% 50%',
-                            }}
-                          >
-                            <Work sx={{ fontSize: 20 }} />
-                          </Avatar>
-                        </Tooltip>
-                        <Tooltip title="Match Score" arrow placement="bottom">
-                          <Avatar
-                            sx={{
-                              position: 'absolute',
-                              bottom: -20,
-                              right: '50%',
-                              transform: 'translateX(50%)',
-                              width: 40,
-                              height: 40,
-                              background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
-                              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.25)',
-                              animation: enableMotion ? `${orbitCounterSpin} 16s linear infinite` : 'none',
-                              transformOrigin: '50% 50%',
-                            }}
-                          >
-                            <TrendingUp sx={{ fontSize: 20 }} />
-                          </Avatar>
-                        </Tooltip>
-                        <Tooltip title="Resume AI" arrow placement="right">
-                          <Avatar
-                            sx={{
-                              position: 'absolute',
-                              top: '50%',
-                              right: -20,
-                              transform: 'translateY(-50%)',
-                              width: 40,
-                              height: 40,
-                              background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
-                              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.25)',
-                              animation: enableMotion ? `${orbitCounterSpin} 16s linear infinite` : 'none',
-                              transformOrigin: '50% 50%',
-                            }}
-                          >
-                            <Analytics sx={{ fontSize: 20 }} />
-                          </Avatar>
-                        </Tooltip>
-                      </Box>
                     </Box>
-                    
-                    {/* Logo Text */}
-                    <Box>
-                      <Typography 
-                        variant="h3" 
-                        sx={{ 
-                          fontWeight: 900, 
-                          mb: 1,
-                          background: 'linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
-                        }}
-                      >
-                        CareerConnect
-                      </Typography>
-                      <Chip
-                        label="AI POWERED"
-                        sx={{
-                          background: 'linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)',
-                          color: 'white',
-                          fontWeight: 800,
-                          fontSize: '0.8rem',
-                          letterSpacing: 1,
-                          boxShadow: '0 4px 12px rgba(13, 148, 136, 0.4)',
-                        }}
-                      />
-                    </Box>
-                    
-                    {/* Feature Icons */}
-                    <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                      <Avatar
-                        sx={{
-                          width: 50,
-                          height: 50,
-                          background: alpha('#ffffff', 0.2),
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(255, 255, 255, 0.3)',
-                        }}
-                      >
-                        <AutoAwesome sx={{ color: '#14B8A6' }} />
-                      </Avatar>
-                      <Avatar
-                        sx={{
-                          width: 50,
-                          height: 50,
-                          background: alpha('#ffffff', 0.2),
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(255, 255, 255, 0.3)',
-                        }}
-                      >
-                        <Rocket sx={{ color: '#3A5A8C' }} />
-                      </Avatar>
-                      <Avatar
-                        sx={{
-                          width: 50,
-                          height: 50,
-                          background: alpha('#ffffff', 0.2),
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(255, 255, 255, 0.3)',
-                        }}
-                      >
-                        <Security sx={{ color: '#0D9488' }} />
-                      </Avatar>
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <Chip size="small" label="Match Score" sx={{ backgroundColor: alpha('#ffffff', 0.2), color: 'white', fontWeight: 700 }} />
-                      <Chip size="small" label="Resume AI" sx={{ backgroundColor: alpha('#ffffff', 0.2), color: 'white', fontWeight: 700 }} />
-                      <Chip size="small" label="Interview Ready" sx={{ backgroundColor: alpha('#ffffff', 0.2), color: 'white', fontWeight: 700 }} />
-                    </Stack>
-                  </Stack>
-                </Paper>
+                  }
+                >
+                  <NeuralNetwork3D />
+                </Suspense>
               </Box>
             </Grid>
           </Grid>
@@ -929,6 +724,7 @@ const LandingPage = () => {
               >
                 <Typography
                   variant="h2"
+                  component="div"
                   sx={{
                     fontWeight: 900,
                     fontSize: { xs: '3.2rem', md: '5.5rem', lg: '6.5rem' },
@@ -939,7 +735,7 @@ const LandingPage = () => {
                     letterSpacing: '-0.02em',
                   }}
                 >
-                  {stat.number}
+                  <SlotCounter value={stat.number} duration={2000} />
                 </Typography>
                 <Typography variant="h6" sx={{ color: '#475569', fontWeight: 700, fontSize: { xs: '1.4rem', md: '1.75rem' } }}>
                   {stat.label}
@@ -1012,61 +808,67 @@ const LandingPage = () => {
           <Grid container spacing={{ xs: 3, md: 4 }}>
             {features.map((feature, index) => (
               <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card
-                  className="hover-lift"
-                  sx={{
+                <Tilt3DCard
+                  maxTilt={10}
+                  scale={1.03}
+                  style={{
                     height: '100%',
-                    border: 'none',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                     animation: enableMotion ? `slideUp 0.6s ease-out ${index * 0.1}s both` : 'none',
-                    '&:hover': {
-                      transform: 'translateY(-12px) scale(1.02)',
-                      boxShadow: '0 20px 60px rgba(58, 90, 140, 0.25)',
-                    },
                   }}
                 >
-                  <Box
+                  <Card
                     sx={{
-                      height: 6,
-                      background: feature.gradient,
-                      backgroundSize: '200% 200%',
+                      height: '100%',
+                      border: 'none',
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      transition: 'box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        boxShadow: '0 20px 60px rgba(58, 90, 140, 0.25)',
+                      },
                     }}
-                  />
-                  <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Avatar
-                        sx={{
-                          width: { xs: 56, md: 72 },
-                          height: { xs: 56, md: 72 },
-                          background: feature.gradient,
-                          color: 'white',
-                        }}
-                      >
-                        {feature.icon}
-                      </Avatar>
-                      <Chip
-                        label={feature.badge}
-                        size="small"
-                        sx={{
-                          background: feature.gradient,
-                          color: 'white',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          height: 24,
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: { xs: '1.4rem', md: '1.6rem' }, mb: 2 }}>
-                      {feature.title}
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
-                      {feature.description}
-                    </Typography>
-                  </CardContent>
-                </Card>
+                  >
+                    <Box
+                      sx={{
+                        height: 6,
+                        background: feature.gradient,
+                        backgroundSize: '200% 200%',
+                      }}
+                    />
+                    <CardContent sx={{ p: { xs: 3, md: 5 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Avatar
+                          sx={{
+                            width: { xs: 56, md: 72 },
+                            height: { xs: 56, md: 72 },
+                            background: feature.gradient,
+                            color: 'white',
+                          }}
+                        >
+                          {feature.icon}
+                        </Avatar>
+                        <Chip
+                          label={feature.badge}
+                          size="small"
+                          sx={{
+                            background: feature.gradient,
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            height: 24,
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: { xs: '1.4rem', md: '1.6rem' }, mb: 2 }}>
+                        {feature.title}
+                      </Typography>
+                      <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7, fontSize: { xs: '1.05rem', md: '1.15rem' } }}>
+                        {feature.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Tilt3DCard>
               </Grid>
             ))}
           </Grid>
@@ -1247,19 +1049,11 @@ const LandingPage = () => {
           py: { xs: 6, md: 8 },
           position: 'relative',
           overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-             background: 'radial-gradient(circle at 30% 50%, rgba(13, 148, 136, 0.2) 0%, transparent 60%), radial-gradient(circle at 70% 50%, rgba(20, 184, 166, 0.15) 0%, transparent 60%)',
-            pointerEvents: 'none',
-          },
         }}
       >
-        <Container maxWidth="lg">
+        {/* Particle constellation background for CTA */}
+        <ParticleBackground id="cta-particles" variant="cta" />
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Box textAlign="center">
             <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '2.2rem', md: '3rem' }, mb: 3 }}>
               Ready to Accelerate Your Career?

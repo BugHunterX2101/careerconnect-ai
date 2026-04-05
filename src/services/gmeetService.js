@@ -5,6 +5,7 @@ class GMeetService {
   constructor() {
     this.calendar = null;
     this.requestCounter = 0;
+    this.calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
     this.initializeCalendar();
   }
 
@@ -41,6 +42,7 @@ class GMeetService {
         await this.initializeCalendar();
       }
 
+      const requestId = `meet-${Date.now()}-${++this.requestCounter}`;
       const event = {
         summary,
         description,
@@ -58,7 +60,7 @@ class GMeetService {
         })),
         conferenceData: {
           createRequest: {
-            requestId: `meet-${Date.now()}-${++this.requestCounter}`,
+            requestId,
             conferenceSolutionKey: {
               type: 'hangoutsMeet'
             }
@@ -77,12 +79,67 @@ class GMeetService {
         event.location = location;
       }
 
-      const response = await this.calendar.events.insert({
-        calendarId: 'primary',
-        resource: event,
-        conferenceDataVersion: 1,
-        sendUpdates: 'all'
-      });
+      let response;
+      try {
+        response = await this.calendar.events.insert({
+          calendarId: this.calendarId,
+          resource: event,
+          conferenceDataVersion: 1,
+          sendUpdates: 'all'
+        });
+      } catch (insertError) {
+        const errorMessage = insertError?.message || '';
+        const isServiceAccountAttendeeRestriction =
+          insertError?.code === 403 && (
+            errorMessage.includes('forbiddenForServiceAccounts') ||
+            errorMessage.includes('Service accounts cannot invite attendees')
+          );
+
+        if (!isServiceAccountAttendeeRestriction) {
+          throw insertError;
+        }
+
+        logger.warn('GMeet create retry without attendees due to service-account restrictions');
+        const fallbackEvent = {
+          ...event,
+          attendees: []
+        };
+
+        try {
+          response = await this.calendar.events.insert({
+            calendarId: this.calendarId,
+            resource: fallbackEvent,
+            conferenceDataVersion: 1,
+            sendUpdates: 'none'
+          });
+        } catch (fallbackError) {
+          const fallbackMessage = fallbackError?.message || '';
+          const invalidConferenceType =
+            fallbackError?.code === 400 &&
+            fallbackMessage.includes('Invalid conference type value');
+
+          if (!invalidConferenceType) {
+            throw fallbackError;
+          }
+
+          logger.warn('GMeet create retry without conferenceSolutionKey for compatibility');
+          const compatibilityEvent = {
+            ...fallbackEvent,
+            conferenceData: {
+              createRequest: {
+                requestId
+              }
+            }
+          };
+
+          response = await this.calendar.events.insert({
+            calendarId: this.calendarId,
+            resource: compatibilityEvent,
+            conferenceDataVersion: 1,
+            sendUpdates: 'none'
+          });
+        }
+      }
 
       const createdEvent = response.data;
       

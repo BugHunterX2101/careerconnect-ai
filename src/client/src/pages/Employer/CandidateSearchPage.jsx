@@ -156,6 +156,12 @@ const CandidateSearchPage = () => {
     return `${latest.degree} in ${latest.field}`;
   };
 
+  const formatLocation = (location) => {
+    if (!location) return 'Not specified';
+    if (typeof location === 'string') return location;
+    return [location.city, location.state, location.country].filter(Boolean).join(', ');
+  };
+
   const candidateListHeight = useMemo(() => {
     if (candidates.length === 0) return 0;
     return Math.min(680, candidates.length * 190);
@@ -207,7 +213,7 @@ const CandidateSearchPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <LocationOn fontSize="small" color="action" />
                     <Typography variant="caption">
-                      {candidate.profile?.location || 'Location not specified'}
+                      {formatLocation(candidate.profile?.location)}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -482,7 +488,7 @@ const CandidateSearchPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <LocationOn fontSize="small" />
                     <Typography variant="body2">
-                      {selectedCandidate.profile?.location || 'Not specified'}
+                      {formatLocation(selectedCandidate.profile?.location)}
                     </Typography>
                   </Box>
                 </Grid>

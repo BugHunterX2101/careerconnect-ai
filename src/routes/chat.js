@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 let csrf;
 let csrfProtection;
@@ -35,12 +36,123 @@ try {
 
 const { authenticateToken } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
+const userModelModule = require('../models/User');
 let logger;
 const getLogger = () => {
   if (!logger) {
     logger = require('../middleware/logger');
   }
   return logger;
+};
+
+const chatMemoryStore = {
+  conversations: new Map(),
+  messages: new Map(),
+  conversationSeq: 1,
+  messageSeq: 1
+};
+
+const toUserId = (value) => String(value);
+const isMongoObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value));
+const useInMemoryChat = (userId, participantIds = []) => {
+  return !isMongoObjectId(userId) || participantIds.some((id) => !isMongoObjectId(id));
+};
+
+const getSqlUserModel = () => {
+  if (typeof userModelModule?.User === 'function') {
+    try {
+      return userModelModule.User();
+    } catch (error) {
+      return null;
+    }
+  }
+  return null;
+};
+
+const loadUserProfiles = async (participantIds) => {
+  const UserModel = getSqlUserModel();
+  const ids = [...new Set(participantIds.map(toUserId))];
+
+  if (!UserModel) {
+    const fallback = new Map();
+    ids.forEach((id) => {
+      fallback.set(id, {
+        _id: id,
+        id,
+        firstName: 'User',
+        lastName: id,
+        email: ''
+      });
+    });
+    return fallback;
+  }
+
+  const users = await Promise.all(ids.map(async (id) => {
+    try {
+      return await UserModel.findByPk(Number(id));
+    } catch (error) {
+      return null;
+    }
+  }));
+
+  const userMap = new Map();
+  users.forEach((user, index) => {
+    const id = ids[index];
+    if (user) {
+      userMap.set(id, {
+        _id: id,
+        id,
+        firstName: user.firstName || 'User',
+        lastName: user.lastName || id,
+        email: user.email || ''
+      });
+    } else {
+      userMap.set(id, {
+        _id: id,
+        id,
+        firstName: 'User',
+        lastName: id,
+        email: ''
+      });
+    }
+  });
+
+  return userMap;
+};
+
+const serializeMemoryMessage = async (message) => {
+  const profiles = await loadUserProfiles([message.senderId]);
+  return {
+    _id: message._id,
+    conversation: message.conversationId,
+    sender: profiles.get(message.senderId),
+    content: message.content,
+    type: message.type,
+    createdAt: message.createdAt,
+    updatedAt: message.updatedAt
+  };
+};
+
+const serializeMemoryConversation = async (conversation) => {
+  const profiles = await loadUserProfiles(conversation.participantIds);
+  let lastMessage = null;
+  if (conversation.lastMessageId) {
+    const message = chatMemoryStore.messages.get(conversation.lastMessageId);
+    if (message) {
+      lastMessage = await serializeMemoryMessage(message);
+    }
+  }
+
+  return {
+    _id: conversation._id,
+    title: conversation.title,
+    type: conversation.type,
+    participants: conversation.participantIds.map((id) => profiles.get(id)),
+    createdBy: conversation.createdBy,
+    lastMessage,
+    updatedAt: conversation.updatedAt,
+    createdAt: conversation.createdAt
+  };
 };
 
 const router = express.Router();
@@ -107,11 +219,29 @@ router.get('/health', async (req, res) => {
 // @access  Private
 router.get('/conversations', authenticateToken, async (req, res) => {
   try {
+    const userId = toUserId(req.user.userId);
+    if (useInMemoryChat(userId)) {
+      const { page = 1, limit = 20 } = req.query;
+      const items = Array.from(chatMemoryStore.conversations.values())
+        .filter((conversation) => conversation.participantIds.includes(userId))
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      const start = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const paged = items.slice(start, start + parseInt(limit, 10));
+      const conversations = await Promise.all(paged.map(serializeMemoryConversation));
+
+      return res.json({
+        conversations,
+        total: items.length,
+        page: parseInt(page, 10),
+        totalPages: Math.ceil(items.length / parseInt(limit, 10)) || 0
+      });
+    }
+
     if (!Conversation) {
       return res.status(503).json({ error: 'Conversation model not available' });
     }
 
-    const userId = req.user.userId;
     const { page = 1, limit = 20 } = req.query;
 
     const conversations = await Conversation.find({
@@ -135,7 +265,7 @@ router.get('/conversations', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    getLogger().logger.error('Get conversations error:', error);
+    getLogger().error('Get conversations error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -145,12 +275,59 @@ router.get('/conversations', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/conversations', authenticateToken, async (req, res) => {
   try {
+    const { participantIds, title, type = 'direct' } = req.body;
+    const userId = toUserId(req.user.userId);
+
+    if (useInMemoryChat(userId, participantIds || [])) {
+      if (!participantIds || participantIds.length === 0) {
+        return res.status(400).json({ error: 'At least one participant is required' });
+      }
+
+      const allParticipants = [...new Set([userId, ...participantIds.map(toUserId)])];
+      if (type === 'direct' && allParticipants.length === 2) {
+        const existing = Array.from(chatMemoryStore.conversations.values()).find((conversation) => {
+          return conversation.type === 'direct' &&
+            conversation.participantIds.length === 2 &&
+            allParticipants.every((id) => conversation.participantIds.includes(id));
+        });
+
+        if (existing) {
+          return res.json({
+            message: 'Conversation already exists',
+            conversation: await serializeMemoryConversation(existing)
+          });
+        }
+      }
+
+      const profiles = await loadUserProfiles(allParticipants);
+      const fallbackTitle = allParticipants
+        .map((id) => profiles.get(id))
+        .filter(Boolean)
+        .map((profile) => profile.firstName)
+        .join(', ');
+
+      const conversation = {
+        _id: `local-c-${chatMemoryStore.conversationSeq++}`,
+        title: title || fallbackTitle || 'Direct Conversation',
+        type,
+        participantIds: allParticipants,
+        createdBy: userId,
+        lastMessageId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      chatMemoryStore.conversations.set(conversation._id, conversation);
+
+      return res.status(201).json({
+        message: 'Conversation created successfully',
+        conversation: await serializeMemoryConversation(conversation)
+      });
+    }
+
     if (!Conversation || !User) {
       return res.status(503).json({ error: 'Models not available' });
     }
-
-    const { participantIds, title, type = 'direct' } = req.body;
-    const userId = req.user.userId;
 
     // Validate participants
     if (!participantIds || participantIds.length === 0) {
@@ -203,7 +380,7 @@ router.post('/conversations', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Create conversation error:', error);
+    getLogger().error('Create conversation error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -213,12 +390,21 @@ router.post('/conversations', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/conversations/:id', authenticateToken, async (req, res) => {
   try {
+    const userId = toUserId(req.user.userId);
+    if (useInMemoryChat(userId)) {
+      const conversation = chatMemoryStore.conversations.get(req.params.id);
+      if (!conversation || !conversation.participantIds.includes(userId)) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      return res.json({ conversation: await serializeMemoryConversation(conversation) });
+    }
+
     if (!Conversation) {
       return res.status(503).json({ error: 'Conversation model not available' });
     }
 
     const { id } = req.params;
-    const userId = req.user.userId;
 
     const conversation = await Conversation.findOne({
       _id: id,
@@ -234,7 +420,7 @@ router.get('/conversations/:id', authenticateToken, async (req, res) => {
     res.json({ conversation });
 
   } catch (error) {
-    logger.error('Get conversation error:', error);
+    getLogger().error('Get conversation error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -292,7 +478,7 @@ router.put('/conversations/:id', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Update conversation error:', error);
+    getLogger().error('Update conversation error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -302,18 +488,44 @@ router.put('/conversations/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/conversations/:id/messages', authenticateToken, async (req, res) => {
   try {
+    const userId = toUserId(req.user.userId);
+    if (useInMemoryChat(userId)) {
+      const { id } = req.params;
+      const { page = 1, limit = 50 } = req.query;
+      const conversation = chatMemoryStore.conversations.get(id);
+
+      if (!conversation || !conversation.participantIds.includes(userId)) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      const list = Array.from(chatMemoryStore.messages.values())
+        .filter((message) => message.conversationId === id)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+      const start = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const paged = list.slice(start, start + parseInt(limit, 10));
+      const messages = await Promise.all(paged.map(serializeMemoryMessage));
+
+      return res.json({
+        messages,
+        total: list.length,
+        page: parseInt(page, 10),
+        totalPages: Math.ceil(list.length / parseInt(limit, 10)) || 0
+      });
+    }
+
     if (!Message || !Conversation) {
       return res.status(503).json({ error: 'Models not available' });
     }
 
     const { id } = req.params;
     const { page = 1, limit = 50, before } = req.query;
-    const userId = req.user.userId;
+    const mongoUserId = req.user.userId;
 
     // Verify user is part of conversation
     const conversation = await Conversation.findOne({
       _id: id,
-      participants: userId
+      participants: mongoUserId
     });
 
     if (!conversation) {
@@ -342,7 +554,7 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
     });
 
   } catch (error) {
-    logger.error('Get messages error:', error);
+    getLogger().error('Get messages error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -352,6 +564,59 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
 // @access  Private
 router.post('/conversations/:id/messages', authenticateToken, messageLimiter, upload.single('attachment'), validateMessage, async (req, res) => {
   try {
+    const userId = toUserId(req.user.userId);
+    if (useInMemoryChat(userId)) {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { id } = req.params;
+      const conversation = chatMemoryStore.conversations.get(id);
+      if (!conversation || !conversation.participantIds.includes(userId)) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      const message = {
+        _id: `local-m-${chatMemoryStore.messageSeq++}`,
+        conversationId: id,
+        senderId: userId,
+        content: req.body.content,
+        type: req.file ? 'file' : 'text',
+        attachment: req.file ? {
+          filename: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          data: req.file.buffer
+        } : undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      chatMemoryStore.messages.set(message._id, message);
+      conversation.lastMessageId = message._id;
+      conversation.updatedAt = new Date().toISOString();
+      chatMemoryStore.conversations.set(id, conversation);
+
+      const responseMessage = await serializeMemoryMessage(message);
+      const io = req.app.get('io');
+      if (io) {
+        conversation.participantIds.forEach((participantId) => {
+          if (participantId !== userId) {
+            io.to(`user_${participantId}`).emit('chat:new_message', {
+              conversationId: id,
+              message: responseMessage
+            });
+          }
+        });
+      }
+
+      return res.status(201).json({
+        message: 'Message sent successfully',
+        message: responseMessage
+      });
+    }
+
     if (!Message || !Conversation) {
       return res.status(503).json({ error: 'Models not available' });
     }
@@ -363,12 +628,12 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 
     const { id } = req.params;
     const { content, replyTo } = req.body;
-    const userId = req.user.userId;
+    const mongoUserId = req.user.userId;
 
     // Verify user is part of conversation
     const conversation = await Conversation.findOne({
       _id: id,
-      participants: userId
+      participants: mongoUserId
     });
 
     if (!conversation) {
@@ -378,7 +643,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
     // Create message
     const messageData = {
       conversation: id,
-      sender: userId,
+      sender: mongoUserId,
       content,
       type: 'text'
     };
@@ -412,7 +677,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
     const io = req.app.get('io');
     if (io) {
       conversation.participants.forEach(participantId => {
-        if (participantId.toString() !== userId) {
+        if (participantId.toString() !== mongoUserId) {
           io.to(`user_${participantId}`).emit('chat:new_message', {
             conversationId: id,
             message
@@ -427,7 +692,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
     });
 
   } catch (error) {
-    logger.error('Send message error:', error);
+    getLogger().error('Send message error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -479,7 +744,7 @@ router.put('/messages/:id', authenticateToken, getCsrfProtection(), validateMess
     });
 
   } catch (error) {
-    logger.error('Edit message error:', error);
+    getLogger().error('Edit message error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -511,7 +776,7 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Message deleted successfully' });
 
   } catch (error) {
-    logger.error('Delete message error:', error);
+    getLogger().error('Delete message error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -537,7 +802,7 @@ router.post('/conversations/:id/read', authenticateToken, async (req, res) => {
     res.json({ message: 'Conversation marked as read' });
 
   } catch (error) {
-    logger.error('Mark as read error:', error);
+    getLogger().error('Mark as read error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -601,7 +866,7 @@ router.get('/search', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Search messages error:', error);
+    getLogger().error('Search messages error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -650,7 +915,7 @@ router.get('/attachments/:messageId', authenticateToken, async (req, res) => {
     res.send(message.attachment.data);
 
   } catch (error) {
-    logger.error('Get attachment error:', error);
+    getLogger().error('Get attachment error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

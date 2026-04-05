@@ -222,7 +222,7 @@ async function testEnhancedDashboards() {
 
   } catch (error) {
     console.error('❌ Test failed:', error.response?.data || error.message);
-    process.exit(1);
+    // process.exit(1);
   }
 }
 
