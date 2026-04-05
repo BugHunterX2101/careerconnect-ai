@@ -240,7 +240,6 @@ app.post('/api/perf/vitals', (req, res) => {
 // Load routes immediately - don't wait for database
 let routesLoaded = false;
 const routeMappings = [
-  { path: '/api/test', module: '../routes/test' },
   { path: '/api/auth', module: '../routes/auth' },
   { path: '/api/resume', module: '../routes/resume' },
   { path: '/api/jobs', module: '../routes/jobs' },

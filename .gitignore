@@ -20,3 +20,5 @@ package-lock.json
 yarn.lock
 database.sqlite
 *.sqlite
+public/assets/
+.model_cache/
