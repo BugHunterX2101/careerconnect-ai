@@ -22,7 +22,7 @@ An AI-powered hiring platform for job seekers and employers — resume intellige
 |---|---|
 | Backend | Node.js, Express, Sequelize, SQLite |
 | Frontend | React 18, Vite, Material UI, React Query |
-| AI / NLP | BERT (`Xenova/bert-base-uncased` via ONNX), TensorFlow.js, `natural` |
+| AI / NLP | BERT, TensorFlow.js, `natural` |
 | Auth | JWT + Passport.js, OAuth (Google, LinkedIn, GitHub), RBAC |
 | Real-time | Socket.IO |
 | Infra | Docker, PM2, Nginx, Redis (optional) |
@@ -77,7 +77,7 @@ LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET
 GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
 
 # AI
-OPENAI_API_KEY
+GROQ_API_KEY
 
 # Caching / queues
 REDIS_URL
