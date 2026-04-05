@@ -14,7 +14,7 @@ const resolveModel = (mod) => {
         try {
           const r = mod[k]();
           if (r && r.findAll) return r;
-        } catch (_) {}
+        } catch (_) { /* ignore */ }
       }
     }
   }
@@ -427,7 +427,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 
     res.status(201).json({
       message: 'Message sent successfully',
-      message: message
+      data: message
     });
 
   } catch (error) {

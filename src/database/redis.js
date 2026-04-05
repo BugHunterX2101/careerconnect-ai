@@ -60,7 +60,7 @@ const connectRedis = async () => {
   } catch (error) {
     logger.warn('⚠️ Redis unavailable - continuing without cache');
     if (redisClient) {
-      try { await redisClient.disconnect(); } catch {}
+      try { await redisClient.disconnect(); } catch (_) { /* ignore disconnect error */ }
     }
     redisClient = null;
     isRedisConnected = false;

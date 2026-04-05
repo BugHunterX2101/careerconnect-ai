@@ -49,12 +49,12 @@ const connectDB = async () => {
     logger.info('SQLite database connected successfully');
 
     // Initialize ALL models before syncing so every table gets created
-    try { require('../models/User').initializeUserModel(); } catch(_) {}
-    try { require('../models/Resume').initializeResumeModel(); } catch(_) {}
-    try { require('../models/Job').initializeJobModel(); } catch(_) {}
-    try { require('../models/Conversation').initializeConversationModel(); } catch(_) {}
-    try { require('../models/Message').initializeMessageModel(); } catch(_) {}
-    try { require('../models/Interview').initializeInterviewModel(); } catch(_) {}
+    try { require('../models/User').initializeUserModel(); } catch(_) { /* model not ready yet */ }
+    try { require('../models/Resume').initializeResumeModel(); } catch(_) { /* model not ready yet */ }
+    try { require('../models/Job').initializeJobModel(); } catch(_) { /* model not ready yet */ }
+    try { require('../models/Conversation').initializeConversationModel(); } catch(_) { /* model not ready yet */ }
+    try { require('../models/Message').initializeMessageModel(); } catch(_) { /* model not ready yet */ }
+    try { require('../models/Interview').initializeInterviewModel(); } catch(_) { /* model not ready yet */ }
 
     // Use force:false (safe default) — tables are created if missing, not altered.
     // This eliminates the expensive backup/restore cycle on every startup.

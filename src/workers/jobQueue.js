@@ -425,7 +425,7 @@ const setupJobProcessors = () => {
   // Email notification processor
   emailQueue.process('send-notification', async (job) => {
     try {
-      const { to, subject, template, data } = job.data;
+      const { to, subject } = job.data;
       
       logger.info(`Sending email notification to ${to}`);
       
@@ -448,7 +448,7 @@ const setupJobProcessors = () => {
   // Data analysis processor
   dataAnalysisQueue.process('analyze-data', async (job) => {
     try {
-      const { dataType, data, options = {} } = job.data;
+      const { dataType } = job.data;
       
       logger.info(`Analyzing data of type: ${dataType}`);
       
@@ -649,7 +649,7 @@ const closeAllQueues = async () => {
 };
 
 // Synchronous fallback processing functions
-const processJobRecommendationsSynchronously = async (userId, resumeId, options = {}, sendEmail = false) => {
+const processJobRecommendationsSynchronously = async (userId, resumeId, options = {}, _sendEmail = false) => {
   try {
     logger.info(`Generating job recommendations for user ${userId}, resume ${resumeId} synchronously`);
     

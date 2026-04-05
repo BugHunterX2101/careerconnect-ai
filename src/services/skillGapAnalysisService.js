@@ -126,7 +126,7 @@ class SkillGapAnalysisService {
     };
   }
 
-  generateRecommendations(gaps, currentSalary) {
+  generateRecommendations(gaps, _currentSalary) {
     const top3 = gaps.slice(0, 3);
     
     return top3.map(gap => ({

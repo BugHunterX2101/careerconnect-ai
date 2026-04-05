@@ -33,7 +33,7 @@ class JobRecommender {
       let Job = null;
       try {
         Job = require('../models/Job');
-      } catch (_) {}
+      } catch (_) { /* ignore */ }
 
       if (Job && typeof Job.find === 'function') {
         const jobs = await Job.find({ status: 'active' })
@@ -111,7 +111,7 @@ class JobRecommender {
       );
 
       // Apply filters
-      let filteredJobs = scoredJobs.filter(job => {
+      const filteredJobs = scoredJobs.filter(job => {
         // Location filter
         if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
           return false;
@@ -300,9 +300,6 @@ class JobRecommender {
       }
     }
 
-    // Remote work preference
-    if (job.remote) return 70;
-
     return 30; // Low score for no match
   }
 
@@ -336,7 +333,7 @@ class JobRecommender {
       } = filters;
 
       // Filter jobs based on query and filters
-      let filteredJobs = this.jobDatabase.filter(job => {
+      const filteredJobs = this.jobDatabase.filter(job => {
         // Text search
         const searchText = `${job.title} ${job.company} ${job.description}`.toLowerCase();
         if (query && !searchText.includes(query.toLowerCase())) {

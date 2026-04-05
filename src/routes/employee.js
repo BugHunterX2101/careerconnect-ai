@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+const { Op } = require('sequelize');
 
 // Try to import models (optional)
 let Job = null;
@@ -106,7 +107,7 @@ router.get('/dashboard/stats', async (req, res) => {
     const userId = req.user?.userId || req.user?.id;
     
     // Get real data from database
-    let stats = {
+    const stats = {
       totalApplications: 0,
       pendingApplications: 0,
       totalInterviews: 0,
@@ -652,7 +653,7 @@ router.get('/settings', async (req, res) => {
     let UserModel = null;
     try {
       UserModel = typeof User.findByPk === 'function' ? User : (typeof User.User === 'function' ? User.User() : null);
-    } catch (_) {}
+    } catch (_) { /* ignore */ }
 
     const user = UserModel ? await UserModel.findByPk(userId) : null;
     
@@ -901,7 +902,7 @@ router.put('/settings', async (req, res) => {
     let UserModel = null;
     try {
       UserModel = typeof User.findByPk === 'function' ? User : (typeof User.User === 'function' ? User.User() : null);
-    } catch (_) {}
+    } catch (_) { /* ignore */ }
 
     if (!UserModel) {
       return res.status(503).json({ error: 'User model not available' });

@@ -38,7 +38,7 @@ Provide analysis in this JSON format:
     }
   }
 
-  getFallbackAnalysis(parsedData) {
+  getFallbackAnalysis(_parsedData) {
     return {
       overallScore: 75,
       overallAssessment: 'Resume shows good foundation but has areas for improvement',

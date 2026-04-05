@@ -1,4 +1,3 @@
-const logger = require('../middleware/logger');
 
 class CandidateRatingService {
   /**
@@ -248,7 +247,7 @@ class CandidateRatingService {
   /**
    * Analyze soft skills and cultural fit
    */
-  analyzeSoftSkills(candidate, job) {
+  analyzeSoftSkills(candidate, _job) {
     const softSkillsKeywords = [
       'leadership', 'communication', 'teamwork', 'problem-solving',
       'analytical', 'creative', 'adaptable', 'organized',
@@ -323,7 +322,7 @@ class CandidateRatingService {
   /**
    * Analyze additional factors
    */
-  analyzeAdditionalFactors(candidate, job) {
+  analyzeAdditionalFactors(candidate, _job) {
     let score = 70; // Base score
 
     // Portfolio/Projects
@@ -371,7 +370,7 @@ class CandidateRatingService {
   /**
    * Generate hiring recommendation
    */
-  generateHiringRecommendation(score, strengths, concerns) {
+  generateHiringRecommendation(score, _strengths, _concerns) {
     if (score >= 85) {
       return {
         action: 'Strong Recommend',

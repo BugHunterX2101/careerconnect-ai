@@ -6,16 +6,6 @@ const logger = require('../middleware/logger');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createGMeetEvent, updateGMeetEvent, deleteGMeetEvent } = require('../services/gmeetService');
 
-// Model resolvers (Sequelize getter-function pattern)
-const getModel = (mod) => {
-  if (!mod) return null;
-  if (typeof mod.Interview === 'function') try { return mod.Interview(); } catch(_) { return null; }
-  if (typeof mod.Job === 'function') try { return mod.Job(); } catch(_) { return null; }
-  if (typeof mod.User === 'function') try { return mod.User(); } catch(_) { return null; }
-  if (typeof mod === 'function') try { return mod(); } catch(_) { return null; }
-  return mod;
-};
-
 let InterviewMod = null, UserMod = null, JobMod = null;
 try { InterviewMod = require('../models/Interview'); } catch(e) { console.warn('Interview model:', e.message); }
 try { UserMod = require('../models/User'); } catch(e) { console.warn('User model:', e.message); }

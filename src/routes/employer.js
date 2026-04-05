@@ -14,7 +14,7 @@ const resolveModel = (mod) => {
         try {
           const r = mod[k]();
           if (r && r.findAll) return r;
-        } catch (_) {}
+        } catch (_) { /* ignore */ }
       }
     }
   }
@@ -76,12 +76,11 @@ const localJobStore = {
   seq: 1
 };
 
-const isMongoObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value));
 const isNumericId = (value) => /^\d+$/.test(String(value));
 const shouldUseInterviewFallback = (interviewerId, payload = {}) => {
-  return !isMongoObjectId(interviewerId) ||
-    !isMongoObjectId(payload.jobId) ||
-    !isMongoObjectId(payload.candidateId);
+  return !isNumericId(interviewerId) ||
+    !isNumericId(payload.jobId) ||
+    !isNumericId(payload.candidateId);
 };
 
 const getSqlUserModel = () => {
@@ -459,7 +458,7 @@ router.post('/jobs', [
     };
 
     let job;
-    const useLocalJobFallback = !isMongoObjectId(req.user.userId);
+    const useLocalJobFallback = !isNumericId(req.user.userId);
     if (useLocalJobFallback) {
       job = {
         _id: `local-job-${localJobStore.seq++}`,
@@ -1163,7 +1162,7 @@ router.post('/candidates/:id/invite', [
     const candidateId = req.params.id;
 
     // Verify the job belongs to this employer
-    if (Job && isMongoObjectId(jobId) && isMongoObjectId(req.user.userId)) {
+    if (Job && isNumericId(jobId) && isNumericId(req.user.userId)) {
       const job = await resolveModel(Job).findOne({ where: { _id: jobId, employer: req.user.userId } });
       if (!job) {
         return res.status(404).json({ error: 'Job not found or you do not have permission to invite for this job' });
@@ -1173,7 +1172,7 @@ router.post('/candidates/:id/invite', [
     // Retrieve candidate details for the response/notification
     let candidateEmail = null;
     let candidateName = null;
-    if (User && isMongoObjectId(candidateId)) {
+    if (User && isNumericId(candidateId)) {
       const candidate = await resolveModel(User).findOne({ where: { _id: candidateId, role: 'jobseeker' } }).select('firstName lastName email');
       if (!candidate) {
         return res.status(404).json({ error: 'Candidate not found' });
@@ -1219,7 +1218,7 @@ router.post('/candidates/:id/invite', [
 // @access  Private (employer)
 router.get('/interviews', async (req, res) => {
   try {
-    if (!isMongoObjectId(req.user.userId)) {
+    if (!isNumericId(req.user.userId)) {
       const { page = 1, limit = 20, status } = req.query;
       const interviewerId = String(req.user.userId);
       let interviews = Array.from(interviewMemoryStore.items.values())
@@ -1291,8 +1290,8 @@ router.get('/interviews', async (req, res) => {
 // @desc    Schedule an interview
 // @access  Private (employer)
 router.post('/interviews', [
-  body('jobId').custom((value) => isMongoObjectId(value) || isNumericId(value)).withMessage('Valid job ID is required'),
-  body('candidateId').custom((value) => isMongoObjectId(value) || isNumericId(value)).withMessage('Valid candidate ID is required'),
+  body('jobId').custom((value) => isNumericId(value)).withMessage('Valid job ID is required'),
+  body('candidateId').custom((value) => isNumericId(value)).withMessage('Valid candidate ID is required'),
   body('scheduledAt').isISO8601().withMessage('Valid date is required'),
   body('duration').isInt({ min: 15, max: 180 }).withMessage('Duration must be between 15 and 180 minutes'),
   body('type').isIn(['phone', 'video', 'onsite']).withMessage('Invalid interview type')
@@ -1490,7 +1489,7 @@ router.patch('/interviews/:id/cancel', async (req, res) => {
 router.get('/analytics', async (req, res) => {
   try {
     const employerId = req.user.userId;
-    const { startDate, endDate } = req.query;
+
 
     let jobs = [];
     let interviews = [];
@@ -1698,7 +1697,7 @@ router.post('/team/invite', [
 router.get('/reports/hiring', async (req, res) => {
   try {
     const employerId = req.user.userId;
-    const { startDate, endDate, format } = req.query;
+
 
     let jobs = [];
     if (Job && typeof Job.find === 'function') {

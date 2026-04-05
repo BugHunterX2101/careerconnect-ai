@@ -219,7 +219,7 @@ function generateLearningOps(skills) {
   return opportunities.slice(0, 4);
 }
 
-function generateMarketInsights(job) {
+function generateMarketInsights(_job) {
   return {
     salaryTrend: '+12% YoY',
     demandLevel: 'Very High',

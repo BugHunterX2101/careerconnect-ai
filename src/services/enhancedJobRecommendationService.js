@@ -1,4 +1,3 @@
-const axios = require('axios');
 const logger = require('../middleware/logger');
 
 class EnhancedJobRecommendationService {
@@ -54,7 +53,7 @@ class EnhancedJobRecommendationService {
   /**
    * Aggregate jobs from multiple sources
    */
-  async aggregateJobsFromSources(skills, experience, location, options) {
+  async aggregateJobsFromSources(skills, experience, location, _options) {
     const allJobs = [];
 
     // Source 1: Generate realistic tech company jobs
@@ -814,7 +813,7 @@ class EnhancedJobRecommendationService {
   /**
    * Fetch external jobs from APIs
    */
-  async fetchExternalJobs(skills, location) {
+  async fetchExternalJobs(_skills, _location) {
     // Placeholder for external API integration
     // Could integrate with RemoteOK, GitHub Jobs, etc.
     return [];

@@ -215,7 +215,6 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), async (req, r
     await fs.promises.writeFile(filePath, req.file.buffer);
     
     // Store full path for internal use
-    const avatarPath = filePath;
     // Store relative path or identifier for database
     const avatarId = `${user.id}/${fileName}`;
     await user.update({ profilePicture: avatarId });
@@ -538,7 +537,8 @@ router.post('/export', authenticateToken, async (req, res) => {
     }
 
     res.set({
-      'Content-Type': contentType
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`
     });
 
     res.send(exportData);
@@ -577,8 +577,7 @@ router.delete('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid password' });
     }
 
-    getLogger().error('Delete account error:', error);
-    await User.findByIdAndDelete(req.user.userId);
+    await user.destroy();
 
     res.json({ message: 'Account deleted successfully' });
 

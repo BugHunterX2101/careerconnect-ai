@@ -86,7 +86,6 @@ class CareerImprovementService {
 
   // Suggest career advancement paths
   async suggestCareerPaths(bertKeywords, profileData) {
-    const currentLevel = this.determineCareerLevel(bertKeywords, profileData);
     const currentRole = this.determineUserRole(bertKeywords);
     const experience = profileData.experience?.years || 0;
 
@@ -173,10 +172,8 @@ class CareerImprovementService {
   }
 
   // Generate personalized learning recommendations
-  async generateLearningPlan(bertKeywords, profileData) {
+  async generateLearningPlan(bertKeywords, _profileData) {
     const currentSkills = bertKeywords.technical || [];
-    const careerGoals = profileData.careerGoals || 'advancement';
-    const learningStyle = profileData.learningStyle || 'mixed';
 
     const learningPlan = {
       immediate: [], // 0-3 months
@@ -393,7 +390,6 @@ class CareerImprovementService {
 
   // Generate networking and career advancement advice
   async generateNetworkingAdvice(bertKeywords, profileData) {
-    const currentRole = this.determineUserRole(bertKeywords);
     const experience = profileData.experience?.years || 0;
 
     return {
@@ -470,9 +466,8 @@ class CareerImprovementService {
   }
 
   // Suggest resume and profile enhancements
-  async suggestResumeImprovements(bertKeywords, profileData) {
+  async suggestResumeImprovements(bertKeywords, _profileData) {
     const currentSkills = bertKeywords.technical || [];
-    const experience = profileData.experience?.years || 0;
 
     return {
       keywordOptimization: {

@@ -23,6 +23,16 @@ try {
 }
 
 const { authenticateToken } = require('../middleware/auth');
+const { Op } = require('sequelize');
+
+// Helper: safely get a Sequelize model instance
+const resolveJobModel = (JobModel) => {
+  if (!JobModel) return null;
+  if (typeof JobModel.initializeJobModel === 'function') JobModel.initializeJobModel();
+  if (typeof JobModel.Job === 'function') return JobModel.Job();
+  if (typeof JobModel.findAll === 'function') return JobModel;
+  return null;
+};
 
 const router = express.Router();
 
@@ -226,7 +236,7 @@ async function generateRealtimeJobRecommendations(keywords, parsedData) {
 }
 
 // Generate GPT-enhanced job recommendations
-async function generateGPTRecommendations(keywords, parsedData) {
+async function generateGPTRecommendations(keywords, _parsedData) {
   try {
     const Job = require('../models/Job');
     if (!Job || typeof Job.find !== 'function') {
@@ -245,7 +255,7 @@ async function generateGPTRecommendations(keywords, parsedData) {
     }
 
     let jobs = [];
-    try { jobs = await resolveJobModel(Job).findAll({ where: query, order: [['createdAt','DESC']], limit: 7 }); } catch(_){}
+    try { jobs = await resolveJobModel(Job).findAll({ where: query, order: [['createdAt','DESC']], limit: 7 }); } catch(_){ /* ignore */ }
     return jobs.map((job) => {
       const skills = Array.isArray(job?.requirements?.skills)
         ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
@@ -311,7 +321,7 @@ async function fetchLinkedInRecommendations(keywords, parsedData) {
 }
 
 // Fetch internal database recommendations
-async function fetchInternalRecommendations(keywords, parsedData) {
+async function fetchInternalRecommendations(keywords, _parsedData) {
   try {
     const Job = require('../models/Job');
     if (!Job || typeof Job.find !== 'function') {
@@ -330,7 +340,7 @@ async function fetchInternalRecommendations(keywords, parsedData) {
     }
 
     let jobs = [];
-    try { jobs = await resolveJobModel(Job).findAll({ where: query, order: [['createdAt','DESC']], limit: 5 }); } catch(_){}
+    try { jobs = await resolveJobModel(Job).findAll({ where: query, order: [['createdAt','DESC']], limit: 5 }); } catch(_){ /* ignore */ }
     return jobs.map((job) => {
       const skills = Array.isArray(job?.requirements?.skills)
         ? job.requirements.skills.map((entry) => entry?.name).filter(Boolean)
@@ -789,7 +799,6 @@ router.post('/career-improvement', authenticateToken, mlLimiter, async (req, res
 router.post('/skill-gap-analysis', authenticateToken, mlLimiter, async (req, res) => {
   try {
     const { currentSkills, targetRole, targetCompany } = req.body;
-    const userId = req.user.userId;
 
     if (!currentSkills || !Array.isArray(currentSkills)) {
       return res.status(400).json({ error: 'Current skills array is required' });

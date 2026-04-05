@@ -14,7 +14,7 @@ const resolveModel = (mod) => {
         try {
           const r = mod[k]();
           if (r && r.findAll) return r;
-        } catch (_) {}
+        } catch (_) { /* ignore */ }
       }
     }
   }
@@ -331,7 +331,7 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
   try {
     const { 
       q, location, type, remote, salary_min, salary_max, 
-      experience_level, skills, page = 1, limit = 20 
+      page = 1, limit = 20 
     } = req.query;
 
     // Build Sequelize WHERE clause

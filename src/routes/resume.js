@@ -7,26 +7,18 @@ const { z } = require('zod');
 const { Op } = require('sequelize');
 
 // Import middleware and utilities
-const { authenticateToken, authorizeRole, checkOwnership } = require('../middleware/auth');
-const { errorHandler } = require('../middleware/errorHandler');
-const { performanceLogger } = require('../middleware/logger');
+const { authenticateToken } = require('../middleware/auth');
+
+
 
 // Try to import models (optional)
 let getResumeModel = null;
-let getUserModel = null;
 
 try {
-  const { Resume: resumeModel, initializeResumeModel } = require('../models/Resume');
+  const { Resume: resumeModel } = require('../models/Resume');
   getResumeModel = resumeModel;
 } catch (error) {
   console.warn('Resume model not available:', error.message);
-}
-
-try {
-  const { User: userModel } = require('../models/User');
-  getUserModel = userModel;
-} catch (error) {
-  console.warn('User model not available:', error.message);
 }
 const router = express.Router();
 
