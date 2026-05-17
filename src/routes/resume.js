@@ -5,10 +5,9 @@ const fs = require('fs').promises;
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const { Op } = require('sequelize');
-const csrf = require('csurf');
-
 // Import middleware and utilities
 const { authenticateToken } = require('../middleware/auth');
+const { csrfWithJWT } = require('../middleware/csrf');
 
 // Try to import models (optional)
 let getResumeModel = null;
@@ -21,7 +20,6 @@ try {
 }
 
 const router = express.Router();
-const csrfProtection = csrf({ cookie: true });
 
 // Validation schemas
 const uploadResumeSchema = z.object({
@@ -286,7 +284,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // @route   PUT /api/resume/:id
 // @desc    Update a resume
 // @access  Private
-router.put('/:id', [authenticateToken, csrfProtection], async (req, res) => {
+router.put('/:id', [authenticateToken, csrfWithJWT], async (req, res) => {
   try {
     if (!getResumeModel) {
       return res.status(503).json({ error: 'Resume model not available' });

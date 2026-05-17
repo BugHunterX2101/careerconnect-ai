@@ -1,16 +1,13 @@
 const express = require('express');
 const multer = require('multer');
-const csrf = require('csurf');
 const fs = require('fs').promises;
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const gptJobsRouter = require('./gpt-jobs');
+const { csrfWithJWT } = require('../middleware/csrf');
 // Try to import ML classes (optional)
 let ResumeParser = null;
 let JobRecommender = null;
-
-// Initialize CSRF protection
-const csrfProtection = csrf({ cookie: true });
 
 try {
   ResumeParser = require('../ml/resumeParser');
@@ -532,7 +529,7 @@ router.post('/skill-analysis', authenticateToken, mlLimiter, async (req, res) =>
 // @route   POST /api/ml/resume-improvement
 // @desc    Get AI suggestions for resume improvement
 // @access  Private
-router.post('/resume-improvement', authenticateToken, mlLimiter, csrfProtection, upload.single('resume'), async (req, res) => {
+router.post('/resume-improvement', authenticateToken, mlLimiter, csrfWithJWT, upload.single('resume'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Resume file is required' });
@@ -613,7 +610,7 @@ router.post('/train-model', authenticateToken, async (req, res) => {
 // @route   POST /api/ml/predict-salary
 // @desc    Predict salary based on skills and experience
 // @access  Private
-router.post('/predict-salary', authenticateToken, mlLimiter, csrfProtection, async (req, res) => {
+router.post('/predict-salary', authenticateToken, mlLimiter, csrfWithJWT, async (req, res) => {
   try {
     if (!req.csrfToken()) {
       return res.status(403).json({ error: 'Invalid CSRF token' });

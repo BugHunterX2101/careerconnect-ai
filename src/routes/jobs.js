@@ -1,10 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
-const csrf = require('csurf');
-
-// Initialize CSRF protection
-const csrfProtection = csrf({ cookie: true });
+const { csrfWithJWT } = require('../middleware/csrf');
 // Try to import models (optional)
 let Job = null;
 let User = null;
@@ -492,9 +489,9 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
 // @route   POST /api/jobs/apply/:id
 // @desc    Apply for a job
 // @access  Private
-router.post('/apply/:id', csrfProtection, authenticateToken, upload.single('resume'), async (req, res) => {
+router.post('/apply/:id', csrfWithJWT, authenticateToken, upload.single('resume'), async (req, res) => {
   try {
-    // CSRF token validation is handled by csrfProtection middleware
+    // CSRF token validation is handled by csrfWithJWT middleware
 
     const { id } = req.params;
     const { coverLetter } = req.body;
@@ -551,7 +548,7 @@ router.post('/apply/:id', csrfProtection, authenticateToken, upload.single('resu
 // @route   POST /api/jobs/save/:id
 // @desc    Save a job for later
 // @access  Private
-router.post('/save/:id', csrfProtection, authenticateToken, async (req, res) => {
+router.post('/save/:id', csrfWithJWT, authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -574,7 +571,7 @@ router.post('/save/:id', csrfProtection, authenticateToken, async (req, res) => 
 // @route   DELETE /api/jobs/save/:id
 // @desc    Remove job from saved
 // @access  Private
-router.delete('/save/:id', csrfProtection, authenticateToken, async (req, res) => {
+router.delete('/save/:id', csrfWithJWT, authenticateToken, async (req, res) => {
   try {
     res.json({ message: 'Job removed from saved' });
 
@@ -587,7 +584,7 @@ router.delete('/save/:id', csrfProtection, authenticateToken, async (req, res) =
 // @route   POST /api/jobs
 // @desc    Post a new job (employer only)
 // @access  Private (employer)
-router.post('/', csrfProtection, authenticateToken, authorizeRole('employer'), jobPostingLimiter, validateJobPosting, async (req, res) => {
+router.post('/', csrfWithJWT, authenticateToken, authorizeRole('employer'), jobPostingLimiter, validateJobPosting, async (req, res) => {
   try {
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
@@ -654,7 +651,7 @@ router.post('/', csrfProtection, authenticateToken, authorizeRole('employer'), j
 // @route   PUT /api/jobs/:id
 // @desc    Update a job (employer only)
 // @access  Private (employer)
-router.put('/:id', csrfProtection, authenticateToken, authorizeRole('employer'), validateJobPosting, async (req, res) => {
+router.put('/:id', csrfWithJWT, authenticateToken, authorizeRole('employer'), validateJobPosting, async (req, res) => {
   try {
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
@@ -695,7 +692,7 @@ router.put('/:id', csrfProtection, authenticateToken, authorizeRole('employer'),
 // @route   DELETE /api/jobs/:id
 // @desc    Delete a job (employer only)
 // @access  Private (employer)
-router.delete('/:id', csrfProtection, authenticateToken, authorizeRole('employer'), async (req, res) => {
+router.delete('/:id', csrfWithJWT, authenticateToken, authorizeRole('employer'), async (req, res) => {
   try {
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
@@ -818,7 +815,7 @@ router.get('/employer/applications/:jobId', authenticateToken, authorizeRole('em
 // @route   PUT /api/jobs/employer/applications/:jobId/:applicationId
 // @desc    Update application status
 // @access  Private (employer)
-router.put('/employer/applications/:jobId/:applicationId', csrfProtection, authenticateToken, authorizeRole('employer'), async (req, res) => {
+router.put('/employer/applications/:jobId/:applicationId', csrfWithJWT, authenticateToken, authorizeRole('employer'), async (req, res) => {
   try {
     const { jobId, applicationId } = req.params;
     const { status, notes } = req.body;
