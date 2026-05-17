@@ -4,7 +4,7 @@ class JobService {
   async getRecommendations() {
     try {
       const response = await api.get('/jobs/recommendations')
-      return response.data.recommendations
+      return response.data.recommendations || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -30,7 +30,7 @@ class JobService {
 
   async applyForJob(jobId) {
     try {
-      const response = await api.post(`/jobs/${jobId}/apply`)
+      const response = await api.post(`/jobs/apply/${jobId}`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -39,7 +39,7 @@ class JobService {
 
   async saveJob(jobId) {
     try {
-      const response = await api.post(`/jobs/${jobId}/save`)
+      const response = await api.post(`/jobs/save/${jobId}`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -48,7 +48,7 @@ class JobService {
 
   async removeSavedJob(jobId) {
     try {
-      const response = await api.delete(`/jobs/${jobId}/save`)
+      const response = await api.delete(`/jobs/save/${jobId}`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -57,8 +57,8 @@ class JobService {
 
   async getSavedJobs() {
     try {
-      const response = await api.get('/jobs/saved')
-      return response.data.savedJobs
+      const response = await api.get('/employee/saved-jobs')
+      return response.data.savedJobs || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -66,8 +66,8 @@ class JobService {
 
   async getAppliedJobs() {
     try {
-      const response = await api.get('/jobs/applied')
-      return response.data.appliedJobs
+      const response = await api.get('/employee/applications')
+      return response.data.applications || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -75,7 +75,7 @@ class JobService {
 
   async getJobStats() {
     try {
-      const response = await api.get('/jobs/stats')
+      const response = await api.get('/employee/dashboard/stats')
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -84,8 +84,8 @@ class JobService {
 
   async getSimilarJobs(jobId) {
     try {
-      const response = await api.get(`/jobs/${jobId}/similar`)
-      return response.data.similarJobs
+      const response = await api.get(`/jobs/${jobId}`)
+      return response.data.similarJobs || []
     } catch (error) {
       throw this.handleError(error)
     }
@@ -93,8 +93,8 @@ class JobService {
 
   async getJobAlerts() {
     try {
-      const response = await api.get('/jobs/alerts')
-      return response.data.alerts
+      const response = await api.get('/employee/job-alerts')
+      return response.data.alerts || response.data.active || []
     } catch (error) {
       throw this.handleError(error)
     }
@@ -102,7 +102,7 @@ class JobService {
 
   async createJobAlert(alertData) {
     try {
-      const response = await api.post('/jobs/alerts', alertData)
+      const response = await api.post('/employee/job-alerts', alertData)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -111,7 +111,7 @@ class JobService {
 
   async updateJobAlert(alertId, alertData) {
     try {
-      const response = await api.put(`/jobs/alerts/${alertId}`, alertData)
+      const response = await api.put(`/employee/job-alerts/${alertId}`, alertData)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -120,7 +120,7 @@ class JobService {
 
   async deleteJobAlert(alertId) {
     try {
-      const response = await api.delete(`/jobs/alerts/${alertId}`)
+      const response = await api.delete(`/employee/job-alerts/${alertId}`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -130,7 +130,7 @@ class JobService {
   // Employer methods
   async postJob(jobData) {
     try {
-      const response = await api.post('/jobs', jobData)
+      const response = await api.post('/employer/jobs', jobData)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -139,7 +139,7 @@ class JobService {
 
   async updateJob(jobId, jobData) {
     try {
-      const response = await api.put(`/jobs/${jobId}`, jobData)
+      const response = await api.put(`/employer/jobs/${jobId}`, jobData)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -148,7 +148,7 @@ class JobService {
 
   async deleteJob(jobId) {
     try {
-      const response = await api.delete(`/jobs/${jobId}`)
+      const response = await api.delete(`/employer/jobs/${jobId}`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -157,8 +157,8 @@ class JobService {
 
   async getEmployerJobs() {
     try {
-      const response = await api.get('/jobs/employer')
-      return response.data.jobs
+      const response = await api.get('/employer/jobs')
+      return response.data.jobs || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -166,18 +166,16 @@ class JobService {
 
   async getJobApplications(jobId) {
     try {
-      const response = await api.get(`/jobs/${jobId}/applications`)
-      return response.data.applications
+      const response = await api.get(`/employer/jobs/${jobId}/applicants`)
+      return response.data.applicants || response.data.applications || response.data
     } catch (error) {
       throw this.handleError(error)
     }
   }
 
-  async updateApplicationStatus(applicationId, status) {
+  async updateApplicationStatus(jobId, applicationId, status) {
     try {
-      const response = await api.put(`/jobs/applications/${applicationId}`, {
-        status,
-      })
+      const response = await api.patch(`/employer/jobs/${jobId}/applicants/${applicationId}`, { status })
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -186,7 +184,7 @@ class JobService {
 
   async searchCandidates(params) {
     try {
-      const response = await api.get('/jobs/candidates/search', { params })
+      const response = await api.get('/employer/candidates/search', { params })
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -195,8 +193,8 @@ class JobService {
 
   async getCandidateProfile(candidateId) {
     try {
-      const response = await api.get(`/jobs/candidates/${candidateId}`)
-      return response.data.candidate
+      const response = await api.get(`/employer/candidates/${candidateId}`)
+      return response.data.candidate || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -204,9 +202,7 @@ class JobService {
 
   async shortlistCandidate(candidateId, jobId) {
     try {
-      const response = await api.post(`/jobs/candidates/${candidateId}/shortlist`, {
-        jobId,
-      })
+      const response = await api.post(`/employer/candidates/${candidateId}/rating`, { jobId, action: 'shortlist' })
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -215,9 +211,7 @@ class JobService {
 
   async removeFromShortlist(candidateId, jobId) {
     try {
-      const response = await api.delete(`/jobs/candidates/${candidateId}/shortlist`, {
-        data: { jobId },
-      })
+      const response = await api.post(`/employer/candidates/${candidateId}/rating`, { jobId, action: 'remove' })
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -226,8 +220,8 @@ class JobService {
 
   async getShortlistedCandidates(jobId) {
     try {
-      const response = await api.get(`/jobs/${jobId}/shortlist`)
-      return response.data.shortlistedCandidates
+      const response = await api.get(`/employer/jobs/${jobId}/applicants`, { params: { status: 'shortlisted' } })
+      return response.data.applicants || []
     } catch (error) {
       throw this.handleError(error)
     }
@@ -235,7 +229,7 @@ class JobService {
 
   async scheduleInterview(interviewData) {
     try {
-      const response = await api.post('/jobs/interviews', interviewData)
+      const response = await api.post('/employer/interviews', interviewData)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -244,8 +238,9 @@ class JobService {
 
   async getInterviews(jobId) {
     try {
-      const response = await api.get(`/jobs/${jobId}/interviews`)
-      return response.data.interviews
+      const params = jobId ? { jobId } : {}
+      const response = await api.get('/employer/interviews', { params })
+      return response.data.interviews || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -253,7 +248,7 @@ class JobService {
 
   async updateInterview(interviewId, interviewData) {
     try {
-      const response = await api.put(`/jobs/interviews/${interviewId}`, interviewData)
+      const response = await api.put(`/employer/interviews/${interviewId}`, interviewData)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -262,7 +257,7 @@ class JobService {
 
   async cancelInterview(interviewId) {
     try {
-      const response = await api.delete(`/jobs/interviews/${interviewId}`)
+      const response = await api.patch(`/employer/interviews/${interviewId}/cancel`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -271,7 +266,7 @@ class JobService {
 
   handleError(error) {
     if (error.response) {
-      const message = error.response.data?.message || 'An error occurred'
+      const message = error.response.data?.message || error.response.data?.error || 'An error occurred'
       return new Error(message)
     } else if (error.request) {
       return new Error('Network error. Please check your connection.')

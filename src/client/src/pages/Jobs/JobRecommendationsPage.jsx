@@ -1142,21 +1142,21 @@ Please provide detailed analysis covering:
             <Button 
               variant="contained" 
               color="primary"
-              onClick={() => window.location.href = '/profile'}
+              onClick={() => navigate('/profile')}
             >
               Complete Profile
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="primary"
-              onClick={() => window.location.href = '/resume/upload'}
+              onClick={() => navigate('/resume/upload')}
             >
               Upload Resume
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="secondary"
-              onClick={() => window.location.href = '/jobs/search'}
+              onClick={() => navigate('/jobs/search')}
             >
               Search Jobs
             </Button>

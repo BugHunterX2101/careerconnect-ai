@@ -3,8 +3,8 @@ import api from './api'
 class ResumeService {
   async getResumes() {
     try {
-      const response = await api.get('/resumes')
-      return response.data.resumes
+      const response = await api.get('/resume')
+      return response.data.resumes || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -12,8 +12,8 @@ class ResumeService {
 
   async getResume(id) {
     try {
-      const response = await api.get(`/resumes/${id}`)
-      return response.data.resume
+      const response = await api.get(`/resume/${id}`)
+      return response.data.resume || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -24,7 +24,7 @@ class ResumeService {
       const formData = new FormData()
       formData.append('resume', file)
 
-      const response = await api.post('/resumes/upload', formData, {
+      const response = await api.post('/resume/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -37,7 +37,7 @@ class ResumeService {
 
   async updateResume(id, data) {
     try {
-      const response = await api.put(`/resumes/${id}`, data)
+      const response = await api.put(`/resume/${id}`, data)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -46,7 +46,7 @@ class ResumeService {
 
   async deleteResume(id) {
     try {
-      const response = await api.delete(`/resumes/${id}`)
+      const response = await api.delete(`/resume/${id}`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -55,7 +55,7 @@ class ResumeService {
 
   async getResumeStatus(id) {
     try {
-      const response = await api.get(`/resumes/${id}/status`)
+      const response = await api.get(`/resume/${id}/status`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -64,7 +64,7 @@ class ResumeService {
 
   async reprocessResume(id) {
     try {
-      const response = await api.post(`/resumes/${id}/reprocess`)
+      const response = await api.post(`/resume/${id}/reprocess`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -73,7 +73,7 @@ class ResumeService {
 
   async getResumeAnalysis(id) {
     try {
-      const response = await api.get(`/resumes/${id}/analysis`)
+      const response = await api.get(`/resume/${id}/analysis`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -82,7 +82,7 @@ class ResumeService {
 
   async getJobRecommendations(id) {
     try {
-      const response = await api.post(`/resumes/${id}/recommendations`)
+      const response = await api.get(`/resume/${id}/recommendations`)
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -91,8 +91,8 @@ class ResumeService {
 
   async getPublicResume(id) {
     try {
-      const response = await api.get(`/resumes/public/${id}`)
-      return response.data.resume
+      const response = await api.get(`/resume/public/${id}`)
+      return response.data.resume || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -100,8 +100,8 @@ class ResumeService {
 
   async searchResumes(query) {
     try {
-      const response = await api.get('/resumes/search', { params: query })
-      return response.data.resumes
+      const response = await api.get('/resume', { params: query })
+      return response.data.resumes || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -109,7 +109,7 @@ class ResumeService {
 
   async getResumeStats() {
     try {
-      const response = await api.get('/resumes/stats')
+      const response = await api.get('/resume')
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -118,7 +118,7 @@ class ResumeService {
 
   async exportResume(id, format = 'pdf') {
     try {
-      const response = await api.get(`/resumes/${id}/export`, {
+      const response = await api.get(`/resume/${id}/export`, {
         params: { format },
         responseType: 'blob',
       })
@@ -130,7 +130,7 @@ class ResumeService {
 
   async shareResume(id, email) {
     try {
-      const response = await api.post(`/resumes/${id}/share`, { email })
+      const response = await api.post(`/resume/${id}/share`, { email })
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -139,8 +139,8 @@ class ResumeService {
 
   async getResumeHistory(id) {
     try {
-      const response = await api.get(`/resumes/${id}/history`)
-      return response.data.history
+      const response = await api.get(`/resume/${id}/history`)
+      return response.data.history || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -148,7 +148,7 @@ class ResumeService {
 
   async compareResumes(resumeIds) {
     try {
-      const response = await api.post('/resumes/compare', { resumeIds })
+      const response = await api.post('/resume/compare', { resumeIds })
       return response.data
     } catch (error) {
       throw this.handleError(error)
@@ -157,8 +157,8 @@ class ResumeService {
 
   async getResumeTemplates() {
     try {
-      const response = await api.get('/resumes/templates')
-      return response.data.templates
+      const response = await api.get('/resume/templates')
+      return response.data.templates || response.data
     } catch (error) {
       throw this.handleError(error)
     }
@@ -166,7 +166,7 @@ class ResumeService {
 
   async applyTemplate(id, templateId) {
     try {
-      const response = await api.post(`/resumes/${id}/apply-template`, {
+      const response = await api.post(`/resume/${id}/apply-template`, {
         templateId,
       })
       return response.data

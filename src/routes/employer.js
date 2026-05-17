@@ -190,7 +190,7 @@ router.get('/dashboard/stats', async (req, res) => {
     const employerId = req.user.userId;
     
     // Get job statistics
-    const jobs = await Job.find({ employer: employerId });
+    const jobs = await Job.find({ employerId: employerId });
     const activeJobs = jobs.filter(job => job.status === 'active').length;
     const totalJobs = jobs.length;
     
@@ -550,7 +550,7 @@ router.put('/jobs/:id', async (req, res) => {
     }
 
     const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, employer: req.user.userId },
+      { _id: req.params.id, employerId: req.user.userId },
       req.body,
       { new: true, runValidators: true }
     );
@@ -581,7 +581,7 @@ router.delete('/jobs/:id', async (req, res) => {
 
     const job = await Job.findOneAndDelete({
       _id: req.params.id,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -610,7 +610,7 @@ router.patch('/jobs/:id/status', [
     const { status } = req.body;
     
     const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, employer: req.user.userId },
+      { _id: req.params.id, employerId: req.user.userId },
       { status },
       { new: true }
     );
@@ -643,7 +643,7 @@ router.get('/jobs/:id/applicants', async (req, res) => {
     
     const job = await Job.findOne({
       _id: req.params.id,
-      employer: req.user.userId
+      employerId: req.user.userId
     }).populate({
       path: 'applications.applicant',
       select: 'firstName lastName email profile'
@@ -690,7 +690,7 @@ router.patch('/jobs/:jobId/applicants/:applicationId', async (req, res) => {
     
     const job = await Job.findOne({
       _id: req.params.jobId,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -734,7 +734,7 @@ router.patch('/jobs/:jobId/applicants/bulk', async (req, res) => {
     
     const job = await Job.findOne({
       _id: req.params.jobId,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -775,7 +775,7 @@ router.get('/jobs/:jobId/applicants/:applicationId/resume', async (req, res) => 
 
     const job = await Job.findOne({
       _id: req.params.jobId,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -1039,7 +1039,7 @@ router.post('/candidates/:id/rating', async (req, res) => {
     // Get job posting (verify it belongs to employer)
     const job = await Job.findOne({
       _id: jobId,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -1109,7 +1109,7 @@ router.get('/jobs/:jobId/matching-candidates', async (req, res) => {
     // Verify job belongs to employer
     const job = await Job.findOne({
       _id: jobId,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -1337,7 +1337,7 @@ router.post('/interviews', [
     // Verify job belongs to employer
     const job = await Job.findOne({
       _id: req.body.jobId,
-      employer: req.user.userId
+      employerId: req.user.userId
     });
 
     if (!job) {
@@ -1448,7 +1448,7 @@ router.get('/analytics', async (req, res) => {
     let interviews = [];
     try {
       if (Job && typeof Job.find === 'function') {
-        jobs = await Job.find({ employer: employerId });
+        jobs = await Job.find({ employerId: employerId });
       }
     } catch (error) {
       getLogger().warn(`Employer analytics jobs query unavailable: ${error.message}`);
@@ -1691,7 +1691,7 @@ router.get('/reports/hiring', async (req, res) => {
     let jobs = [];
     if (Job && typeof Job.find === 'function') {
       try {
-        jobs = await Job.find({ employer: employerId });
+        jobs = await Job.find({ employerId: employerId });
       } catch (jobQueryError) {
         getLogger().warn(`Hiring report jobs query unavailable: ${jobQueryError.message}`);
       }
@@ -1741,7 +1741,7 @@ router.get('/pipeline', async (req, res) => {
     let jobs = [];
     if (Job && typeof Job.find === 'function') {
       try {
-        jobs = await Job.find({ employer: employerId });
+        jobs = await Job.find({ employerId: employerId });
       } catch (jobQueryError) {
         getLogger().warn(`Pipeline jobs query unavailable: ${jobQueryError.message}`);
       }
@@ -1840,6 +1840,69 @@ router.put('/settings', async (req, res) => {
     getLogger().error('Update settings error:', error);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// @route   GET /api/employer/company/profile
+// @desc    Get employer company profile
+// @access  Private (employer)
+router.get('/company/profile', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    let userData = null;
+    if (User) {
+      const UserModel = User.User ? User.User() : null;
+      if (UserModel) {
+        userData = await UserModel.findByPk(userId);
+      }
+    }
+    const profile = userData ? {
+      company: userData.company || '',
+      companySize: userData.companySize || '',
+      industry: userData.industry || '',
+      website: userData.website || '',
+      description: userData.bio || '',
+      location: userData.location || {},
+      logo: userData.profilePicture || null,
+    } : {};
+    res.json({ profile });
+  } catch (error) {
+    getLogger().error('Get company profile error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/employer/company/profile
+// @desc    Update employer company profile
+// @access  Private (employer)
+router.put('/company/profile', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { company, industry, website, description, companySize, location } = req.body;
+    if (User) {
+      const UserModel = User.User ? User.User() : null;
+      if (UserModel) {
+        const updates = {};
+        if (company !== undefined) updates.company = company;
+        if (industry !== undefined) updates.industry = industry;
+        if (website !== undefined) updates.website = website;
+        if (description !== undefined) updates.bio = description;
+        if (companySize !== undefined) updates.companySize = companySize;
+        if (location !== undefined) updates.location = location;
+        await UserModel.update(updates, { where: { id: userId } });
+      }
+    }
+    res.json({ message: 'Company profile updated successfully' });
+  } catch (error) {
+    getLogger().error('Update company profile error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/employer/company/logo
+// @desc    Upload company logo (stored as profile picture)
+// @access  Private (employer)
+router.post('/company/logo', async (req, res) => {
+  res.json({ message: 'Logo upload not yet implemented', logo: null });
 });
 
 module.exports = router;

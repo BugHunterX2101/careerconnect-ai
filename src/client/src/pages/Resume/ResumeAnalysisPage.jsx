@@ -52,6 +52,7 @@ import {
   AttachMoney
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
+import { Trans } from 'react-i18next';
 
 const ResumeAnalysisPage = () => {
   const { id } = useParams();

@@ -33,6 +33,7 @@ const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'))
 const EmployeeDashboardPage = lazy(() => import('./pages/Employee/EmployeeDashboardPage'))
 const ApplicationsPage = lazy(() => import('./pages/Employee/ApplicationsPage'))
 const InterviewsPage = lazy(() => import('./pages/Employee/InterviewsPage'))
+const CareerImprovementPage = lazy(() => import('./pages/Employee/CareerImprovementPage'))
 const EmployerDashboardPage = lazy(() => import('./pages/Employer/EmployerDashboardEnhanced'))
 const JobPostingPage = lazy(() => import('./pages/Employer/JobPostingPage'))
 const JobManagementPage = lazy(() => import('./pages/Employer/JobManagementPage'))
@@ -210,29 +211,29 @@ function App() {
         }
       />
 
-      {/* Resume Routes */}
+      {/* Resume Routes — static paths before dynamic :id to avoid shadowing */}
       <Route
         path="/resume/upload"
         element={renderProtectedRoute(<ResumeUploadPage />)}
       />
-      
+
       <Route
-        path="/resume/:id"
+        path="/resume/analysis"
         element={renderProtectedRoute(<ResumeAnalysisPage />)}
       />
-      
+
       <Route
         path="/resume/:id/analysis"
         element={renderProtectedRoute(<ResumeAnalysisPage />)}
       />
-      
+
       <Route
         path="/resume/:id/edit"
         element={renderProtectedRoute(<ResumeEditPage />)}
       />
-      
+
       <Route
-        path="/resume/analysis"
+        path="/resume/:id"
         element={renderProtectedRoute(<ResumeAnalysisPage />)}
       />
 
@@ -279,6 +280,11 @@ function App() {
         element={renderProtectedRoute(<InterviewsPage />)}
       />
 
+      <Route
+        path="/employee/skill-recommendations"
+        element={renderProtectedRoute(<CareerImprovementPage />)}
+      />
+
       {/* Employer Routes */}
       <Route
         path="/employer/dashboard"
@@ -297,7 +303,7 @@ function App() {
       
       <Route
         path="/employer/jobs/:jobId"
-        element={renderProtectedRoute(<JobManagementPage />)}
+        element={renderProtectedRoute(<ApplicantsPage />)}
       />
       
       <Route

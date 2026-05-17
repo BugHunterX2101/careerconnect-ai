@@ -426,7 +426,7 @@ const JobSearchPage = () => {
       window.open(job.externalUrl, '_blank');
     } else {
       // Navigate to internal application page
-      window.location.href = `/jobs/${job.id}/apply`;
+      navigate(`/jobs/${job._id || job.id}`);
     }
   };
 

@@ -4,13 +4,16 @@ import {
   Accordion, AccordionSummary, AccordionDetails, Chip, List,
   ListItem, ListItemIcon, ListItemText, LinearProgress,
   Alert, CircularProgress, Tabs, Tab, Avatar, Divider,
-  Timeline, TimelineItem, TimelineSeparator, TimelineConnector,
-  TimelineContent, TimelineDot, IconButton, Tooltip
+  IconButton, Tooltip
 } from '@mui/material';
+import {
+  Timeline, TimelineItem, TimelineSeparator, TimelineConnector,
+  TimelineContent, TimelineDot
+} from '@mui/lab';
 import {
   ExpandMore, TrendingUp, School, Work, Psychology,
   AttachMoney, NetworkCheck, Description, VideoCall,
-  Star, CheckCircle, Schedule, Lightbulb, Target,
+  Star, CheckCircle, Schedule, Lightbulb, TrackChanges,
   Assessment, BookmarkBorder, Bookmark, Refresh
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
@@ -219,7 +222,7 @@ const CareerImprovementPage = () => {
               <Button 
                 variant="outlined" 
                 size="small" 
-                startIcon={<Target />}
+                startIcon={<TrackChanges />}
                 fullWidth
                 sx={{ mt: 2 }}
               >

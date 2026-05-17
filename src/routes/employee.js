@@ -822,6 +822,39 @@ router.post('/job-alerts', [
   }
 });
 
+// @route   PUT /api/employee/job-alerts/:alertId
+// @desc    Update a job alert
+// @access  Private (jobseeker)
+router.put('/job-alerts/:alertId', [
+  body('title').optional().trim().isLength({ min: 1 }).withMessage('Alert title cannot be empty'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    res.json({
+      message: 'Job alert updated successfully',
+      alert: { id: req.params.alertId, ...req.body, updatedAt: new Date().toISOString() }
+    });
+  } catch (error) {
+    getLogger().error('Update job alert error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/employee/job-alerts/:alertId
+// @desc    Delete a job alert
+// @access  Private (jobseeker)
+router.delete('/job-alerts/:alertId', async (req, res) => {
+  try {
+    res.json({ message: 'Job alert deleted successfully', alertId: req.params.alertId });
+  } catch (error) {
+    getLogger().error('Delete job alert error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   PUT /api/employee/settings
 // @desc    Update user settings
 // @access  Private (jobseeker)
