@@ -55,6 +55,7 @@ const LoginPage = () => {
   const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
 
   const from = location.state?.from?.pathname || '/dashboard';
+  const successMessage = location.state?.message || '';
 
   const { oauthState, statusFlags, startOAuth, retryOAuth } = useOAuthFlow({
     loginWithToken,
@@ -194,6 +195,13 @@ const LoginPage = () => {
               </Typography>
             </Box>
           </Slide>
+
+          {/* Success message (e.g. after password reset) */}
+          {successMessage && (
+            <CalmAlert severity="success" sx={{ mb: 4, borderRadius: 3 }}>
+              {successMessage}
+            </CalmAlert>
+          )}
 
           {/* Error Alert */}
           {displayError && (

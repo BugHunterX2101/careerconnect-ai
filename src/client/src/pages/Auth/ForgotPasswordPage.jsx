@@ -10,13 +10,14 @@ import {
   Alert,
   CircularProgress,
   InputAdornment,
-  useTheme
+  IconButton
 } from '@mui/material';
-import { Email } from '@mui/icons-material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Email, ArrowBack } from '@mui/icons-material';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
 
 const ForgotPasswordPage = () => {
-  const theme = useTheme();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,15 +25,28 @@ const ForgotPasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
     setLoading(true);
     setError('');
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSuccess(true);
-    } catch (err) {
-      setError('Failed to send reset email. Please try again.');
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() })
+      });
+
+      if (response.ok) {
+        setSuccess(true);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || 'Failed to send reset email. Please try again.');
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -62,7 +76,6 @@ const ForgotPasswordPage = () => {
       }}
     >
       <Card
-        className="animate-scale-in"
         sx={{
           maxWidth: 550,
           width: '100%',
@@ -73,19 +86,22 @@ const ForgotPasswordPage = () => {
           background: 'rgba(255, 255, 255, 0.98)',
           position: 'relative',
           zIndex: 1,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            boxShadow: '0 30px 60px -12px rgba(61, 47, 35, 0.4)',
-            transform: 'translateY(-4px)',
-          },
         }}
       >
         <CardContent sx={{ p: { xs: 4, md: 5 } }}>
+          {/* Back button */}
+          <IconButton
+            onClick={() => navigate('/login')}
+            sx={{ mb: 2, color: '#8B6F47', '&:hover': { backgroundColor: 'rgba(139, 111, 71, 0.08)' } }}
+          >
+            <ArrowBack />
+          </IconButton>
+
           <Box sx={{ textAlign: 'center', mb: 5 }}>
-            <Typography 
-              variant="h3" 
-              sx={{ 
-                fontWeight: 800, 
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 800,
                 mb: 2,
                 fontSize: { xs: '2.1rem', md: '3rem' },
                 background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
@@ -102,63 +118,39 @@ const ForgotPasswordPage = () => {
           </Box>
 
           {error && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 4,
-                fontSize: '1.05rem',
-                py: 2,
-                borderRadius: 3,
-                '& .MuiAlert-icon': {
-                  fontSize: '1.7rem',
-                },
-              }}
-            >
+            <Alert severity="error" sx={{ mb: 4, fontSize: '1.05rem', py: 2, borderRadius: 3 }}>
               {error}
             </Alert>
           )}
 
           {success ? (
             <Box sx={{ textAlign: 'center' }}>
-              <Alert 
-                severity="success" 
-                sx={{ 
-                  mb: 4,
-                  fontSize: '1.05rem',
-                  py: 2,
-                  borderRadius: 3,
-                  '& .MuiAlert-icon': {
-                    fontSize: '1.7rem',
-                  },
-                }}
-              >
-                Password reset email sent! Check your inbox.
+              <Alert severity="success" sx={{ mb: 4, fontSize: '1.05rem', py: 2, borderRadius: 3 }}>
+                If an account with that email exists, a reset link has been sent. Check your inbox.
               </Alert>
-              <Link 
-                component={RouterLink} 
-                to="/login" 
-                sx={{ 
-                  fontSize: '1.15rem',
+              <Button
+                variant="contained"
+                onClick={() => navigate('/login')}
+                sx={{
+                  py: 1.5,
+                  px: 4,
+                  textTransform: 'none',
                   fontWeight: 700,
-                  color: '#8B6F47',
-                  textDecoration: 'none',
-                  '&:hover': {
-                    color: '#6B5544',
-                    textDecoration: 'underline',
-                  },
+                  borderRadius: 3,
+                  background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
                 }}
               >
                 Back to Login
-              </Link>
+              </Button>
             </Box>
           ) : (
             <Box component="form" onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="Email"
+                label="Email Address"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError(''); }}
                 required
                 sx={{ mb: 4 }}
                 InputProps={{
@@ -197,11 +189,7 @@ const ForgotPasswordPage = () => {
                   },
                 }}
               >
-                {loading ? (
-                  <CircularProgress size={28} color="inherit" />
-                ) : (
-                  'Send Reset Link'
-                )}
+                {loading ? <CircularProgress size={28} color="inherit" /> : 'Send Reset Link'}
               </Button>
             </Box>
           )}
@@ -209,19 +197,16 @@ const ForgotPasswordPage = () => {
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" sx={{ fontSize: '1.05rem', color: '#6B5544' }}>
               Remember your password?{' '}
-              <Link 
-                component={RouterLink} 
-                to="/login" 
-                sx={{ 
+              <Link
+                component={RouterLink}
+                to="/login"
+                sx={{
                   fontWeight: 700,
                   fontSize: '1.15rem',
                   color: '#8B6F47',
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
-                  '&:hover': {
-                    color: '#6B5544',
-                    textDecoration: 'underline',
-                  },
+                  '&:hover': { color: '#6B5544', textDecoration: 'underline' },
                 }}
               >
                 Sign in
@@ -235,4 +220,3 @@ const ForgotPasswordPage = () => {
 };
 
 export default ForgotPasswordPage;
-

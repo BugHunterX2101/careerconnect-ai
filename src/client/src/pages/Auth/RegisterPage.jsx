@@ -128,8 +128,7 @@ const RegisterPage = () => {
     }
     if (!formData.email.trim()) {
       nextErrors.email = 'Email is required.';
-    }
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       nextErrors.email = 'Please enter a valid email address.';
     }
     if (!formData.password) {

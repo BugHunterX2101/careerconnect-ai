@@ -1,20 +1,26 @@
 import React from 'react';
-import { Box, Typography, Card, CardContent, Button } from '@mui/material';
-import { useParams } from 'react-router-dom';
-import { Person, Work, School, ContactMail } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, Button, IconButton } from '@mui/material';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Work, School, ContactMail, ArrowBack } from '@mui/icons-material';
 
 const CandidateDetailsPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-        Candidate Profile
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          Candidate Profile
+        </Typography>
+      </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         View candidate details and qualifications
       </Typography>
-      
+
       <Card>
         <CardContent>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
@@ -29,9 +35,14 @@ const CandidateDetailsPage = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             This page will show detailed candidate information, resume, skills, and contact options.
           </Typography>
-          <Button variant="contained" startIcon={<ContactMail />}>
-            Contact Candidate
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="contained" startIcon={<ContactMail />}>
+              Contact Candidate
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/employer/candidates/search')}>
+              Back to Search
+            </Button>
+          </Box>
         </CardContent>
       </Card>
     </Box>

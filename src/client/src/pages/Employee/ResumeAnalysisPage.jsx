@@ -18,7 +18,8 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
-  Paper
+  Paper,
+  IconButton
 } from '@mui/material';
 import {
   ExpandMore,
@@ -29,14 +30,16 @@ import {
   Work,
   Star,
   Lightbulb,
-  Assignment
+  Assignment,
+  ArrowBack
 } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/appConfig';
 
 const ResumeAnalysisPage = () => {
   const { t } = useTranslation();
   const { id } = useParams();
+  const navigate = useNavigate();
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -101,9 +104,14 @@ const ResumeAnalysisPage = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold' }}>
-        Resume Analysis Results
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          Resume Analysis Results
+        </Typography>
+      </Box>
 
       {/* Overall Score */}
       <Card sx={{ mb: 3 }}>

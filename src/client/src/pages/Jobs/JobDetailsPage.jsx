@@ -1,20 +1,26 @@
 import React from 'react';
-import { Box, Typography, Card, CardContent, Button } from '@mui/material';
-import { useParams } from 'react-router-dom';
-import { Work, LocationOn, Business, Send } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, Button, IconButton } from '@mui/material';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Work, LocationOn, Business, Send, ArrowBack } from '@mui/icons-material';
 
 const JobDetailsPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-        Job Details
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          Job Details
+        </Typography>
+      </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         Detailed information about job opportunity
       </Typography>
-      
+
       <Card>
         <CardContent>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
@@ -31,9 +37,14 @@ const JobDetailsPage = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             This page will show detailed job information, requirements, benefits, and application options.
           </Typography>
-                  <Button variant="contained" startIcon={<Send />}>
-          Apply Now
-        </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="contained" startIcon={<Send />}>
+              Apply Now
+            </Button>
+            <Button variant="outlined" onClick={() => navigate(-1)}>
+              Back to Jobs
+            </Button>
+          </Box>
         </CardContent>
       </Card>
     </Box>
