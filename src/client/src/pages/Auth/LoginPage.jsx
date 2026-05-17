@@ -98,9 +98,13 @@ const LoginPage = () => {
     setError('');
 
     const result = await login(formData.email, formData.password);
-    
+
     if (result.success) {
-      navigate(from, { replace: true });
+      const role = result.user?.role;
+      const defaultDest = role === 'employer' ? '/employer/dashboard' : '/employee/dashboard';
+      // If the user was redirected from a specific page, honour it; otherwise send to their dashboard
+      const destination = (from && from !== '/dashboard') ? from : defaultDest;
+      navigate(destination, { replace: true });
     } else {
       setError(result.error);
     }

@@ -6,11 +6,12 @@ const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return null; // or a loading spinner
+    return null;
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    const destination = user.role === 'employer' ? '/employer/dashboard' : '/employee/dashboard';
+    return <Navigate to={destination} replace />;
   }
 
   return children;

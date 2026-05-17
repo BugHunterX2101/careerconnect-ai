@@ -163,9 +163,11 @@ const RegisterPage = () => {
     setError('');
 
     const result = await register(formData);
-    
+
     if (result.success) {
-      navigate('/dashboard');
+      const role = result.user?.role;
+      const destination = role === 'employer' ? '/employer/dashboard' : '/employee/dashboard';
+      navigate(destination, { replace: true });
     } else {
       setError(result.error);
     }

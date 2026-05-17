@@ -14,7 +14,7 @@ import {
   Business, People, Work, Assessment, Add, Search, Schedule, Chat,
   MoreVert, Notifications, TrendingUp, VideoCall, Email, Phone,
   LocationOn, Analytics, Timeline, Speed, EmojiEvents, PersonSearch,
-  AutoAwesome, Lightbulb, Target, NotificationsActive, Settings,
+  AutoAwesome, Lightbulb, TrackChanges, NotificationsActive, Settings,
   Download, Share, FilterList, Sort, ExpandMore, CheckCircle,
   Cancel, Pending, Group, Star, ThumbUp, ThumbDown, Visibility,
   Edit, Delete, Send, CalendarToday, AttachMoney, TrendingDown,

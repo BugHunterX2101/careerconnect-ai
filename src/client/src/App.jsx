@@ -197,13 +197,17 @@ function App() {
         }
       />
 
-      {/* Protected Routes */}
+      {/* Protected Routes — /dashboard redirects to role-specific dashboard */}
       <Route
         path="/dashboard"
-        element={renderProtectedRoute(
-          user?.role === 'employer' ? <EmployerDashboardPage /> : <EmployeeDashboardPage />,
-          { skeleton: 'dashboard' }
-        )}
+        element={
+          <ProtectedRoute>
+            <Navigate
+              to={user?.role === 'employer' ? '/employer/dashboard' : '/employee/dashboard'}
+              replace
+            />
+          </ProtectedRoute>
+        }
       />
 
       {/* Resume Routes */}

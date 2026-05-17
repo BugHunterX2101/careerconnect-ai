@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
         setToken(data.token);
         localStorage.setItem('token', data.token);
         reportClientEvent('auth_login_success', { email });
-        return { success: true };
+        return { success: true, user: data.user };
       } else {
         reportClientEvent('auth_login_failed', { email, reason: data.error || 'login_failed' });
         return { success: false, error: data.error || 'Login failed' };
@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }) => {
         setToken(data.token);
         localStorage.setItem('token', data.token);
         reportClientEvent('auth_register_success', { email: userData.email });
-        return { success: true };
+        return { success: true, user: data.user };
       } else {
         reportClientEvent('auth_register_failed', { email: userData.email, reason: data.error || 'register_failed' });
         return { success: false, error: data.error || 'Registration failed' };
