@@ -321,7 +321,7 @@ router.put('/experience', authenticateToken, csrfProtection, async (req, res) =>
   }
 
   // Verify if the user has permission to update experience
-  if (!req.user.role || !['user', 'admin'].includes(req.user.role)) {
+  if (!req.user.role || !['jobseeker', 'employer', 'admin'].includes(req.user.role)) {
     return res.status(403).json({ error: 'Unauthorized to update experience information' });
   }
 

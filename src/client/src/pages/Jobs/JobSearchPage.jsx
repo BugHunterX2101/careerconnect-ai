@@ -49,15 +49,18 @@ import {
   TrendingUp,
   Refresh,
   SmartToy,
-  CheckBox
+  CheckBox,
+  ArrowBack
 } from '@mui/icons-material';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/appConfig';
 
 const MotionBox = motion(Box);
 
 
 const JobSearchPage = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -541,9 +544,14 @@ const JobSearchPage = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom className="page-choreo-heading" sx={{ fontWeight: 'bold' }}>
-        Job Search
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h4" className="page-choreo-heading" sx={{ fontWeight: 'bold' }}>
+          Job Search
+        </Typography>
+      </Box>
       
       {/* Search Bar */}
       <Paper sx={{ p: 2, mb: 3 }}>

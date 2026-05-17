@@ -77,6 +77,15 @@ class LinkedInService {
   getSalaryInsights(_jobTitle, _location) {
     return null;
   }
+
+  /**
+   * Job posting to LinkedIn — not supported via Apify scraping.
+   * Returns null so callers can handle gracefully.
+   */
+  postLinkedInJob(_jobData) {
+    logger.warn('LinkedIn job posting is not supported via Apify scraping service');
+    return null;
+  }
 }
 
 const linkedinService = new LinkedInService();
@@ -85,5 +94,6 @@ module.exports = {
   linkedinService,
   searchLinkedInJobs: (params) => linkedinService.searchJobs(params),
   getLinkedInJobRecommendations: (profile, limit) => linkedinService.getJobRecommendations(profile, limit),
-  getTrendingLinkedInJobs: (location, limit) => linkedinService.getTrendingJobs(location, limit)
+  getTrendingLinkedInJobs: (location, limit) => linkedinService.getTrendingJobs(location, limit),
+  postLinkedInJob: (jobData) => linkedinService.postLinkedInJob(jobData)
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -7,14 +8,16 @@ import {
   Typography,
   Chip,
   LinearProgress,
-  Avatar
+  Avatar,
+  IconButton
 } from '@mui/material';
 import {
   TrendingUp,
   People,
   Work,
   Schedule,
-  ThumbUp
+  ThumbUp,
+  ArrowBack
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -86,6 +89,7 @@ const StatCard = React.memo(function StatCard({
 });
 
 const AnalyticsPage = () => {
+  const navigate = useNavigate();
   const [analytics, setAnalytics] = useState({
     overview: {
       totalJobs: 15,
@@ -243,9 +247,14 @@ const AnalyticsPage = () => {
   return (
     <Box sx={{ p: 3 }} className="motion-page-enter">
       <Box className="dashboard-highlight-panel" sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Recruitment Analytics
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+            <ArrowBack />
+          </IconButton>
+          <Typography variant="h4">
+            Recruitment Analytics
+          </Typography>
+        </Box>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 1.5, maxWidth: 850 }}>
           Executive overview of pipeline velocity, source quality, and conversion efficiency across active hiring campaigns.
         </Typography>

@@ -16,23 +16,27 @@ import {
   DialogActions,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  CircularProgress,
+  Alert
 } from '@mui/material';
-import { Visibility, Delete, FilterList } from '@mui/icons-material';
+import { Visibility, Delete, FilterList, ArrowBack } from '@mui/icons-material';
 import { FixedSizeList } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import api from '../../services/api';
+import { useNavigate } from 'react-router-dom';
+import { employeeService } from '../../services/employeeService';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const ApplicationsPage = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const requestAbortRef = useRef(null);
 
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
 
@@ -42,51 +46,14 @@ const ApplicationsPage = () => {
 
   const fetchApplications = async () => {
     try {
-      if (requestAbortRef.current) {
-        requestAbortRef.current.abort();
-      }
-      const abortController = new AbortController();
-      requestAbortRef.current = abortController;
-
-      await api.get('/jobs/applications', { signal: abortController.signal });
-      const mockApplications = [
-        {
-          id: 1,
-          jobTitle: 'Frontend Developer',
-          company: 'Tech Corp',
-          status: 'pending',
-          appliedDate: '2024-01-15',
-          salary: '$80,000',
-          location: 'New York',
-          description: 'Exciting opportunity to work with React and modern web technologies.'
-        },
-        {
-          id: 2,
-          jobTitle: 'React Developer',
-          company: 'StartupXYZ',
-          status: 'interview',
-          appliedDate: '2024-01-10',
-          salary: '$90,000',
-          location: 'Remote',
-          description: 'Join our growing team building innovative web applications.'
-        },
-        {
-          id: 3,
-          jobTitle: 'Full Stack Engineer',
-          company: 'BigTech Inc',
-          status: 'rejected',
-          appliedDate: '2024-01-05',
-          salary: '$120,000',
-          location: 'San Francisco',
-          description: 'Work on large-scale applications with millions of users.'
-        }
-      ];
-      setApplications(mockApplications);
-    } catch (error) {
-      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
-        return;
-      }
-      console.error('Error fetching applications:', error);
+      setLoading(true);
+      setError('');
+      const data = await employeeService.getApplications();
+      const apps = Array.isArray(data?.applications) ? data.applications : [];
+      setApplications(apps);
+    } catch (err) {
+      console.error('Error fetching applications:', err);
+      setError('Could not load applications. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -102,7 +69,9 @@ const ApplicationsPage = () => {
     if (debouncedSearchTerm) {
       const term = debouncedSearchTerm.toLowerCase();
       filtered = filtered.filter(
-        (app) => app.jobTitle.toLowerCase().includes(term) || app.company.toLowerCase().includes(term)
+        (app) =>
+          (app.job?.title || app.jobTitle || '').toLowerCase().includes(term) ||
+          (app.job?.company || app.company || '').toLowerCase().includes(term)
       );
     }
 
@@ -112,8 +81,11 @@ const ApplicationsPage = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'warning';
+      case 'applied': return 'warning';
       case 'interview': return 'info';
+      case 'scheduled': return 'info';
       case 'accepted': return 'success';
+      case 'hired': return 'success';
       case 'rejected': return 'error';
       default: return 'default';
     }
@@ -126,10 +98,10 @@ const ApplicationsPage = () => {
 
   const handleWithdrawApplication = useCallback(async (applicationId) => {
     try {
-      await api.delete(`/jobs/applications/${applicationId}`);
-      setApplications((prev) => prev.filter((app) => app.id !== applicationId));
-    } catch (error) {
-      console.error('Error withdrawing application:', error);
+      await employeeService.withdrawApplication(applicationId);
+      setApplications((prev) => prev.filter((app) => (app.id || app._id) !== applicationId));
+    } catch (err) {
+      console.error('Error withdrawing application:', err);
     }
   }, []);
 
@@ -142,23 +114,31 @@ const ApplicationsPage = () => {
     const application = filteredApplications[index];
     if (!application) return null;
 
+    const appId = application.id || application._id;
+    const jobTitle = application.job?.title || application.jobTitle || 'Position';
+    const company = application.job?.company || application.company || 'Company';
+    const appliedDate = application.appliedAt
+      ? new Date(application.appliedAt).toLocaleDateString()
+      : (application.appliedDate || '-');
+    const location = application.job?.location || application.location || '-';
+    const status = application.status || 'applied';
+
     return (
       <ListItem style={style} divider sx={{ px: 2 }}>
         <ListItemText
           primary={
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1.7fr 1.3fr 1fr 1fr 1fr 1fr auto', gap: 1, alignItems: 'center' }}>
-              <Typography variant="subtitle2">{application.jobTitle}</Typography>
-              <Typography>{application.company}</Typography>
-              <Chip label={application.status} color={getStatusColor(application.status)} size="small" />
-              <Typography>{application.appliedDate}</Typography>
-              <Typography>{application.salary}</Typography>
-              <Typography>{application.location}</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1.7fr 1.3fr 1fr 1fr 1fr auto', gap: 1, alignItems: 'center' }}>
+              <Typography variant="subtitle2">{jobTitle}</Typography>
+              <Typography>{company}</Typography>
+              <Chip label={status} color={getStatusColor(status)} size="small" />
+              <Typography>{appliedDate}</Typography>
+              <Typography>{location}</Typography>
               <Box>
                 <IconButton size="small" onClick={() => handleViewDetails(application)} sx={{ color: '#8B6F47' }}>
                   <Visibility />
                 </IconButton>
-                {application.status === 'pending' && (
-                  <IconButton size="small" color="error" onClick={() => handleWithdrawApplication(application.id)}>
+                {['pending', 'applied'].includes(status) && (
+                  <IconButton size="small" color="error" onClick={() => handleWithdrawApplication(appId)}>
                     <Delete />
                   </IconButton>
                 )}
@@ -172,17 +152,27 @@ const ApplicationsPage = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h3" gutterBottom sx={{ 
-        fontWeight: 700, 
-        fontSize: '2rem', 
-        color: '#6B5544',
-        letterSpacing: '-0.5px',
-        mb: 3
-      }}>
-        My Applications
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+          <ArrowBack />
+        </IconButton>
+        <Typography variant="h3" sx={{
+          fontWeight: 700,
+          fontSize: '2rem',
+          color: '#6B5544',
+          letterSpacing: '-0.5px'
+        }}>
+          My Applications
+        </Typography>
+      </Box>
 
-      <Card sx={{ 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      <Card sx={{
         mb: 3,
         background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
         border: '1px solid rgba(139, 111, 71, 0.15)',
@@ -194,7 +184,7 @@ const ApplicationsPage = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label={t('applications.searchLabel')}
+                label={t('applications.searchLabel', 'Search applications')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
@@ -204,16 +194,17 @@ const ApplicationsPage = () => {
               <TextField
                 fullWidth
                 select
-                label={t('filter.status')}
+                label={t('filter.status', 'Status')}
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 size="small"
               >
-                <MenuItem value="all">{t('filter.allStatus')}</MenuItem>
-                <MenuItem value="pending">{t('filter.pending')}</MenuItem>
-                <MenuItem value="interview">{t('filter.interview')}</MenuItem>
-                <MenuItem value="accepted">{t('filter.accepted')}</MenuItem>
-                <MenuItem value="rejected">{t('filter.rejected')}</MenuItem>
+                <MenuItem value="all">{t('filter.allStatus', 'All')}</MenuItem>
+                <MenuItem value="pending">{t('filter.pending', 'Pending')}</MenuItem>
+                <MenuItem value="applied">Applied</MenuItem>
+                <MenuItem value="interview">{t('filter.interview', 'Interview')}</MenuItem>
+                <MenuItem value="accepted">{t('filter.accepted', 'Accepted')}</MenuItem>
+                <MenuItem value="rejected">{t('filter.rejected', 'Rejected')}</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12} md={2}>
@@ -247,11 +238,15 @@ const ApplicationsPage = () => {
         borderRadius: 2,
         boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
       }}>
-        {filteredApplications.length > 0 ? (
+        {loading ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <CircularProgress sx={{ color: '#8B6F47' }} />
+          </Box>
+        ) : filteredApplications.length > 0 ? (
           <Box sx={{ borderTop: '1px solid rgba(139, 111, 71, 0.08)' }}>
             <Box sx={{
               display: 'grid',
-              gridTemplateColumns: '1.7fr 1.3fr 1fr 1fr 1fr 1fr auto',
+              gridTemplateColumns: '1.7fr 1.3fr 1fr 1fr 1fr auto',
               gap: 1,
               px: 2,
               py: 1.5,
@@ -260,13 +255,12 @@ const ApplicationsPage = () => {
               color: '#6B5544',
               fontSize: '0.95rem'
             }}>
-              <Box>{t('table.jobTitle')}</Box>
-              <Box>{t('table.company')}</Box>
-              <Box>{t('table.status')}</Box>
-              <Box>{t('table.appliedDate')}</Box>
-              <Box>{t('table.salary')}</Box>
-              <Box>{t('table.location')}</Box>
-              <Box>{t('table.actions')}</Box>
+              <Box>{t('table.jobTitle', 'Job Title')}</Box>
+              <Box>{t('table.company', 'Company')}</Box>
+              <Box>{t('table.status', 'Status')}</Box>
+              <Box>{t('table.appliedDate', 'Applied')}</Box>
+              <Box>{t('table.location', 'Location')}</Box>
+              <Box>{t('table.actions', 'Actions')}</Box>
             </Box>
             <FixedSizeList
               height={listHeight}
@@ -279,15 +273,32 @@ const ApplicationsPage = () => {
           </Box>
         ) : (
           <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-            <Typography>No applications match your filters.</Typography>
+            <Typography>
+              {applications.length === 0
+                ? 'No applications yet. Start applying to jobs!'
+                : 'No applications match your filters.'}
+            </Typography>
+            {applications.length === 0 && (
+              <Button
+                variant="contained"
+                sx={{
+                  mt: 2,
+                  background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+                  textTransform: 'none'
+                }}
+                onClick={() => navigate('/jobs/search')}
+              >
+                Browse Jobs
+              </Button>
+            )}
           </Box>
         )}
       </Card>
 
-      <Dialog 
-        open={detailsOpen} 
-        onClose={() => setDetailsOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
@@ -302,10 +313,10 @@ const ApplicationsPage = () => {
           {selectedApplication && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                {selectedApplication.jobTitle}
+                {selectedApplication.job?.title || selectedApplication.jobTitle || 'Position'}
               </Typography>
               <Typography variant="subtitle1" color="textSecondary" gutterBottom>
-                {selectedApplication.company}
+                {selectedApplication.job?.company || selectedApplication.company || 'Company'}
               </Typography>
               <Grid container spacing={2} sx={{ mt: 2 }}>
                 <Grid item xs={6}>
@@ -318,26 +329,30 @@ const ApplicationsPage = () => {
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Applied Date</Typography>
-                  <Typography variant="body1">{selectedApplication.appliedDate}</Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="body2" color="textSecondary">Salary</Typography>
-                  <Typography variant="body1">{selectedApplication.salary}</Typography>
+                  <Typography variant="body1">
+                    {selectedApplication.appliedAt
+                      ? new Date(selectedApplication.appliedAt).toLocaleDateString()
+                      : (selectedApplication.appliedDate || '-')}
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Location</Typography>
-                  <Typography variant="body1">{selectedApplication.location}</Typography>
+                  <Typography variant="body1">
+                    {selectedApplication.job?.location || selectedApplication.location || '-'}
+                  </Typography>
                 </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Description</Typography>
-                  <Typography variant="body1">{selectedApplication.description}</Typography>
-                </Grid>
+                {selectedApplication.interviewType && (
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="textSecondary">Interview Type</Typography>
+                    <Typography variant="body1">{selectedApplication.interviewType}</Typography>
+                  </Grid>
+                )}
               </Grid>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDetailsOpen(false)}
             sx={{
               color: '#8B6F47',

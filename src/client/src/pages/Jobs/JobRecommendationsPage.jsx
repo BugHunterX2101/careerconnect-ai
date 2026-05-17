@@ -65,9 +65,11 @@ import {
   SmartToy,
   AutoAwesome,
   Timeline,
-  Assessment
+  Assessment,
+  ArrowBack
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { employeeService } from '../../services/employeeService';
 import { API_BASE_URL } from '../../config/appConfig';
@@ -75,6 +77,7 @@ import { API_BASE_URL } from '../../config/appConfig';
 
 const JobRecommendationsPage = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [recommendations, setRecommendations] = useState([]);
   const [aiRecommendations, setAiRecommendations] = useState([]);
@@ -683,13 +686,18 @@ Please provide detailed analysis covering:
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+            <ArrowBack />
+          </IconButton>
+          <Box>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
             Job Recommendations
           </Typography>
           <Typography variant="body1" color="text.secondary">
             AI-powered job matches based on your profile and preferences
           </Typography>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Tooltip title="Get comprehensive AI-powered career analysis">
