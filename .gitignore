@@ -18,3 +18,4 @@ uploads/temp/*
 !uploads/temp/.gitkeep
 package-lock.json
 yarn.lock
+src/config/careerconnect-ai-471406-6afb348783e1.json
