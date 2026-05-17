@@ -22,6 +22,8 @@ import {
   Paper,
   Tabs,
   Tab,
+  Alert,
+  CircularProgress,
   useTheme
 } from '@mui/material';
 import {
@@ -44,6 +46,7 @@ import {
   VisibilityOff
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { employeeService } from '../../services/employeeService';
 
 const ProfilePage = () => {
   const theme = useTheme();
@@ -77,6 +80,9 @@ const ProfilePage = () => {
   });
 
   const [newSkill, setNewSkill] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -86,9 +92,36 @@ const ProfilePage = () => {
     setIsEditing(true);
   };
 
-  const handleSave = () => {
-    // Here you would typically save to the backend
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setSaveError('');
+      await employeeService.updateProfile({
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        phone: profileData.phone,
+        location: profileData.location,
+        bio: profileData.bio,
+        currentRole: profileData.currentRole,
+        company: profileData.company,
+        experience: profileData.experience,
+        education: profileData.education,
+        skills: profileData.skills,
+        socialLinks: {
+          linkedin: profileData.linkedin,
+          github: profileData.github,
+          portfolio: profileData.portfolio,
+        },
+      });
+      setSaveSuccess('Profile saved successfully!');
+      setIsEditing(false);
+      setTimeout(() => setSaveSuccess(''), 3000);
+    } catch (err) {
+      setSaveError('Failed to save profile. Please try again.');
+      console.error('Profile save error:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -136,6 +169,8 @@ const ProfilePage = () => {
 
   return (
     <Box>
+      {saveSuccess && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveSuccess('')}>{saveSuccess}</Alert>}
+      {saveError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError('')}>{saveError}</Alert>}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
           Profile
@@ -145,8 +180,9 @@ const ProfilePage = () => {
             <>
               <Button
                 variant="contained"
-                startIcon={<Save />}
+                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />}
                 onClick={handleSave}
+                disabled={saving}
               >
                 Save Changes
               </Button>

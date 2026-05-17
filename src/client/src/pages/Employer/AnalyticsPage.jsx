@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { employerService } from '../../services/employerService';
 import {
   Box,
   Grid,
@@ -142,66 +143,29 @@ const AnalyticsPage = () => {
   const topJobsData = useMemo(() => analytics.topPerformingJobs.slice(0, 6), [analytics.topPerformingJobs]);
 
   const fetchAnalytics = async () => {
-    // Mock data - replace with actual API call
-    const mockData = {
-      overview: {
-        totalJobs: 15,
-        activeJobs: 8,
-        totalApplicants: 342,
-        interviewsScheduled: 28,
-        hiredCandidates: 12,
-        avgTimeToHire: 18
-      },
-      applicationTrends: [
-        { month: 'Jan', applications: 45, interviews: 12, hires: 3 },
-        { month: 'Feb', applications: 52, interviews: 15, hires: 4 },
-        { month: 'Mar', applications: 38, interviews: 10, hires: 2 },
-        { month: 'Apr', applications: 61, interviews: 18, hires: 5 },
-        { month: 'May', applications: 55, interviews: 16, hires: 4 },
-        { month: 'Jun', applications: 48, interviews: 14, hires: 3 }
-      ],
-      jobPerformance: [
-        { job: 'Frontend Dev', applications: 85, views: 320, conversion: 26.6 },
-        { job: 'Backend Dev', applications: 72, views: 280, conversion: 25.7 },
-        { job: 'Product Manager', applications: 45, views: 180, conversion: 25.0 },
-        { job: 'UX Designer', applications: 38, views: 160, conversion: 23.8 },
-        { job: 'Data Scientist', applications: 29, views: 140, conversion: 20.7 }
-      ],
-      sourceAnalytics: [
-        { name: 'Direct Apply', value: 35, color: '#0F5FCC' },
-        { name: 'LinkedIn', value: 28, color: '#1F73F2' },
-        { name: 'Job Boards', value: 20, color: '#10B981' },
-        { name: 'Referrals', value: 12, color: '#F57A2E' },
-        { name: 'Other', value: 5, color: '#8DA0B6' }
-      ],
-      topPerformingJobs: [
-        {
-          id: 1,
-          title: 'Senior Frontend Developer',
-          applications: 85,
-          views: 320,
-          conversionRate: 26.6,
-          status: 'active'
-        },
-        {
-          id: 2,
-          title: 'Backend Engineer',
-          applications: 72,
-          views: 280,
-          conversionRate: 25.7,
-          status: 'active'
-        },
-        {
-          id: 3,
-          title: 'Product Manager',
-          applications: 45,
-          views: 180,
-          conversionRate: 25.0,
-          status: 'paused'
-        }
-      ]
-    };
-    setAnalytics(mockData);
+    try {
+      const data = await employerService.getAnalytics();
+      if (data && typeof data === 'object') {
+        setAnalytics(prev => ({
+          overview: {
+            totalJobs: data.overview?.totalJobs ?? data.totalJobs ?? prev.overview.totalJobs,
+            activeJobs: data.overview?.activeJobs ?? data.activeJobs ?? prev.overview.activeJobs,
+            totalApplicants: data.overview?.totalApplications ?? data.totalApplications ?? prev.overview.totalApplicants,
+            interviewsScheduled: data.overview?.scheduledInterviews ?? data.scheduledInterviews ?? prev.overview.interviewsScheduled,
+            hiredCandidates: data.overview?.totalHires ?? data.totalHired ?? prev.overview.hiredCandidates,
+            avgTimeToHire: data.trends?.timeToHire?.average ?? data.avgTimeToHire ?? prev.overview.avgTimeToHire,
+          },
+          applicationTrends: data.applicationTrends ?? data.trends?.monthly ?? prev.applicationTrends,
+          jobPerformance: data.jobPerformance ?? data.topPerformingJobs?.map(j => ({
+            job: j.title, applications: j.applications, views: j.views ?? 0, conversion: j.conversionRate ?? 0
+          })) ?? prev.jobPerformance,
+          sourceAnalytics: data.sourceAnalytics ?? prev.sourceAnalytics,
+          topPerformingJobs: data.topPerformingJobs ?? prev.topPerformingJobs,
+        }));
+      }
+    } catch (err) {
+      console.error('Analytics fetch error:', err);
+    }
   };
 
   const topJobsListHeight = useMemo(() => {

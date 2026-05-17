@@ -194,7 +194,7 @@ const JobManagementPage = () => {
               size="small"
               variant="outlined"
               startIcon={<People />}
-              onClick={() => navigate(`/employer/jobs/${job._id}/applications`)}
+              onClick={() => navigate(`/employer/jobs/${job._id}/applicants`)}
             >
               Applications ({job.applications?.length || 0})
             </Button>

@@ -27,6 +27,10 @@ const CandidateSearchPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [inviteDialog, setInviteDialog] = useState(false);
+  const [inviteJobId, setInviteJobId] = useState('');
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState('');
   const [jobs, setJobs] = useState([]);
   const [searchNonce, setSearchNonce] = useState(0);
   const searchAbortRef = useRef(null);
@@ -130,14 +134,23 @@ const CandidateSearchPage = () => {
     setSelectedCandidate(candidate);
   }, []);
 
-  const handleInviteCandidate = async (candidateId, jobId, message) => {
+  const handleInviteCandidate = async () => {
+    if (!selectedCandidate?._id || !inviteJobId) return;
     try {
-      await employerService.inviteCandidate(candidateId, jobId, message);
-      setInviteDialog(false);
-      setSelectedCandidate(null);
-      // Show success message
+      setInviteSending(true);
+      await employerService.inviteCandidate(selectedCandidate._id, inviteJobId, inviteMessage);
+      setInviteSuccess('Invitation sent successfully!');
+      setTimeout(() => {
+        setInviteDialog(false);
+        setSelectedCandidate(null);
+        setInviteJobId('');
+        setInviteMessage('');
+        setInviteSuccess('');
+      }, 1500);
     } catch (error) {
       console.error('Invite error:', error);
+    } finally {
+      setInviteSending(false);
     }
   };
 
@@ -550,17 +563,22 @@ const CandidateSearchPage = () => {
       </Dialog>
 
       {/* Invite Dialog */}
-      <Dialog open={inviteDialog} onClose={() => setInviteDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Invite Candidate</DialogTitle>
+      <Dialog open={inviteDialog} onClose={() => { setInviteDialog(false); setInviteJobId(''); setInviteMessage(''); setInviteSuccess(''); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Invite {selectedCandidate?.firstName} to a Job</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2}>
+          {inviteSuccess && <Alert severity="success" sx={{ mb: 2 }}>{inviteSuccess}</Alert>}
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
-              <FormControl fullWidth>
+              <FormControl fullWidth required>
                 <InputLabel><Trans>Select Job</Trans></InputLabel>
-                <Select defaultValue="">
+                <Select
+                  value={inviteJobId}
+                  onChange={(e) => setInviteJobId(e.target.value)}
+                  label="Select Job"
+                >
                   {jobs.map(job => (
                     <MenuItem key={job._id} value={job._id}>
-                      {job.title} - {job.location}
+                      {job.title} — {typeof job.location === 'string' ? job.location : (job.location?.city || 'Remote')}
                     </MenuItem>
                   ))}
                 </Select>
@@ -573,13 +591,21 @@ const CandidateSearchPage = () => {
                 rows={4}
                 label="Personal Message"
                 placeholder="Add a personal message to your invitation..."
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setInviteDialog(false)}>Cancel</Button>
-          <Button variant="contained"><Trans>Send Invitation</Trans></Button>
+          <Button onClick={() => { setInviteDialog(false); setInviteJobId(''); setInviteMessage(''); setInviteSuccess(''); }}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleInviteCandidate}
+            disabled={!inviteJobId || inviteSending}
+          >
+            {inviteSending ? 'Sending...' : <Trans>Send Invitation</Trans>}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

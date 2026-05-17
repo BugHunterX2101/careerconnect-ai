@@ -395,6 +395,17 @@ export const employerService = {
     }
   },
 
+  // Hiring Pipeline
+  getPipeline: async () => {
+    try {
+      const response = await api.get('/employer/pipeline');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pipeline:', error);
+      throw error;
+    }
+  },
+
   // Matching Candidates
   getMatchingCandidates: async (jobId, filters = {}) => {
     try {

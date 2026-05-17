@@ -44,6 +44,7 @@ const EmployerDashboardEnhanced = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [newInvite, setNewInvite] = useState({ email: '', role: 'Recruiter' });
   const [anchorEl, setAnchorEl] = useState(null);
+  const [menuJob, setMenuJob] = useState(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -56,36 +57,34 @@ const EmployerDashboardEnhanced = () => {
         statsData, analyticsData, pipelineData, teamData, reportData,
         notificationsData, jobsData, interviewsData
       ] = await Promise.all([
-        employerService.getDashboardStats(),
-        employerService.getAnalytics(),
-        employerService.getPipeline(),
-        employerService.getTeamMembers(),
-        employerService.getHiringReport(),
-        employerService.getNotifications(),
-        employerService.getJobs({ limit: 5 }),
-        employerService.getInterviews({ limit: 5, status: 'scheduled' })
+        employerService.getDashboardStats().catch(() => null),
+        employerService.getAnalytics().catch(() => null),
+        employerService.getPipeline().catch(() => null),
+        employerService.getTeamMembers().catch(() => ({ members: [], pendingInvites: [] })),
+        employerService.getHiringReport().catch(() => null),
+        employerService.getNotifications().catch(() => ({ notifications: [] })),
+        employerService.getJobs({ limit: 5 }).catch(() => ({ jobs: [] })),
+        employerService.getInterviews({ limit: 5, status: 'scheduled' }).catch(() => ({ interviews: [] }))
       ]);
-      
+
       setStats(statsData);
       setAnalytics(analyticsData);
       setPipeline(pipelineData);
       setTeam(teamData);
       setHiringReport(reportData);
-      setNotifications(notificationsData.notifications || []);
-      setRecentJobs(jobsData.jobs || []);
-      setUpcomingInterviews(interviewsData.interviews || []);
-      
-      // Get recent applications from jobs
-      if (jobsData.jobs?.length > 0) {
-        const jobPromises = jobsData.jobs.slice(0, 3).map(job => 
+      setNotifications(notificationsData?.notifications || []);
+      setRecentJobs(jobsData?.jobs || []);
+      setUpcomingInterviews(interviewsData?.interviews || []);
+
+      if (jobsData?.jobs?.length > 0) {
+        const jobPromises = jobsData.jobs.slice(0, 3).map(job =>
           employerService.getJobApplicants(job._id, { limit: 3 })
             .then(appData => (appData.applications || []).map(app => ({ ...app, jobTitle: job.title })))
             .catch(() => [])
         );
-        
+
         const applicationsArrays = await Promise.all(jobPromises);
-        const applications = applicationsArrays.flat().slice(0, 5);
-        setRecentApplications(applications);
+        setRecentApplications(applicationsArrays.flat().slice(0, 5));
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -571,7 +570,7 @@ const EmployerDashboardEnhanced = () => {
                           </Box>
                         }
                       />
-                      <IconButton onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}>
+                      <IconButton onClick={(e) => { e.stopPropagation(); setMenuJob(job); setAnchorEl(e.currentTarget); }}>
                         <MoreVert />
                       </IconButton>
                     </ListItem>
@@ -1064,18 +1063,21 @@ const EmployerDashboardEnhanced = () => {
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
+        onClose={() => { setAnchorEl(null); setMenuJob(null); }}
       >
-        <MenuItem onClick={() => setAnchorEl(null)}>
+        <MenuItem onClick={() => { navigate(`/employer/jobs/${menuJob?._id}`); setAnchorEl(null); }}>
           <Edit sx={{ mr: 1 }} /> Edit Job
         </MenuItem>
-        <MenuItem onClick={() => setAnchorEl(null)}>
+        <MenuItem onClick={() => { navigate(`/employer/jobs/${menuJob?._id}/applicants`); setAnchorEl(null); }}>
           <Visibility sx={{ mr: 1 }} /> View Applications
         </MenuItem>
-        <MenuItem onClick={() => setAnchorEl(null)}>
+        <MenuItem onClick={() => { navigate('/employer/analytics'); setAnchorEl(null); }}>
           <Analytics sx={{ mr: 1 }} /> View Analytics
         </MenuItem>
-        <MenuItem onClick={() => setAnchorEl(null)}>
+        <MenuItem onClick={async () => {
+          if (menuJob?._id) { try { await employerService.deleteJob(menuJob._id); loadDashboardData(); } catch(e) { console.error(e); } }
+          setAnchorEl(null);
+        }}>
           <Delete sx={{ mr: 1 }} /> Delete Job
         </MenuItem>
       </Menu>
