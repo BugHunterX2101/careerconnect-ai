@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Button, Grid, Card, CardContent,
   Accordion, AccordionSummary, AccordionDetails, Chip, List,
@@ -14,6 +14,8 @@ import {
   Assessment, BookmarkBorder, Bookmark, Refresh
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { API_BASE_URL } from '../../config/appConfig';
+
 
 const CareerImprovementPage = () => {
   const { user } = useAuth();
@@ -38,7 +40,7 @@ const CareerImprovementPage = () => {
 
       // Try to get existing resume analysis
       try {
-        const resumeResponse = await fetch('http://localhost:3000/api/profile', {
+        const resumeResponse = await fetch(`${API_BASE_URL}/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -69,7 +71,7 @@ const CareerImprovementPage = () => {
       }
 
       // Get career improvement suggestions
-      const response = await fetch('http://localhost:3000/api/ml/career-improvement', {
+      const response = await fetch(`${API_BASE_URL}/ml/career-improvement`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -550,7 +552,7 @@ const CareerImprovementPage = () => {
           <Typography variant="subtitle2" gutterBottom>Priority Actions:</Typography>
           {suggestions.priorityActions.map((action, index) => (
             <Typography key={index} variant="body2">
-              • {action.action} (Impact: {action.impact}, Timeframe: {action.timeframe})
+              â€¢ {action.action} (Impact: {action.impact}, Timeframe: {action.timeframe})
             </Typography>
           ))}
         </Alert>

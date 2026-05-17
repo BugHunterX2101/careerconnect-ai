@@ -94,8 +94,45 @@ export const SocketProvider = ({ children }) => {
     };
   }, [user, token]);
 
+  // ─── Conversation helpers ───────────────────────────────────────────────
+  const joinConversation = (conversationId) => {
+    socket?.emit('join_conversation', conversationId);
+  };
+
+  const leaveConversation = (conversationId) => {
+    socket?.emit('leave_conversation', conversationId);
+  };
+
+  const startTyping = (conversationId) => {
+    socket?.emit('typing_start', { conversationId });
+  };
+
+  const stopTyping = (conversationId) => {
+    socket?.emit('typing_stop', { conversationId });
+  };
+
+  // ─── Video call helpers ─────────────────────────────────────────────────
+  const joinVideoCall = (interviewId) => {
+    socket?.emit('join_video_call', interviewId);
+  };
+
+  const leaveVideoCall = (interviewId) => {
+    socket?.emit('leave_video_call', interviewId);
+  };
+
   return (
-    <SocketContext.Provider value={{ socket, isConnected, reconnectAttempts }}>
+    <SocketContext.Provider value={{
+      socket,
+      isConnected,
+      connected: isConnected, // backward-compat alias
+      reconnectAttempts,
+      joinConversation,
+      leaveConversation,
+      startTyping,
+      stopTyping,
+      joinVideoCall,
+      leaveVideoCall
+    }}>
       {children}
     </SocketContext.Provider>
   );

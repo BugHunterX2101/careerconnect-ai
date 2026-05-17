@@ -215,7 +215,7 @@ class TensorFlowService {
       return;
     }
     
-    const { users, jobs, interactions } = trainingData;
+    const { jobs, interactions } = trainingData;
     
     const userIds = interactions.map(i => [i.userId]);
     const jobFeatures = interactions.map(i => {

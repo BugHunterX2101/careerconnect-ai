@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Paper, Typography, Button, Grid, Card, CardContent,
   Avatar, Chip, IconButton, TextField, List, ListItem,
@@ -15,6 +15,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 import { useParams, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
+
 
 const VideoInterviewPage = () => {
   const { interviewId } = useParams();
@@ -92,7 +94,7 @@ const VideoInterviewPage = () => {
   const fetchInterviewDetails = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/video/interviews/${interviewId}`, {
+      const response = await fetch(`${API_BASE_URL}/video/interviews/${interviewId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -120,7 +122,7 @@ const VideoInterviewPage = () => {
   const fetchMeetLink = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/video/meet-link/${interviewId}`, {
+      const response = await fetch(`${API_BASE_URL}/video/meet-link/${interviewId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -440,7 +442,7 @@ const VideoInterviewPage = () => {
   const updateInterviewStatus = async (status) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:3000/api/video/interviews/${interviewId}`, {
+      await fetch(`${API_BASE_URL}/video/interviews/${interviewId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

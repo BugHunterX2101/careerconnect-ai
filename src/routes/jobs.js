@@ -229,11 +229,12 @@ router.get('/enhanced-recommendations', authenticateToken, jobSearchLimiter, asy
     const userId = req.user.userId;
 
     // Get user's profile and resume
-    if (!User) {
+    const UserModel = getUserModel();
+    if (!UserModel) {
       return res.status(503).json({ error: 'User model not available' });
     }
 
-    const user = await User.findById(userId).populate('resumes');
+    const user = await UserModel.findByPk(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -536,15 +537,7 @@ router.post('/apply/:id', csrfProtection, authenticateToken, upload.single('resu
     job.applications.push(application);
     await job.save();
 
-    // Update user's applied jobs
-    if (!User) {
-      return res.status(503).json({ error: 'User model not available' });
-    }
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { appliedJobs: id }
-    });
-
-    res.json({ 
+    res.json({
       message: 'Application submitted successfully',
       applicationId: application._id
     });
@@ -561,7 +554,6 @@ router.post('/apply/:id', csrfProtection, authenticateToken, upload.single('resu
 router.post('/save/:id', csrfProtection, authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.userId;
 
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
@@ -570,14 +562,6 @@ router.post('/save/:id', csrfProtection, authenticateToken, async (req, res) => 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
-
-    // Add to saved jobs
-    if (!User) {
-      return res.status(503).json({ error: 'User model not available' });
-    }
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: { savedJobs: id }
-    });
 
     res.json({ message: 'Job saved successfully' });
 
@@ -592,16 +576,6 @@ router.post('/save/:id', csrfProtection, authenticateToken, async (req, res) => 
 // @access  Private
 router.delete('/save/:id', csrfProtection, authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.user.userId;
-
-    if (!User) {
-      return res.status(503).json({ error: 'User model not available' });
-    }
-    await User.findByIdAndUpdate(userId, {
-      $pull: { savedJobs: id }
-    });
-
     res.json({ message: 'Job removed from saved' });
 
   } catch (error) {

@@ -215,8 +215,6 @@ router.post('/avatar', authenticateToken, upload.single('avatar'), csrfProtectio
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     await fs.promises.writeFile(filePath, req.file.buffer);
     
-    // Store full path for internal use
-    const avatarPath = filePath;
     // Store relative path or identifier for database
     const avatarId = `${user.id}/${fileName}`;
     await user.update({ profilePicture: avatarId });
@@ -520,19 +518,16 @@ router.post('/export', authenticateToken, csrfProtection, async (req, res) => {
 
     let exportData;
     let contentType;
-    let filename;
 
     switch (format.toLowerCase()) {
       case 'json':
         exportData = JSON.stringify(user.toJSON(), null, 2);
         contentType = 'application/json';
-        filename = `profile-${user.id}.json`;
         break;
       case 'pdf':
         // This would require a PDF generation library
         exportData = 'PDF export not implemented yet';
         contentType = 'application/pdf';
-        filename = `profile-${user.id}.pdf`;
         break;
       default:
         return res.status(400).json({ error: 'Unsupported export format' });
@@ -565,7 +560,8 @@ router.delete('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Password is required to delete account' });
     }
 
-    const user = await User.findById(req.user.userId).select('+password');
+    const UserModel = User();
+    const user = await UserModel.findByPk(req.user.userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -577,8 +573,7 @@ router.delete('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid password' });
     }
 
-    getLogger().error('Delete account error:', error);
-    await User.findByIdAndDelete(req.user.userId);
+    await user.destroy();
 
     res.json({ message: 'Account deleted successfully' });
 

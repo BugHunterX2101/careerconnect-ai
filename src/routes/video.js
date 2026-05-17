@@ -1,13 +1,9 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const csrf = require('csurf');
 // Try to import models (optional)
 let Interview = null;
 let User = null;
 let Job = null;
-
-// Initialize CSRF protection
-const csrfProtection = csrf({ cookie: true });
 
 try {
   Interview = require('../models/Interview');
@@ -86,10 +82,12 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
     }
 
     // Check for scheduling conflicts
+    const scheduledAtDate = new Date(scheduledAt);
+    const scheduledEndTime = new Date(scheduledAtDate.getTime() + duration * 60000);
     const conflictingInterview = await Interview.findOne({
       $or: [
-        { candidate: candidateId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } },
-        { interviewer: req.user.userId, scheduledAt: { $lt: new Date(scheduledAt.getTime() + duration * 60000), $gt: scheduledAt } }
+        { candidate: candidateId, scheduledAt: { $lt: scheduledEndTime, $gt: scheduledAtDate } },
+        { interviewer: req.user.userId, scheduledAt: { $lt: scheduledEndTime, $gt: scheduledAtDate } }
       ],
       status: { $in: ['scheduled', 'confirmed'] }
     });
@@ -120,7 +118,7 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
           summary: `Interview: ${job.title} - ${candidate.firstName} ${candidate.lastName}`,
           description: description || `Interview for ${job.title} position`,
           startTime: new Date(scheduledAt),
-          endTime: new Date(scheduledAt.getTime() + duration * 60000),
+          endTime: new Date(new Date(scheduledAt).getTime() + duration * 60000),
           attendees: [
             { email: candidate.email, displayName: `${candidate.firstName} ${candidate.lastName}` },
             { email: req.user.email, displayName: `${req.user.firstName} ${req.user.lastName}` }

@@ -226,8 +226,7 @@ Provide realistic, actionable recommendations with specific reasoning for each m
         skills = [],
         experience = [],
         education = [],
-        summary = '',
-        personalInfo = {}
+        summary = ''
       } = resumeData;
 
       const prompt = `

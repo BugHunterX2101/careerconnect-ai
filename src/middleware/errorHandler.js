@@ -16,7 +16,7 @@ const logger = winston.createLogger({
   ]
 });
 
-const errorHandler = (error, req, res, next) => {
+const errorHandler = (error, req, res, _next) => {
   // Log the error
   logger.error('Error occurred:', {
     message: error.message,

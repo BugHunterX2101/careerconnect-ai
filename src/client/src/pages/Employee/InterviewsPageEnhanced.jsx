@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -38,6 +38,8 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
+import { API_BASE_URL } from '../../config/appConfig';
+
 
 const InterviewsPageEnhanced = () => {
   const { t } = useTranslation();
@@ -114,7 +116,7 @@ const InterviewsPageEnhanced = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:3000/api/video/interviews', {
+      const response = await fetch(`${API_BASE_URL}/video/interviews`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -444,7 +446,7 @@ const InterviewsPageEnhanced = () => {
                             </Typography>
                             {interview.rating && (
                               <Typography variant="body2" color="primary">
-                                Rating: {interview.rating}/5 ⭐
+                                Rating: {interview.rating}/5 â­
                               </Typography>
                             )}
                             <Button

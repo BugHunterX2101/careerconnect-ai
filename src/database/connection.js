@@ -57,12 +57,8 @@ const connectDB = async (retries = 5) => {
         logger.info(`Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        logger.error('All MongoDB connection attempts failed');
-        if (process.env.NODE_ENV === 'production') {
-          logger.warn('Continuing without database connection');
-          return;
-        }
-        process.exit(1);
+        logger.warn('All MongoDB connection attempts failed — continuing without MongoDB');
+        return;
       }
     }
   }

@@ -114,7 +114,7 @@ const authLimiter = rateLimit({
 });
 
 // Apply rate limiting
-const { apiLimiter: newApiLimiter, authLimiter: newAuthLimiter, uploadLimiter, mlLimiter } = require('../middleware/rateLimiter');
+const { uploadLimiter, mlLimiter } = require('../middleware/rateLimiter');
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/resume/upload', uploadLimiter);
@@ -296,7 +296,7 @@ io.on('connection', (socket) => {
     if (!rawToken) return false;
     try {
       const normalizedToken = String(rawToken).replace(/^Bearer\s+/i, '');
-      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
+      const jwtSecret = process.env.JWT_SECRET;
       const decoded = jwt.verify(normalizedToken, jwtSecret);
       const resolvedUserId = decoded.userId || decoded.id || decoded._id || decoded.sub;
       if (!resolvedUserId) {
@@ -307,6 +307,8 @@ io.on('connection', (socket) => {
       socket.join(`user_${resolvedUserId}`);
       authenticated = true;
       socket.emit('authenticated');
+      // Broadcast online presence to all connected clients
+      io.emit('user_online', { userId: resolvedUserId });
       registerSocketEventsOnce();
       return true;
     } catch (error) {
@@ -356,11 +358,7 @@ io.on('connection', (socket) => {
       }
       socket.broadcast.emit('job_recommendations_ready', data);
     });
-  
-    socket.on('job_recommendation_request', (data) => {
-      socket.broadcast.emit('job_recommendations_ready', data);
-    });
-  
+
     // Chat events
     socket.on('join_conversation', (conversationId) => {
       socket.join(`conversation_${conversationId}`);
@@ -413,9 +411,51 @@ io.on('connection', (socket) => {
       from: socket.userId
     });
   });
-  
+
+  // In-video-call chat relay: forward to all peers in the same video call room
+  socket.on('send_message', (data) => {
+    if (!authenticated) {
+      socket.emit('authentication_error', { message: 'Authentication required' });
+      return;
+    }
+    if (data.interviewId) {
+      socket.to(`video_call_${data.interviewId}`).emit('chat:new_message', {
+        message: data.message
+      });
+    } else if (data.conversationId) {
+      socket.to(`conversation_${data.conversationId}`).emit('chat:new_message', {
+        conversationId: data.conversationId,
+        message: data.message
+      });
+    }
+  });
+
+  // Message read receipt relay
+  socket.on('message_read', (data) => {
+    if (data.conversationId) {
+      socket.to(`conversation_${data.conversationId}`).emit('message_read', {
+        messageId: data.messageId,
+        readBy: socket.userId
+      });
+    }
+  });
+
+  // Message delivered acknowledgement
+  socket.on('message_delivered', (data) => {
+    if (data.conversationId) {
+      socket.to(`conversation_${data.conversationId}`).emit('message_delivered', {
+        messageId: data.messageId,
+        deliveredTo: socket.userId
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
     logger.info(`Client disconnected: ${encodeURIComponent(socket.id)}`);
+    // Broadcast offline presence to everyone
+    if (socket.userId) {
+      io.emit('user_offline', { userId: socket.userId });
+    }
   });
 
   // Close registerSocketEvents function
@@ -423,7 +463,7 @@ io.on('connection', (socket) => {
 });
 
 // Error handling middleware
-app.use((error, req, res, next) => {
+app.use((error, req, res, _next) => {
   logger.error('Error occurred:', {
     message: error.message,
     stack: error.stack,
@@ -460,7 +500,7 @@ if (fs.existsSync(frontendPath)) {
     }
 
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
+      const jwtSecret = process.env.JWT_SECRET;
       jwt.verify(token, jwtSecret);
       next();
     } catch (err) {
@@ -527,8 +567,15 @@ async function initializeServices() {
       await connectDB();
       logger.info('✅ SQLite database connected successfully');
     } catch (dbError) {
-      logger.warn('⚠️ Database connection failed, continuing without database:', dbError.message);
-      logger.info('📝 Note: Some features may be limited without database');
+      logger.warn('⚠️ SQLite connection failed, continuing without SQL database:', dbError.message);
+    }
+
+    try {
+      const { connectDB: connectMongo } = require('../database/connection');
+      await connectMongo();
+      logger.info('✅ MongoDB connected successfully');
+    } catch (mongoError) {
+      logger.warn('⚠️ MongoDB connection failed — Job/Interview/Chat features limited:', mongoError.message);
     }
     
     try {
@@ -537,7 +584,15 @@ async function initializeServices() {
     } catch (redisError) {
       logger.warn('⚠️ Redis connection failed, continuing without cache');
     }
-    
+
+    try {
+      const { setupJobQueue } = require('../workers/jobQueue');
+      await setupJobQueue();
+      logger.info('✅ Job queues initialized');
+    } catch (queueError) {
+      logger.warn('⚠️ Job queue setup failed, continuing without queues:', queueError.message);
+    }
+
     const { initFileCleanup } = require('../workers/fileCleanup');
     initFileCleanup();
     

@@ -997,12 +997,14 @@ router.get('/candidates/:id', async (req, res) => {
       return res.status(503).json({ error: 'User model not available' });
     }
 
-    const candidate = await User.findOne({
-      _id: req.params.id,
-      role: 'jobseeker'
-    }).select('firstName lastName email profile').populate('resumes');
+    const UserModel = getSqlUserModel();
+    if (!UserModel) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
 
-    if (!candidate) {
+    const candidate = await UserModel.findByPk(req.params.id);
+
+    if (!candidate || candidate.role !== 'jobseeker') {
       return res.status(404).json({ error: 'Candidate not found' });
     }
 
@@ -1157,11 +1159,9 @@ router.post('/candidates/:id/invite', async (req, res) => {
       return res.status(403).json({ error: 'CSRF token missing' });
     }
 
-    const { jobId, message } = req.body;
-    
-    // Here you would typically send an email invitation
+    // Here you would typically send an email invitation using req.body.jobId and req.body.message
     // For now, we'll just return success
-    
+
     res.json({
       message: 'Invitation sent successfully'
     });
@@ -1469,8 +1469,6 @@ router.patch('/interviews/:id/cancel', async (req, res) => {
 router.get('/analytics', async (req, res) => {
   try {
     const employerId = req.user.userId;
-    const { startDate, endDate } = req.query;
-
     let jobs = [];
     let interviews = [];
     try {
@@ -1714,7 +1712,6 @@ router.delete('/team/:id', async (req, res) => {
 router.get('/reports/hiring', async (req, res) => {
   try {
     const employerId = req.user.userId;
-    const { startDate, endDate, format } = req.query;
 
     let jobs = [];
     if (Job && typeof Job.find === 'function') {

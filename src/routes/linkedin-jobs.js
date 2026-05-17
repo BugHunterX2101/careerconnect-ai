@@ -166,7 +166,8 @@ router.post('/recommendations', authenticateToken, linkedinLimiter, async (req, 
     let User = null;
     try {
       User = require('../models/User');
-      const user = await User.findById(userId);
+      const UserModel = User.User ? User.User() : null;
+      const user = UserModel ? await UserModel.findByPk(userId) : null;
       
       const userProfile = {
         skills: user.skills || [],

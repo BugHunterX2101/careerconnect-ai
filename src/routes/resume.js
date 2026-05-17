@@ -8,27 +8,18 @@ const { Op } = require('sequelize');
 const csrf = require('csurf');
 
 // Import middleware and utilities
-const { authenticateToken, authorizeRole, checkOwnership } = require('../middleware/auth');
-const { errorHandler } = require('../middleware/errorHandler');
-const { performanceLogger } = require('../middleware/logger');
+const { authenticateToken } = require('../middleware/auth');
 
 // Try to import models (optional)
 let getResumeModel = null;
-let getUserModel = null;
 
 try {
-  const { Resume: resumeModel, initializeResumeModel } = require('../models/Resume');
+  const { Resume: resumeModel } = require('../models/Resume');
   getResumeModel = resumeModel;
 } catch (error) {
   console.warn('Resume model not available:', error.message);
 }
 
-try {
-  const { User: userModel } = require('../models/User');
-  getUserModel = userModel;
-} catch (error) {
-  console.warn('User model not available:', error.message);
-}
 const router = express.Router();
 const csrfProtection = csrf({ cookie: true });
 
@@ -131,15 +122,15 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
 
     // Create resume record
     const resume = await Resume.create({
-      userId: req.user.userId,
+      user_id: req.user.userId,
       title: title || req.file.originalname,
-      originalFileName: req.file.originalname,
-      filePath: req.file.path,
-      fileSize: req.file.size,
-      fileType: path.extname(req.file.originalname).toLowerCase(),
+      original_file_name: req.file.originalname,
+      file_path: req.file.path,
+      file_size: req.file.size,
+      file_type: path.extname(req.file.originalname).toLowerCase(),
       description,
-      isPublic,
-      processingStatus: 'pending'
+      is_public: isPublic,
+      processing_status: 'pending'
     });
 
     res.status(201).json({
@@ -147,9 +138,9 @@ router.post('/upload', authenticateToken, upload.single('resume'), async (req, r
       resume: {
         id: resume.id,
         title: resume.title,
-        originalFileName: resume.originalFileName,
-        fileSize: resume.fileSize,
-        processingStatus: resume.processingStatus
+        originalFileName: resume.original_file_name,
+        fileSize: resume.file_size,
+        processingStatus: resume.processing_status
       }
     });
   } catch (error) {
@@ -190,12 +181,12 @@ router.get('/', authenticateToken, async (req, res) => {
         }
       });
     }
-    const { page = 1, limit = 10, status, search } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
     const offset = (page - 1) * limit;
 
     // Build query
-    const where = { userId: req.user.userId };
-    if (status) where.processingStatus = status;
+    const where = { user_id: req.user.userId };
+    if (status) where.processing_status = status;
 
     const resumes = await Resume.findAll({
       where,
@@ -235,7 +226,7 @@ router.get('/public', async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Build query
-    const where = { isPublic: true, isActive: true };
+    const where = { is_public: true, is_active: true };
     if (search) {
       where.title = { [Op.like]: `%${search}%` };
     }
@@ -281,7 +272,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -309,7 +300,7 @@ router.put('/:id', [authenticateToken, csrfProtection], async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -322,8 +313,18 @@ router.put('/:id', [authenticateToken, csrfProtection], async (req, res) => {
       });
     }
 
+    // Map camelCase schema fields to snake_case model columns
+    const updateData = {};
+    const d = validationResult.data;
+    if (d.title !== undefined) updateData.title = d.title;
+    if (d.isPublic !== undefined) updateData.is_public = d.isPublic;
+    if (d.description !== undefined) updateData.description = d.description;
+    if (d.personalInfo !== undefined) updateData.personal_info = d.personalInfo;
+    if (d.summary !== undefined) updateData.summary = d.summary;
+    if (d.skills !== undefined) updateData.skills = d.skills;
+
     // Update resume
-    await resume.update(validationResult.data);
+    await resume.update(updateData);
 
     res.json({
       message: 'Resume updated successfully',
@@ -352,13 +353,13 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Delete file
     try {
-      await fs.unlink(resume.filePath);
+      await fs.unlink(resume.file_path);
     } catch (fileError) {
       console.warn('Failed to delete file:', fileError.message.replace(/[\r\n]/g, ''));
     }
@@ -390,16 +391,16 @@ router.get('/:id/status', authenticateToken, async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     res.json({
       id: resume.id,
-      status: resume.processingStatus,
-      progress: resume.processingProgress,
-      error: resume.processingError,
-      processedAt: resume.processedAt
+      status: resume.processing_status,
+      progress: resume.processing_progress,
+      error: resume.processing_error,
+      processedAt: resume.processed_at
     });
   } catch (error) {
     console.error('Get resume status error:', error);
@@ -424,21 +425,21 @@ router.post('/:id/reprocess', authenticateToken, async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Reset processing status
     await resume.update({
-      processingStatus: 'pending',
-      processingProgress: 0,
-      processingError: null
+      processing_status: 'pending',
+      processing_progress: 0,
+      processing_error: null
     });
 
     res.json({
       message: 'Resume reprocessing started',
       id: resume.id,
-      status: resume.processingStatus
+      status: resume.processing_status
     });
   } catch (error) {
     console.error('Reprocess resume error:', error);
@@ -463,29 +464,29 @@ router.get('/:id/analysis', authenticateToken, async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Generate analysis if not exists or if requested fresh
-    let analysis = resume.aiAnalysis;
+    let analysis = resume.ai_analysis;
     if (!analysis || req.query.refresh === 'true') {
       try {
         const ResumeAnalyzer = require('../ml/resumeAnalyzer');
         const analyzer = new ResumeAnalyzer();
-        
+
         const parsedData = {
-          personalInfo: resume.personalInfo || {},
+          personalInfo: resume.personal_info || {},
           education: resume.education || [],
           experience: resume.experience || [],
           skills: resume.skills || [],
           summary: resume.summary || ''
         };
-        
+
         analysis = await analyzer.analyzeResumeWithAI(parsedData);
-        
+
         // Save analysis to resume
-        await resume.update({ aiAnalysis: analysis });
+        await resume.update({ ai_analysis: analysis });
       } catch (error) {
         console.error('AI analysis failed:', error);
         analysis = {
@@ -537,20 +538,20 @@ router.get('/:id/recommendations', authenticateToken, async (req, res) => {
     }
 
     // Check ownership
-    if (resume.userId !== req.user.userId && req.user.role !== 'admin') {
+    if (resume.user_id !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    if (resume.processingStatus !== 'completed') {
+    if (resume.processing_status !== 'completed') {
       return res.status(400).json({ 
         error: 'Resume processing not completed',
-        status: resume.processingStatus 
+        status: resume.processing_status 
       });
     }
 
     res.json({
       id: resume.id,
-      recommendations: resume.jobRecommendations || []
+      recommendations: resume.job_recommendations || []
     });
   } catch (error) {
     console.error('Get job recommendations error:', error);

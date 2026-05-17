@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -36,6 +36,8 @@ import {
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
+
 const ResumeUploadPage = () => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -88,7 +90,7 @@ const ResumeUploadPage = () => {
       
       // Call BERT-powered resume parsing API
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/ml/parse-resume', {
+      const response = await fetch(`${API_BASE_URL}/ml/parse-resume`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -449,7 +451,7 @@ const ResumeUploadPage = () => {
                       </Box>
                     </Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {job.company} • {job.location}
+                      {job.company} â€¢ {job.location}
                     </Typography>
                     <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold', mb: 1 }}>
                       {job.salary}
@@ -487,3 +489,4 @@ const ResumeUploadPage = () => {
 };
 
 export default ResumeUploadPage;
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -67,10 +67,14 @@ import {
   Timeline,
   Assessment
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { employeeService } from '../../services/employeeService';
+import { API_BASE_URL } from '../../config/appConfig';
+
 
 const JobRecommendationsPage = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [recommendations, setRecommendations] = useState([]);
   const [aiRecommendations, setAiRecommendations] = useState([]);
@@ -118,7 +122,7 @@ const JobRecommendationsPage = () => {
       });
       
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/jobs/recommendations?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/jobs/recommendations?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -145,7 +149,7 @@ const JobRecommendationsPage = () => {
   const fetchAIRecommendations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/ml/job-recommendations', {
+      const response = await fetch(`${API_BASE_URL}/ml/job-recommendations`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -204,7 +208,7 @@ const JobRecommendationsPage = () => {
         type: job.type
       }));
       
-      const response = await fetch('http://localhost:3000/api/ml/analyze-text', {
+      const response = await fetch(`${API_BASE_URL}/ml/analyze-text`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -265,7 +269,7 @@ Please provide detailed analysis covering:
               skill: 'TypeScript',
               importance: 'High',
               currentDemand: '92%',
-              learningPath: 'Complete TypeScript fundamentals → Build project → Get certified',
+              learningPath: 'Complete TypeScript fundamentals â†’ Build project â†’ Get certified',
               timeToLearn: '2-3 months',
               salaryImpact: '+$15,000'
             },
@@ -273,7 +277,7 @@ Please provide detailed analysis covering:
               skill: 'AWS/Cloud Computing',
               importance: 'High',
               currentDemand: '88%',
-              learningPath: 'AWS Fundamentals → Solutions Architect → Hands-on projects',
+              learningPath: 'AWS Fundamentals â†’ Solutions Architect â†’ Hands-on projects',
               timeToLearn: '3-4 months',
               salaryImpact: '+$20,000'
             },
@@ -281,7 +285,7 @@ Please provide detailed analysis covering:
               skill: 'System Design',
               importance: 'Medium',
               currentDemand: '75%',
-              learningPath: 'Study patterns → Practice problems → Mock interviews',
+              learningPath: 'Study patterns â†’ Practice problems â†’ Mock interviews',
               timeToLearn: '2-3 months',
               salaryImpact: '+$10,000'
             }

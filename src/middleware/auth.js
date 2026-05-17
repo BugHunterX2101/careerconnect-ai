@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Try to import User model (optional)
 let userModel = null;
@@ -113,7 +113,7 @@ const optionalAuth = async (req, res, next) => {
     if (token) {
       const UserModel = getUser();
       if (UserModel) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+        const decoded = jwt.verify(token, JWT_SECRET);
         const user = await UserModel.findByPk(decoded.userId);
       
         if (user && user.isActive) {

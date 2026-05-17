@@ -36,6 +36,14 @@ const validateEnvVar = (key, config, value) => {
   }
 };
 
+const optionalEnvWarnings = [
+  { key: 'APIFY_API_KEY', feature: 'real-time LinkedIn job scraping (Apify)' },
+  { key: 'GROQ_API_KEY', feature: 'AI resume analysis and chat (Groq)' },
+  { key: 'GOOGLE_CLIENT_ID', feature: 'Google OAuth login' },
+  { key: 'LINKEDIN_CLIENT_ID', feature: 'LinkedIn OAuth login' },
+  { key: 'GITHUB_CLIENT_ID', feature: 'GitHub OAuth login' }
+];
+
 const validateEnvironment = () => {
   console.log('Validating environment variables...');
   const errors = [];
@@ -53,6 +61,13 @@ const validateEnvironment = () => {
     errors.forEach(error => console.error(`  - ${error}`));
     process.exit(1);
   }
+
+  // Warn about missing optional keys so operators know which features are disabled
+  optionalEnvWarnings.forEach(({ key, feature }) => {
+    if (!process.env[key]) {
+      console.warn(`  ⚠ ${key} not set — ${feature} will be unavailable`);
+    }
+  });
 
   console.log('✓ Environment validation passed');
 };

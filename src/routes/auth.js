@@ -13,8 +13,7 @@ const authenticateToken = (req, res, next) => {
   }
 
   try {
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -295,7 +294,9 @@ router.post('/login', authLimiter, validateLogin, async (req, res) => {
     await user.update({ lastLogin: new Date() });
 
     // Generate JWT token
-    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     const token = jwt.sign(
       {
         userId: user.id,
@@ -305,8 +306,8 @@ router.post('/login', authLimiter, validateLogin, async (req, res) => {
         iss: 'careerconnect-api',
         sub: user.id.toString()
       },
-      jwtSecret,
-      { 
+      process.env.JWT_SECRET,
+      {
         expiresIn: '24h',
         algorithm: 'HS512'
       }
@@ -373,6 +374,188 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   GET /api/auth/verify
+// @desc    Verify token and return current user (alias for /me)
+// @access  Private
+router.get('/verify', authenticateToken, async (req, res) => {
+  try {
+    const UserModel = getUser();
+    if (!UserModel) {
+      return res.json({
+        valid: true,
+        user: {
+          id: req.user.userId,
+          email: req.user.email,
+          role: req.user.role || 'jobseeker',
+          firstName: req.user.firstName || 'User',
+          lastName: req.user.lastName || ''
+        }
+      });
+    }
+    const user = await UserModel.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ valid: false, error: 'User not found' });
+    }
+    res.json({ valid: true, user: user.toJSON() });
+  } catch (error) {
+    console.error('Verify token error:', error);
+    res.status(500).json({ valid: false, error: 'Verification failed' });
+  }
+});
+
+// @route   POST /api/auth/logout
+// @desc    Logout (stateless JWT - client should discard token)
+// @access  Private
+router.post('/logout', authenticateToken, (_req, res) => {
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh JWT token
+// @access  Private
+router.post('/refresh', authenticateToken, (req, res) => {
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
+  const token = jwt.sign(
+    {
+      userId: req.user.userId,
+      email: req.user.email,
+      role: req.user.role,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      provider: req.user.provider || 'local',
+      iat: Math.floor(Date.now() / 1000),
+      iss: 'careerconnect-api',
+      sub: String(req.user.userId)
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h', algorithm: 'HS512' }
+  );
+  res.json({ token });
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Initiate password reset
+// @access  Public
+router.post('/forgot-password', authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const UserModel = getUser();
+    if (UserModel) {
+      const user = await UserModel.findOne({ where: { email } });
+      if (user) {
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        await user.update({ resetPasswordToken: token, resetPasswordExpires: expires });
+      }
+    }
+    // Always return success to prevent email enumeration
+    res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password using token
+// @access  Public
+router.post('/reset-password', authLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    const UserModel = getUser();
+    if (!UserModel) {
+      return res.status(503).json({ error: 'Service unavailable' });
+    }
+    const { Op } = require('sequelize');
+    const user = await UserModel.findOne({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { [Op.gt]: new Date() }
+      }
+    });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+    await user.update({ password, resetPasswordToken: null, resetPasswordExpires: null });
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// @route   PUT /api/auth/change-password
+// @desc    Change password (authenticated)
+// @access  Private
+router.put('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+    const UserModel = getUser();
+    if (!UserModel) {
+      return res.status(503).json({ error: 'Service unavailable' });
+    }
+    const user = await UserModel.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const isValid = await user.comparePassword(currentPassword);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    await user.update({ password: newPassword });
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// @route   PUT /api/auth/profile
+// @desc    Update profile via auth route (proxies to profile update)
+// @access  Private
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const UserModel = getUser();
+    if (!UserModel) {
+      return res.status(503).json({ error: 'Service unavailable' });
+    }
+    const user = await UserModel.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const allowedFields = ['firstName', 'lastName', 'phone', 'bio', 'location', 'skills', 'experience', 'education', 'socialLinks', 'preferences'];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+    await user.update(updates);
+    res.json({ success: true, user: user.toJSON() });
+  } catch (error) {
+    console.error('Update profile (auth) error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 // OAuth headers middleware - permits OAuth flows
 const oauthHeaders = (req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -396,7 +579,9 @@ router.get('/google', oauthHeaders, (req, res, next) => {
 router.get('/google/callback', oauthHeaders, passport.authenticate('google', { session: false, failureRedirect: '/login' }), async (req, res) => {
   try {
     const user = req.user;
-    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     const token = jwt.sign(
       {
         userId: user.id,
@@ -409,8 +594,8 @@ router.get('/google/callback', oauthHeaders, passport.authenticate('google', { s
         iss: 'careerconnect-api',
         sub: user.id.toString()
       },
-      jwtSecret,
-      { 
+      process.env.JWT_SECRET,
+      {
         expiresIn: '24h',
         algorithm: 'HS512'
       }
@@ -548,7 +733,9 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
       provider: user.provider
     });
     
-    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     const token = jwt.sign(
       {
         userId: user.id,
@@ -561,13 +748,13 @@ router.get('/linkedin/callback', oauthHeaders, async (req, res) => {
         iss: 'careerconnect-api',
         sub: user.id.toString()
       },
-      jwtSecret,
-      { 
+      process.env.JWT_SECRET,
+      {
         expiresIn: '24h',
         algorithm: 'HS512'
       }
     );
-    
+
     const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard?oauth=success&token=${token}&provider=linkedin`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
@@ -655,7 +842,9 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
     
     console.log('✅ GitHub OAuth success, user:', user);
     
-    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key';
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     const token = jwt.sign(
       {
         userId: user.id,
@@ -668,13 +857,13 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
         iss: 'careerconnect-api',
         sub: user.id.toString()
       },
-      jwtSecret,
-      { 
+      process.env.JWT_SECRET,
+      {
         expiresIn: '24h',
         algorithm: 'HS512'
       }
     );
-    
+
     const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=success&token=${token}&provider=github`;
     console.log('🔄 Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
@@ -683,13 +872,6 @@ router.get('/github/callback', oauthHeaders, async (req, res) => {
     console.error('❌ GitHub OAuth callback error:', error.response?.data || error.message);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/login?oauth=error&provider=github&reason=token_exchange_failed`);
   }
-});
-
-// @route   POST /api/auth/logout
-// @desc    Logout user
-// @access  Private
-router.post('/logout', authenticateToken, (req, res) => {
-  res.json({ message: 'Logout successful' });
 });
 
 module.exports = router;

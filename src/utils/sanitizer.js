@@ -3,6 +3,10 @@
  * Prevents log injection attacks
  */
 
+/* eslint-disable no-control-regex */
+const CONTROL_CHARS = /[\x00-\x1f\x7f-\x9f]/g;
+/* eslint-enable no-control-regex */
+
 /**
  * Sanitize user input for logging
  * @param {any} input - Input to sanitize
@@ -12,14 +16,14 @@ function sanitizeForLog(input) {
   if (input === null || input === undefined) {
     return 'null';
   }
-  
+
   // Convert to string and sanitize
   const str = String(input);
-  
+
   // Remove or escape potentially dangerous characters
   return str
     .replace(/[\r\n]/g, ' ') // Replace newlines with spaces
-    .replace(/[\x00-\x1f\x7f-\x9f]/g, '') // Remove control characters
+    .replace(CONTROL_CHARS, '') // Remove control characters
     .replace(/[<>]/g, '') // Remove angle brackets
     .substring(0, 1000); // Limit length
 }
@@ -33,7 +37,7 @@ function sanitizeObjectForLog(obj) {
   if (!obj || typeof obj !== 'object') {
     return sanitizeForLog(obj);
   }
-  
+
   const sanitized = {};
   for (const [key, value] of Object.entries(obj)) {
     if (typeof value === 'string') {
@@ -44,7 +48,7 @@ function sanitizeObjectForLog(obj) {
       sanitized[key] = value;
     }
   }
-  
+
   return sanitized;
 }
 

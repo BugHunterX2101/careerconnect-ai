@@ -15,7 +15,7 @@ const mockUsers = new Map();
 // JWT Strategy
 passport.use(new JwtStrategy({
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: process.env.JWT_SECRET || 'fallback-secret-key'
+  secretOrKey: process.env.JWT_SECRET
 }, async (payload, done) => {
   try {
     return done(null, payload);

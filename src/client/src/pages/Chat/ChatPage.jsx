@@ -36,6 +36,8 @@ import { CircularProgress } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 import { useSearchParams } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
+
 const ChatPage = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -56,7 +58,7 @@ const ChatPage = () => {
 
   useEffect(() => {
     fetchConversations();
-    
+
     // Auto-start conversation if user parameter is provided
     const targetUserId = searchParams.get('user');
     if (targetUserId && targetUserId !== 'unknown') {
@@ -66,16 +68,16 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (socket && connected) {
-      socket.on('new_message', handleNewMessage);
+      socket.on('chat:new_message', handleNewMessage);
       socket.on('user_typing', handleUserTyping);
       socket.on('user_stopped_typing', handleUserStoppedTyping);
       socket.on('user_online', handleUserOnline);
       socket.on('user_offline', handleUserOffline);
       socket.on('message_delivered', handleMessageDelivered);
       socket.on('message_read', handleMessageRead);
-      
+
       return () => {
-        socket.off('new_message');
+        socket.off('chat:new_message');
         socket.off('user_typing');
         socket.off('user_stopped_typing');
         socket.off('user_online');
@@ -93,7 +95,7 @@ const ChatPage = () => {
   const fetchConversations = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/chat/conversations', {
+      const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -113,7 +115,7 @@ const ChatPage = () => {
   const fetchMessages = async (conversationId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/chat/conversations/${conversationId}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -122,7 +124,7 @@ const ChatPage = () => {
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages || []);
-        
+
         // Join conversation room
         joinConversation(conversationId);
       }
@@ -159,12 +161,12 @@ const ChatPage = () => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('content', newMessage);
-      
+
       if (attachmentPreview) {
         formData.append('attachment', attachmentPreview.file);
       }
 
-      const response = await fetch(`http://localhost:3000/api/chat/conversations/${activeConversation.id}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/chat/conversations/${activeConversation.id}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -174,22 +176,20 @@ const ChatPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Replace temp message with real message
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg.id === tempId ? { ...data.message, status: 'sent' } : msg
         ));
-        
-        // Real-time delivery handled by socket context
       } else {
         // Mark message as failed
-        setMessages(prev => prev.map(msg => 
+        setMessages(prev => prev.map(msg =>
           msg.id === tempId ? { ...msg, status: 'failed' } : msg
         ));
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg.id === tempId ? { ...msg, status: 'failed' } : msg
       ));
     }
@@ -236,16 +236,18 @@ const ChatPage = () => {
     setMessageStatus(prev => ({ ...prev, [messageId]: 'read' }));
   };
 
-  const handleNewMessage = (message) => {
-    if (activeConversation && message.conversationId === activeConversation.id) {
-      setMessages(prev => [...prev, message]);
+  const handleNewMessage = (payload) => {
+    const msg = payload.message || payload;
+    const convId = payload.conversationId || msg.conversationId || msg.conversation;
+
+    if (activeConversation && convId === activeConversation.id) {
+      setMessages(prev => [...prev, { ...msg, status: 'delivered' }]);
     }
-    
-    // Update conversation list with latest message
-    setConversations(prev => 
-      prev.map(conv => 
-        conv.id === message.conversationId 
-          ? { ...conv, lastMessage: message, unreadCount: (conv.unreadCount || 0) + 1 }
+
+    setConversations(prev =>
+      prev.map(conv =>
+        conv.id === convId
+          ? { ...conv, lastMessage: msg, unreadCount: (conv.unreadCount || 0) + 1 }
           : conv
       )
     );
@@ -266,8 +268,7 @@ const ChatPage = () => {
   const handleTyping = () => {
     if (activeConversation) {
       startTyping(activeConversation.id);
-      
-      // Stop typing after 3 seconds
+
       setTimeout(() => {
         stopTyping(activeConversation.id);
       }, 3000);
@@ -277,7 +278,7 @@ const ChatPage = () => {
   const startConversationWithUser = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/chat/conversations', {
+      const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -293,7 +294,7 @@ const ChatPage = () => {
         const data = await response.json();
         setActiveConversation(data.conversation);
         fetchMessages(data.conversation.id);
-        fetchConversations(); // Refresh conversation list
+        fetchConversations();
       }
     } catch (error) {
       console.error('Error starting conversation:', error);
@@ -309,7 +310,7 @@ const ChatPage = () => {
   };
 
   const filteredConversations = conversations.filter(conv =>
-    conv.participants?.some(p => 
+    conv.participants?.some(p =>
       p.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.company?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -324,7 +325,7 @@ const ChatPage = () => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
             {t('messages')}
           </Typography>
-          
+
           <TextField
             fullWidth
             placeholder="Search conversations..."
@@ -379,10 +380,10 @@ const ChatPage = () => {
                             {otherParticipant?.firstName} {otherParticipant?.lastName}
                           </Typography>
                           {otherParticipant?.role === 'employer' && (
-                            <Chip 
-                              label="Employer" 
-                              size="small" 
-                              color="primary" 
+                            <Chip
+                              label="Employer"
+                              size="small"
+                              color="primary"
                               sx={{ ml: 1, height: 20 }}
                             />
                           )}
@@ -426,14 +427,14 @@ const ChatPage = () => {
                       {activeConversation.participants?.find(p => p.id !== user.id)?.lastName}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box 
-                        sx={{ 
-                          width: 8, 
-                          height: 8, 
-                          borderRadius: '50%', 
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
                           bgcolor: onlineUsers.has(activeConversation.participants?.find(p => p.id !== user.id)?.id) ? 'success.main' : 'grey.400',
-                          mr: 1 
-                        }} 
+                          mr: 1
+                        }}
                       />
                       <Typography variant="body2" color="text.secondary">
                         {onlineUsers.has(activeConversation.participants?.find(p => p.id !== user.id)?.id) ? 'Online' : 'Offline'}
@@ -477,7 +478,7 @@ const ChatPage = () => {
                     {message.type === 'file' && message.attachment ? (
                       <Box>
                         {message.attachment.type?.startsWith('image/') ? (
-                          <img 
+                          <img
                             src={message.attachment.url || `data:${message.attachment.mimetype};base64,${message.attachment.data}`}
                             alt={message.attachment.filename}
                             style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px' }}
@@ -495,15 +496,15 @@ const ChatPage = () => {
                     ) : (
                       <Typography variant="body1">{message.content}</Typography>
                     )}
-                    
+
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         sx={{ opacity: 0.7 }}
                       >
                         {formatTime(message.createdAt)}
                       </Typography>
-                      
+
                       {message.senderId === user.id && (
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           {message.status === 'sending' && <CircularProgress size={12} />}
@@ -517,7 +518,7 @@ const ChatPage = () => {
                   </Paper>
                 </Box>
               ))}
-              
+
               {typing && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
                   <Paper sx={{ p: 1.5, backgroundColor: 'white' }}>
@@ -527,7 +528,7 @@ const ChatPage = () => {
                   </Paper>
                 </Box>
               )}
-              
+
               <div ref={messagesEndRef} />
             </Box>
 
@@ -539,8 +540,8 @@ const ChatPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       {attachmentPreview.type.startsWith('image/') ? (
-                        <img 
-                          src={attachmentPreview.url} 
+                        <img
+                          src={attachmentPreview.url}
                           alt={attachmentPreview.name}
                           style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', marginRight: '8px' }}
                         />
@@ -560,7 +561,7 @@ const ChatPage = () => {
                   </Box>
                 </Box>
               )}
-              
+
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
                 <input
                   type="file"
@@ -572,7 +573,7 @@ const ChatPage = () => {
                 <IconButton onClick={() => fileInputRef.current?.click()}>
                   <AttachFile />
                 </IconButton>
-                
+
                 <TextField
                   fullWidth
                   placeholder="Type a message..."
@@ -592,7 +593,7 @@ const ChatPage = () => {
                   variant="outlined"
                   size="small"
                 />
-                
+
                 <Button
                   variant="contained"
                   onClick={handleSendMessage}
@@ -605,10 +606,10 @@ const ChatPage = () => {
             </Paper>
           </>
         ) : (
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex', 
-            alignItems: 'center', 
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column'
           }}>

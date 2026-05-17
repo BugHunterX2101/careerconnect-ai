@@ -49,22 +49,16 @@ try {
 
 // Try to import models and Redis client
 try {
-  Resume = require('../models/Resume');
+  const ResumeModule = require('../models/Resume');
+  Resume = typeof ResumeModule?.Resume === 'function' ? ResumeModule.Resume() : ResumeModule;
 } catch (error) {
   logger.warn('Resume model not available:', error.message);
 }
 
-// Try to import LLM recommendation service
-let gptOssService = null;
 try {
-  gptOssService = require('../services/gptOssService');
-} catch (error) {
-  logger.warn('LLM recommendation service not available:', error.message);
-}
-
-try {
-  const { getRedisClient } = require('../database/redis');
-  redisClient = getRedisClient;
+  const { redisSet } = require('../database/redis');
+  // Use the helper that already guards against disconnected state
+  redisClient = { setEx: (key, ttl, val) => redisSet(key, val, { EX: ttl }) };
 } catch (error) {
   logger.warn('Redis client not available:', error.message);
 }
@@ -261,21 +255,22 @@ const setupJobProcessors = () => {
       const { resumeId, filePath, fileType, userId } = job.data;
       
       // Authorization check
-      // Replace this with your actual authentication context, e.g., job.authenticatedUserId
       const authenticatedUserId = job.data.authenticatedUserId || userId;
-      const resume = await Resume.findOne({ _id: resumeId });
-      if (!resume || resume.userId.toString() !== authenticatedUserId.toString()) {
-        throw new Error('Unauthorized: User does not have permission to process this resume');
+      if (Resume) {
+        const resume = await Resume.findByPk(resumeId);
+        if (!resume || String(resume.user_id) !== String(authenticatedUserId)) {
+          throw new Error('Unauthorized: User does not have permission to process this resume');
+        }
       }
-      
+
       logger.info(`Processing resume ${resumeId} with file: ${filePath}`);
-      
+
       // Update resume status to processing
       if (Resume) {
-        await Resume.findByIdAndUpdate(resumeId, {
-          processingStatus: 'processing',
-          processingProgress: 10
-        });
+        await Resume.update(
+          { processing_status: 'processing' },
+          { where: { id: resumeId } }
+        );
       } else {
         logger.warn('Resume model not available, skipping status update for resume', { resumeId: String(resumeId).replace(/[\n\r\t]/g, '') });
       }
@@ -286,28 +281,20 @@ const setupJobProcessors = () => {
         parsedData = await resumeParser.parseResume(filePath, fileType);
       } else {
         logger.warn('Resume parser not available, using basic fallback processing');
-        // Basic fallback - just mark as completed with minimal data
         parsedData = {
           skills: [],
           experience: [],
           education: [],
-          aiAnalysis: {
-            overallScore: 0,
-            skillsScore: 0,
-            experienceScore: 0,
-            educationScore: 0
-          }
+          aiAnalysis: { overallScore: 0, skillsScore: 0, experienceScore: 0, educationScore: 0 }
         };
       }
-      
+
       // Update resume with parsed data
       if (Resume) {
-        await Resume.findByIdAndUpdate(resumeId, {
-          ...parsedData,
-          processingStatus: 'completed',
-          processingProgress: 100,
-          processedAt: new Date()
-        });
+        await Resume.update(
+          { processing_status: 'completed', processed_at: new Date() },
+          { where: { id: resumeId } }
+        );
       } else {
         logger.warn(`Resume model not available, skipping update for resume ${resumeId}`);
       }
@@ -350,10 +337,10 @@ const setupJobProcessors = () => {
       
       // Update resume status to failed
       if (Resume) {
-        await Resume.findByIdAndUpdate(job.data.resumeId, {
-          processingStatus: 'failed',
-          processingError: error.message
-        });
+        await Resume.update(
+          { processing_status: 'failed' },
+          { where: { id: job.data.resumeId } }
+        );
       } else {
         logger.warn(`Resume model not available, skipping status update for resume ${job.data.resumeId}`);
       }
@@ -372,36 +359,26 @@ const setupJobProcessors = () => {
       // Get job recommendations if ML service is available
       let recommendations = null;
       if (jobRecommender) {
-        recommendations = await jobRecommender.getJobRecommendations(
-          userId,
-          resumeId,
-          options
-        );
+        recommendations = await jobRecommender.getJobRecommendations({ id: userId }, options);
       } else {
         logger.warn('Job recommender not available, using basic fallback');
-        // Basic fallback - return empty recommendations
-        recommendations = {
-          recommendations: [],
-          total: 0,
-          page: 1,
-          totalPages: 0
-        };
+        recommendations = { jobs: [], total: 0, page: 1, totalPages: 0 };
       }
 
       // Cache recommendations in Redis
       if (redisClient) {
         const cacheKey = `recommendations:${userId}:${resumeId}`;
-        await redisClient().setEx(cacheKey, 3600, JSON.stringify(recommendations)); // 1 hour TTL
+        await redisClient.setEx(cacheKey, 3600, JSON.stringify(recommendations)); // 1 hour TTL
       }
 
-      logger.info(`Generated ${recommendations.recommendations.length} job recommendations`);
-      
+      logger.info(`Generated ${recommendations.jobs.length} job recommendations`);
+
       return {
         success: true,
         userId,
         resumeId,
-        recommendationsCount: recommendations.recommendations.length,
-        topMatchScore: recommendations.recommendations[0]?.matchScore || 0
+        recommendationsCount: recommendations.jobs.length,
+        topMatchScore: recommendations.jobs[0]?.score || 0
       };
     } catch (error) {
       logger.error('Job recommendation generation failed', {
@@ -418,7 +395,7 @@ const setupJobProcessors = () => {
   // Email notification processor
   emailQueue.process('send-notification', async (job) => {
     try {
-      const { to, subject, template, data } = job.data;
+      const { to, subject } = job.data;
       
       logger.info(`Sending email notification to ${to}`);
       
@@ -441,7 +418,7 @@ const setupJobProcessors = () => {
   // Data analysis processor
   dataAnalysisQueue.process('analyze-data', async (job) => {
     try {
-      const { dataType, data, options = {} } = job.data;
+      const { dataType } = job.data;
       
       logger.info(`Analyzing data of type: ${dataType}`);
       
@@ -642,7 +619,7 @@ const closeAllQueues = async () => {
 };
 
 // Synchronous fallback processing functions
-const processJobRecommendationsSynchronously = async (userId, resumeId, options = {}, sendEmail = false) => {
+const processJobRecommendationsSynchronously = async (userId, resumeId, options = {}, _sendEmail = false) => {
   try {
     logger.info(`Generating job recommendations for user ${userId}, resume ${resumeId} synchronously`);
     
@@ -665,51 +642,30 @@ const processJobRecommendationsSynchronously = async (userId, resumeId, options 
       };
     }
     
-    // Get job recommendations using Groq/LLM service if available
+    // Get job recommendations — Apify-backed JobRecommender (with optional Groq enrichment)
     let recommendations = null;
-    if (gptOssService && (options.useGroq || options.useGPTOSS)) {
-      logger.info('Using Groq LLM for job recommendations');
-      const gptRecommendations = await gptOssService.generateJobRecommendations(resumeData, options);
-      recommendations = {
-        recommendations: gptRecommendations,
-        total: gptRecommendations.length,
-        page: 1,
-        totalPages: 1,
-        source: 'groq-llm'
-      };
-    } else if (jobRecommender) {
-      logger.info('Using traditional ML for job recommendations');
-      recommendations = await jobRecommender.getJobRecommendations(
-        userId,
-        resumeId,
-        options
-      );
+    if (jobRecommender) {
+      logger.info('Using Apify+TF job recommender');
+      recommendations = await jobRecommender.getJobRecommendations({ id: userId }, options);
     } else {
       logger.warn('No recommendation service available, using basic fallback');
-      // Basic fallback - return empty recommendations
-      recommendations = {
-        recommendations: [],
-        total: 0,
-        page: 1,
-        totalPages: 0,
-        source: 'fallback'
-      };
+      recommendations = { jobs: [], total: 0, page: 1, totalPages: 0, source: 'fallback' };
     }
 
     // Cache recommendations in Redis if available
     if (redisClient) {
       const cacheKey = `recommendations:${userId}:${resumeId}`;
-      await redisClient().setEx(cacheKey, 3600, JSON.stringify(recommendations)); // 1 hour TTL
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(recommendations)); // 1 hour TTL
     }
 
-    logger.info(`Generated ${recommendations.recommendations.length} job recommendations synchronously`);
-    
+    logger.info(`Generated ${recommendations.jobs.length} job recommendations synchronously`);
+
     return {
       success: true,
       userId,
       resumeId,
-      recommendationsCount: recommendations.recommendations.length,
-      topMatchScore: recommendations.recommendations[0]?.matchScore || 0
+      recommendationsCount: recommendations.jobs.length,
+      topMatchScore: recommendations.jobs[0]?.score || 0
     };
   } catch (error) {
     logger.error(`Error generating job recommendations for user ${userId}:`, error);
@@ -723,10 +679,10 @@ const processResumeSynchronously = async (userId, resumeId, filePath, fileType) 
     
     // Update resume status to processing
     if (Resume) {
-      await Resume.findByIdAndUpdate(resumeId, {
-        processingStatus: 'processing',
-        processingProgress: 10
-      });
+      await Resume.update(
+        { processing_status: 'processing' },
+        { where: { id: resumeId } }
+      );
     } else {
       logger.warn(`Resume model not available, skipping status update for resume ${resumeId}`);
     }
@@ -753,18 +709,16 @@ const processResumeSynchronously = async (userId, resumeId, filePath, fileType) 
     
     // Update resume with parsed data
     if (Resume) {
-      await Resume.findByIdAndUpdate(resumeId, {
-        ...parsedData,
-        processingStatus: 'completed',
-        processingProgress: 100,
-        processedAt: new Date()
-      });
+      await Resume.update(
+        { processing_status: 'completed', processed_at: new Date() },
+        { where: { id: resumeId } }
+      );
     } else {
       logger.warn(`Resume model not available, skipping update for resume ${resumeId}`);
     }
 
     logger.info(`Resume ${resumeId} processed successfully`);
-    
+
     return {
       success: true,
       resumeId,
@@ -777,17 +731,17 @@ const processResumeSynchronously = async (userId, resumeId, filePath, fileType) 
     };
   } catch (error) {
     logger.error(`Error processing resume ${resumeId}:`, error);
-    
+
     // Update resume status to failed
     if (Resume) {
-      await Resume.findByIdAndUpdate(resumeId, {
-        processingStatus: 'failed',
-        processingError: error.message
-      });
+      await Resume.update(
+        { processing_status: 'failed' },
+        { where: { id: resumeId } }
+      );
     } else {
       logger.warn(`Resume model not available, skipping status update for resume ${resumeId}`);
     }
-    
+
     throw error;
   }
 };

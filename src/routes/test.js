@@ -36,7 +36,7 @@ router.get('/db', async (req, res) => {
 router.get('/user-model', async (req, res) => {
   try {
     const { User } = require('../models/User');
-    const UserModel = User();
+    User();
     res.json({
       success: true,
       message: 'User model is available',

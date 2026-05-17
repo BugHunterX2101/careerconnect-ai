@@ -228,7 +228,7 @@ async function generateRealtimeJobRecommendations(keywords, parsedData) {
 }
 
 // Generate GPT-enhanced job recommendations
-async function generateGPTRecommendations(keywords, parsedData) {
+async function generateGPTRecommendations(keywords, _parsedData) {
   try {
     const Job = require('../models/Job');
     if (!Job || typeof Job.find !== 'function') {
@@ -313,7 +313,7 @@ async function fetchLinkedInRecommendations(keywords, parsedData) {
 }
 
 // Fetch internal database recommendations
-async function fetchInternalRecommendations(keywords, parsedData) {
+async function fetchInternalRecommendations(keywords, _parsedData) {
   try {
     const Job = require('../models/Job');
     if (!Job || typeof Job.find !== 'function') {
@@ -760,8 +760,9 @@ router.post('/career-improvement', authenticateToken, mlLimiter, async (req, res
     let userProfile = profileData || {};
     if (!profileData) {
       try {
-        const User = require('../models/User');
-        const user = await User.findById(userId).select('profile');
+        const UserModule = require('../models/User');
+        const UserModel = UserModule.User ? UserModule.User() : null;
+        const user = UserModel ? await UserModel.findByPk(userId) : null;
         userProfile = user?.profile || {};
       } catch (error) {
         console.warn('Could not fetch user profile:', error.message);
@@ -794,7 +795,6 @@ router.post('/career-improvement', authenticateToken, mlLimiter, async (req, res
 router.post('/skill-gap-analysis', authenticateToken, mlLimiter, async (req, res) => {
   try {
     const { currentSkills, targetRole, targetCompany } = req.body;
-    const userId = req.user.userId;
 
     if (!currentSkills || !Array.isArray(currentSkills)) {
       return res.status(400).json({ error: 'Current skills array is required' });

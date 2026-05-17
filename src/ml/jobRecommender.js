@@ -1,206 +1,138 @@
+const { searchLinkedInJobsViaApify } = require('../services/apifyService');
 const TensorFlowService = require('./tensorflowService');
-const natural = require('natural');
+const logger = require('../middleware/logger');
 
 class JobRecommender {
   constructor() {
     this.tfService = new TensorFlowService();
-    this.tokenizer = null;
     this.isInitialized = false;
-    this.jobDatabase = [];
+    this.mlScoreCache = new Map();
   }
 
   async initialize() {
     try {
-      // Initialize TensorFlow service
       await this.tfService.initialize();
-      
-      // Initialize tokenizer
-      this.tokenizer = new natural.WordTokenizer();
-      
-      // Load job database
-      await this.loadJobDatabase();
-      
-      this.isInitialized = true;
-      console.log('JobRecommender initialized successfully');
+      logger.info('JobRecommender initialized with TensorFlow scoring');
     } catch (error) {
-      console.error('Error initializing JobRecommender:', error);
-      throw error;
+      logger.warn('TensorFlow unavailable, using traditional scoring only:', error.message);
     }
-  }
-
-  async loadJobDatabase() {
-    try {
-      // This would typically load from your database
-      // For now, we'll use a placeholder
-      this.jobDatabase = [
-        {
-          id: '1',
-          title: 'Software Engineer',
-          company: 'Tech Corp',
-          location: 'San Francisco, CA',
-          description: 'Full-stack development with React and Node.js',
-          requirements: ['javascript', 'react', 'node.js', 'mongodb'],
-          salary: { min: 80000, max: 120000 },
-          type: 'full-time',
-          remote: true
-        },
-        {
-          id: '2',
-          title: 'Data Scientist',
-          company: 'AI Solutions',
-          location: 'New York, NY',
-          description: 'Machine learning and data analysis',
-          requirements: ['python', 'machine learning', 'statistics', 'sql'],
-          salary: { min: 90000, max: 140000 },
-          type: 'full-time',
-          remote: false
-        }
-      ];
-    } catch (error) {
-      console.error('Error loading job database:', error);
-      this.jobDatabase = [];
-    }
+    this.isInitialized = true;
   }
 
   async getJobRecommendations(user, options = {}) {
+    if (!this.isInitialized) await this.initialize();
+
+    const {
+      page = 1,
+      limit = 10,
+      location,
+      remote
+    } = options;
+
+    const userSkills = this.extractUserSkills(user);
+    const userExperience = this.extractUserExperience(user);
+    const userLocation = location || user.profile?.location || user.location || '';
+    const expLevel = this.mapExperienceLevel(userExperience);
+    const query = userSkills.slice(0, 5).join(' ') || 'software engineer';
+
     try {
-      if (!this.isInitialized) {
-        await this.initialize();
-      }
+      const jobs = await searchLinkedInJobsViaApify({
+        query,
+        location: userLocation || 'United States',
+        limit: Math.min((page * limit) + 20, 100),
+        experienceLevel: expLevel,
+        datePosted: 'past_month'
+      });
 
-      const {
-        page = 1,
-        limit = 10,
-        location,
-        remote,
-        salary_min,
-        salary_max
-      } = options;
-
-      // Get user's resume and skills
-      const userSkills = this.extractUserSkills(user);
-      const userExperience = this.extractUserExperience(user);
-      const userLocation = user.profile?.location || '';
-
-      // Calculate job scores with async ML scoring
-      const scoredJobs = await Promise.all(
-        this.jobDatabase.map(async job => {
-          const score = await this.calculateJobScore(job, userSkills, userExperience, userLocation, user);
-          return { ...job, score };
-        })
-      );
-
-      // Apply filters
-      let filteredJobs = scoredJobs.filter(job => {
-        // Location filter
-        if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
-          return false;
-        }
-
-        // Remote filter
-        if (remote !== undefined && job.remote !== remote) {
-          return false;
-        }
-
-        // Salary filter
-        if (salary_min && job.salary.max < salary_min) {
-          return false;
-        }
-        if (salary_max && job.salary.min > salary_max) {
-          return false;
-        }
-
+      const filtered = jobs.filter(job => {
+        if (remote !== undefined && job.remote !== remote) return false;
         return true;
       });
 
-      // Sort by score
-      filteredJobs.sort((a, b) => b.score - a.score);
+      const scored = await Promise.all(
+        filtered.map(async job => ({
+          ...job,
+          score: await this.calculateJobScore(job, userSkills, userExperience, userLocation, user)
+        }))
+      );
 
-      // Apply pagination
+      scored.sort((a, b) => b.score - a.score);
+
       const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedJobs = filteredJobs.slice(startIndex, endIndex);
+      const paginated = scored.slice(startIndex, startIndex + limit);
 
       return {
-        jobs: paginatedJobs,
-        total: filteredJobs.length,
+        jobs: paginated,
+        total: scored.length,
         page,
-        totalPages: Math.ceil(filteredJobs.length / limit)
+        totalPages: Math.ceil(scored.length / limit)
       };
     } catch (error) {
-      console.error('Error getting job recommendations:', error);
-      throw error;
+      logger.error('JobRecommender.getJobRecommendations error:', error.message);
+      return { jobs: [], total: 0, page, totalPages: 0 };
     }
   }
 
-  extractUserSkills(user) {
-    const skills = [];
-    
-    // Extract skills from resumes
-    if (user.resumes && user.resumes.length > 0) {
-      for (const resume of user.resumes) {
-        if (resume.skills && Array.isArray(resume.skills)) {
-          skills.push(...resume.skills.map(skill => skill.name.toLowerCase()));
-        }
-      }
-    }
+  async searchJobs(query, filters = {}) {
+    if (!this.isInitialized) await this.initialize();
 
-    // Extract skills from profile
-    if (user.profile && user.profile.skills) {
-      skills.push(...user.profile.skills.map(skill => skill.name.toLowerCase()));
-    }
+    const { location, remote, job_type, page = 1, limit = 20 } = filters;
 
-    return [...new Set(skills)]; // Remove duplicates
+    try {
+      const jobs = await searchLinkedInJobsViaApify({
+        query: query || 'software engineer',
+        location: location || 'United States',
+        limit: Math.min((page * limit) + 20, 100),
+        jobType: job_type || '',
+        datePosted: 'past_month'
+      });
+
+      const filtered = jobs.filter(job => {
+        if (remote !== undefined && job.remote !== remote) return false;
+        return true;
+      });
+
+      const startIndex = (page - 1) * limit;
+      const paginated = filtered.slice(startIndex, startIndex + limit);
+
+      return {
+        jobs: paginated,
+        total: filtered.length,
+        page,
+        totalPages: Math.ceil(filtered.length / limit)
+      };
+    } catch (error) {
+      logger.error('JobRecommender.searchJobs error:', error.message);
+      return { jobs: [], total: 0, page, totalPages: 0 };
+    }
   }
 
-  extractUserExperience(user) {
-    let totalExperience = 0;
-    
-    // Calculate experience from resumes
-    if (user.resumes && user.resumes.length > 0) {
-      for (const resume of user.resumes) {
-        if (resume.experience && Array.isArray(resume.experience)) {
-          for (const exp of resume.experience) {
-            if (exp.duration) {
-              const years = this.parseDuration(exp.duration);
-              totalExperience += years;
-            }
-          }
-        }
-      }
-    }
+  async getSimilarJobs(jobId, baseQuery = '') {
+    if (!this.isInitialized) await this.initialize();
 
-    return totalExperience;
+    try {
+      const jobs = await searchLinkedInJobsViaApify({
+        query: baseQuery || 'software engineer',
+        location: 'United States',
+        limit: 10,
+        datePosted: 'past_month'
+      });
+      return jobs.filter(j => j.id !== jobId).slice(0, 5);
+    } catch (error) {
+      logger.error('JobRecommender.getSimilarJobs error:', error.message);
+      return [];
+    }
   }
 
-  parseDuration(duration) {
-    // Parse duration strings like "2020-2022" or "2 years"
-    const yearPattern = /\b\d{4}\s*[-–]\s*\d{4}\b/;
-    const yearMatch = duration.match(yearPattern);
-    
-    if (yearMatch) {
-      const years = yearMatch[0].split(/[-–]/);
-      return parseInt(years[1]) - parseInt(years[0]);
-    }
-
-    const numberPattern = /\d+/;
-    const numberMatch = duration.match(numberPattern);
-    if (numberMatch) {
-      return parseInt(numberMatch[0]);
-    }
-
-    return 0;
-  }
+  // ─── Scoring ─────────────────────────────────────────────────────────────
 
   async calculateJobScore(job, userSkills, userExperience, userLocation, user = null) {
     let score = 0;
 
-    // Use TensorFlow for ML-based scoring if user provided
+    // TensorFlow ML scoring — 30% weight when available
     if (user && this.tfService.isInitialized) {
       try {
-        const cacheKey = `${user.id}_${job.id}`;
-        if (!this.mlScoreCache) this.mlScoreCache = new Map();
-        
+        const cacheKey = `${user.id || user.userId}_${job.id}`;
         let mlScore;
         if (this.mlScoreCache.has(cacheKey)) {
           mlScore = this.mlScoreCache.get(cacheKey);
@@ -210,47 +142,38 @@ class JobRecommender {
           mlScore = await this.tfService.calculateJobScore(userFeatures, jobFeatures);
           this.mlScoreCache.set(cacheKey, mlScore);
         }
-        score += mlScore * 30; // 30% weight for ML score
+        score += mlScore * 60;
       } catch (error) {
-        console.log('ML scoring failed, using traditional scoring');
+        logger.warn('ML scoring failed, using traditional scoring only');
       }
     }
 
-    // Traditional scoring (70% weight or 100% if ML fails)
-    const traditionalWeight = user && this.tfService.isInitialized ? 70 : 100;
-    
-    // Skills match
-    const skillMatch = this.calculateSkillMatch(job.requirements, userSkills);
-    score += (skillMatch * 40 * traditionalWeight) / 100;
+    // Traditional scoring — 40% when TF active, 100% when TF unavailable
+    const tWeight = (user && this.tfService.isInitialized) ? 40 : 100;
 
-    // Experience match
-    const experienceMatch = this.calculateExperienceMatch(job, userExperience);
-    score += (experienceMatch * 25 * traditionalWeight) / 100;
+    const skillMatch = this.calculateSkillMatch(job, userSkills);
+    score += (skillMatch * 40 * tWeight) / 100;
 
-    // Location match
-    const locationMatch = this.calculateLocationMatch(job.location, userLocation);
-    score += (locationMatch * 20 * traditionalWeight) / 100;
+    const expMatch = this.calculateExperienceMatch(userExperience);
+    score += (expMatch * 25 * tWeight) / 100;
 
-    // Salary match
-    const salaryMatch = this.calculateSalaryMatch(job.salary, userExperience);
-    score += (salaryMatch * 15 * traditionalWeight) / 100;
+    const locMatch = this.calculateLocationMatch(job.location, userLocation);
+    score += (locMatch * 20 * tWeight) / 100;
 
-    return Math.round(score);
+    const salMatch = this.calculateSalaryMatch(job.salary, userExperience);
+    score += (salMatch * 15 * tWeight) / 100;
+
+    return Math.min(Math.round(score), 100);
   }
 
-  calculateSkillMatch(jobRequirements, userSkills) {
-    if (!jobRequirements || jobRequirements.length === 0) return 0;
+  calculateSkillMatch(job, userSkills) {
     if (!userSkills || userSkills.length === 0) return 0;
-
-    const matchedSkills = jobRequirements.filter(req => 
-      userSkills.some(skill => skill.includes(req.toLowerCase()) || req.toLowerCase().includes(skill))
-    );
-
-    return (matchedSkills.length / jobRequirements.length) * 100;
+    const jobText = `${job.title} ${job.description} ${(job.skills || []).join(' ')}`.toLowerCase();
+    const matched = userSkills.filter(s => jobText.includes(s.toLowerCase()));
+    return (matched.length / userSkills.length) * 100;
   }
 
-  calculateExperienceMatch(job, userExperience) {
-    // Simple experience matching - could be improved
+  calculateExperienceMatch(userExperience) {
     if (userExperience >= 5) return 100;
     if (userExperience >= 3) return 80;
     if (userExperience >= 1) return 60;
@@ -258,212 +181,108 @@ class JobRecommender {
   }
 
   calculateLocationMatch(jobLocation, userLocation) {
-    if (!userLocation) return 50; // Neutral score if no user location
-
-    const jobLocationLower = jobLocation.toLowerCase();
-    const userLocationLower = userLocation.toLowerCase();
-
-    // Exact match
-    if (jobLocationLower.includes(userLocationLower) || userLocationLower.includes(jobLocationLower)) {
-      return 100;
-    }
-
-    // Partial match (same city or state)
-    const jobParts = jobLocationLower.split(',').map(part => part.trim());
-    const userParts = userLocationLower.split(',').map(part => part.trim());
-
-    for (const jobPart of jobParts) {
-      for (const userPart of userParts) {
-        if (jobPart === userPart && jobPart.length > 2) {
-          return 80;
-        }
+    if (!userLocation) return 50;
+    const jobLoc = (jobLocation || '').toLowerCase();
+    const uLoc = userLocation.toLowerCase();
+    if (jobLoc.includes('remote')) return 90;
+    if (jobLoc.includes(uLoc) || uLoc.includes(jobLoc)) return 100;
+    const jobParts = jobLoc.split(',').map(p => p.trim());
+    const uParts = uLoc.split(',').map(p => p.trim());
+    for (const jp of jobParts) {
+      for (const up of uParts) {
+        if (jp === up && jp.length > 2) return 80;
       }
     }
-
-    // Remote work preference
-    if (job.remote) return 70;
-
-    return 30; // Low score for no match
+    return 30;
   }
 
   calculateSalaryMatch(jobSalary, userExperience) {
     if (!jobSalary) return 50;
-
-    const avgSalary = (jobSalary.min + jobSalary.max) / 2;
-    
-    // Simple salary matching based on experience
-    const expectedSalary = userExperience * 15000 + 50000; // Rough estimate
-    
-    const difference = Math.abs(avgSalary - expectedSalary);
-    const percentageDiff = (difference / expectedSalary) * 100;
-    
-    if (percentageDiff <= 10) return 100;
-    if (percentageDiff <= 20) return 80;
-    if (percentageDiff <= 30) return 60;
+    const salaryStr = String(jobSalary);
+    const nums = salaryStr.match(/\d[\d,]*/g);
+    if (!nums || nums.length < 1) return 50;
+    const values = nums.map(n => parseInt(n.replace(/,/g, '')));
+    const avg = values.length >= 2
+      ? (values[0] + values[values.length - 1]) / 2
+      : values[0];
+    const expected = userExperience * 15000 + 50000;
+    const pctDiff = Math.abs(avg - expected) / expected * 100;
+    if (pctDiff <= 10) return 100;
+    if (pctDiff <= 20) return 80;
+    if (pctDiff <= 30) return 60;
     return 40;
   }
 
-  async searchJobs(query, filters = {}) {
-    try {
-      const {
-        location,
-        remote,
-        salary_min,
-        salary_max,
-        job_type,
-        page = 1,
-        limit = 20
-      } = filters;
+  // ─── User profile extraction ──────────────────────────────────────────────
 
-      // Filter jobs based on query and filters
-      let filteredJobs = this.jobDatabase.filter(job => {
-        // Text search
-        const searchText = `${job.title} ${job.company} ${job.description}`.toLowerCase();
-        if (query && !searchText.includes(query.toLowerCase())) {
-          return false;
+  extractUserSkills(user) {
+    const skills = new Set();
+    if (user.resumes) {
+      for (const resume of user.resumes) {
+        if (Array.isArray(resume.skills)) {
+          resume.skills.forEach(s => skills.add((s.name || s).toLowerCase()));
         }
-
-        // Location filter
-        if (location && !job.location.toLowerCase().includes(location.toLowerCase())) {
-          return false;
-        }
-
-        // Remote filter
-        if (remote !== undefined && job.remote !== remote) {
-          return false;
-        }
-
-        // Salary filter
-        if (salary_min && job.salary.max < salary_min) {
-          return false;
-        }
-        if (salary_max && job.salary.min > salary_max) {
-          return false;
-        }
-
-        // Job type filter
-        if (job_type && job.type !== job_type) {
-          return false;
-        }
-
-        return true;
-      });
-
-      // Apply pagination
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedJobs = filteredJobs.slice(startIndex, endIndex);
-
-      return {
-        jobs: paginatedJobs,
-        total: filteredJobs.length,
-        page,
-        totalPages: Math.ceil(filteredJobs.length / limit)
-      };
-    } catch (error) {
-      console.error('Error searching jobs:', error);
-      throw error;
-    }
-  }
-
-  async getSimilarJobs(jobId) {
-    try {
-      const targetJob = this.jobDatabase.find(job => job.id === jobId);
-      if (!targetJob) {
-        throw new Error('Job not found');
       }
-
-      // Find similar jobs based on requirements and title
-      const similarJobs = this.jobDatabase
-        .filter(job => job.id !== jobId)
-        .map(job => {
-          const similarity = this.calculateJobSimilarity(targetJob, job);
-          return { ...job, similarity };
-        })
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, 5);
-
-      return similarJobs;
-    } catch (error) {
-      console.error('Error getting similar jobs:', error);
-      throw error;
     }
+    if (user.profile?.skills) {
+      user.profile.skills.forEach(s => skills.add((s.name || s).toLowerCase()));
+    }
+    if (Array.isArray(user.skills)) {
+      user.skills.forEach(s => skills.add((typeof s === 'object' ? s.name : s).toLowerCase()));
+    }
+    return [...skills].filter(Boolean);
   }
 
-  calculateJobSimilarity(job1, job2) {
-    let similarity = 0;
-
-    // Title similarity
-    const titleSimilarity = this.calculateTextSimilarity(job1.title, job2.title);
-    similarity += titleSimilarity * 0.3;
-
-    // Requirements similarity
-    const reqSimilarity = this.calculateArraySimilarity(job1.requirements, job2.requirements);
-    similarity += reqSimilarity * 0.4;
-
-    // Company similarity
-    const companySimilarity = this.calculateTextSimilarity(job1.company, job2.company);
-    similarity += companySimilarity * 0.2;
-
-    // Location similarity
-    const locationSimilarity = this.calculateTextSimilarity(job1.location, job2.location);
-    similarity += locationSimilarity * 0.1;
-
-    return Math.round(similarity * 100);
+  extractUserExperience(user) {
+    let total = 0;
+    if (user.resumes) {
+      for (const resume of user.resumes) {
+        if (Array.isArray(resume.experience)) {
+          for (const exp of resume.experience) {
+            if (exp.duration) total += this.parseDuration(exp.duration);
+          }
+        }
+      }
+    }
+    if (Array.isArray(user.experience)) {
+      total = Math.max(total, user.experience.length * 1.5);
+    }
+    return Math.round(total);
   }
 
-  calculateTextSimilarity(text1, text2) {
-    const words1 = new Set(text1.toLowerCase().split(' '));
-    const words2 = new Set(text2.toLowerCase().split(' '));
-    
-    const intersection = new Set([...words1].filter(x => words2.has(x)));
-    const union = new Set([...words1, ...words2]);
-    
-    return intersection.size / union.size;
+  parseDuration(duration) {
+    const rangeMatch = String(duration).match(/\b(\d{4})\s*[-–]\s*(\d{4})\b/);
+    if (rangeMatch) return parseInt(rangeMatch[2]) - parseInt(rangeMatch[1]);
+    const numMatch = String(duration).match(/(\d+)/);
+    return numMatch ? parseInt(numMatch[1]) : 0;
   }
 
-  calculateArraySimilarity(arr1, arr2) {
-    if (!arr1 || !arr2) return 0;
-    
-    const set1 = new Set(arr1.map(item => item.toLowerCase()));
-    const set2 = new Set(arr2.map(item => item.toLowerCase()));
-    
-    const intersection = new Set([...set1].filter(x => set2.has(x)));
-    const union = new Set([...set1, ...set2]);
-    
-    return intersection.size / union.size;
+  mapExperienceLevel(years) {
+    if (years >= 8) return 'director';
+    if (years >= 5) return 'mid_senior_level';
+    if (years >= 2) return 'associate';
+    return 'entry_level';
   }
+
+  // ─── Model lifecycle (delegates to TensorFlow service) ───────────────────
 
   async trainRecommendationModel(trainingData) {
-    try {
-      if (!this.isInitialized) await this.initialize();
-      await this.tfService.trainModel(trainingData);
-      console.log('Recommendation model trained successfully');
-    } catch (error) {
-      console.error('Error training model:', error);
-    }
+    if (!this.isInitialized) await this.initialize();
+    await this.tfService.trainModel(trainingData);
+    logger.info('Recommendation model trained');
   }
 
-  async saveModel(path) {
-    try {
-      await this.tfService.saveModel(path);
-    } catch (error) {
-      console.error('Error saving model:', error);
-    }
+  async saveModel(modelPath) {
+    await this.tfService.saveModel(modelPath);
   }
 
-  async loadModel(path) {
-    try {
-      await this.tfService.loadModel(path);
-    } catch (error) {
-      console.error('Error loading model:', error);
-    }
+  async loadModel(modelPath) {
+    await this.tfService.loadModel(modelPath);
   }
 
   dispose() {
-    if (this.tfService) {
-      this.tfService.dispose();
-    }
+    this.tfService.dispose();
+    this.mlScoreCache.clear();
   }
 }
 

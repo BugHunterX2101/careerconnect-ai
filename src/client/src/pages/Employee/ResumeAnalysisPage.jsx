@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -32,6 +32,8 @@ import {
   Assignment
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
+
 const ResumeAnalysisPage = () => {
   const { t } = useTranslation();
   const { id } = useParams();
@@ -46,7 +48,7 @@ const ResumeAnalysisPage = () => {
   const fetchResumeAnalysis = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/resume/${id}/analysis`, {
+      const response = await fetch(`${API_BASE_URL}/resume/${id}/analysis`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

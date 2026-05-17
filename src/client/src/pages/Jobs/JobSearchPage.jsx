@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -52,8 +52,10 @@ import {
   CheckBox
 } from '@mui/icons-material';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import { API_BASE_URL } from '../../config/appConfig';
 
 const MotionBox = motion(Box);
+
 
 const JobSearchPage = () => {
   const { t } = useTranslation();
@@ -124,7 +126,7 @@ const JobSearchPage = () => {
       experience_level: experienceLevel
     });
     
-    const response = await fetch(`http://localhost:3000/api/jobs/search?${params}`, {
+    const response = await fetch(`${API_BASE_URL}/jobs/search?${params}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -148,7 +150,7 @@ const JobSearchPage = () => {
       setLinkedinSearching(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:3000/api/jobs/linkedin/search', {
+      const response = await fetch(`${API_BASE_URL}/jobs/linkedin/search`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -197,7 +199,7 @@ const JobSearchPage = () => {
         careerGoals: 'Find challenging opportunities in tech'
       };
       
-      const response = await fetch('http://localhost:3000/api/ml/gpt-job-search', {
+      const response = await fetch(`${API_BASE_URL}/ml/gpt-job-search`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -354,7 +356,7 @@ const JobSearchPage = () => {
       isExternal: false,
       source: 'GPT Enhanced',
       gptReasoning: 'This role perfectly matches your current skills while offering growth into the high-demand AI field. The company culture emphasizes learning and innovation.',
-      careerGrowth: 'Senior AI Engineer → AI Team Lead → CTO',
+      careerGrowth: 'Senior AI Engineer â†’ AI Team Lead â†’ CTO',
       learningOpportunities: ['AI/ML Bootcamp', 'Conference Sponsorship', 'Mentorship Program']
     },
     {
@@ -373,7 +375,7 @@ const JobSearchPage = () => {
       isExternal: false,
       source: 'GPT Enhanced',
       gptReasoning: 'FinTech offers 25% higher salaries on average. Your React expertise is exactly what they need for their platform rebuild.',
-      careerGrowth: 'Tech Lead → Engineering Manager → VP Engineering',
+      careerGrowth: 'Tech Lead â†’ Engineering Manager â†’ VP Engineering',
       learningOpportunities: ['Financial Systems Training', 'Leadership Development', 'Stock Options']
     }
   ];
@@ -675,7 +677,7 @@ const JobSearchPage = () => {
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" gutterBottom>{t('Recommendations')}</Typography>
                   {searchInsights.recommendations?.slice(0, 2).map((rec, index) => (
-                    <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>• {rec}</Typography>
+                    <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>â€¢ {rec}</Typography>
                   ))}
                 </Grid>
               </Grid>
@@ -886,3 +888,4 @@ const JobSearchPage = () => {
 };
 
 export default JobSearchPage;
+

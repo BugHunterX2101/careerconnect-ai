@@ -36,11 +36,17 @@ const getLogger = () => {
 
 const getUserById = async (userId) => {
   if (!User) return null;
+  // User module exports { User: getUserModelFn }, call it to get the actual model
+  if (typeof User.User === 'function') {
+    try {
+      const UserModel = User.User();
+      return UserModel.findByPk(userId);
+    } catch (error) {
+      return null;
+    }
+  }
   if (typeof User.findByPk === 'function') {
     return User.findByPk(userId);
-  }
-  if (typeof User.findById === 'function') {
-    return User.findById(userId);
   }
   return null;
 };
@@ -98,7 +104,7 @@ router.get('/dashboard/stats', async (req, res) => {
     const userId = req.user?.userId || req.user?.id;
     
     // Get real data from database
-    let stats = {
+    const stats = {
       totalApplications: 0,
       pendingApplications: 0,
       totalInterviews: 0,
@@ -583,8 +589,9 @@ router.get('/settings', async (req, res) => {
     }
 
     const userId = req.user.userId;
-    const user = await User.findById(userId).select('settings');
-    
+    const UserModel = User.User ? User.User() : null;
+    const user = UserModel ? await UserModel.findByPk(userId) : null;
+
     const defaultSettings = {
       emailNotifications: {
         jobMatches: true,
@@ -826,17 +833,19 @@ router.put('/settings', async (req, res) => {
 
     const userId = req.user.userId;
     const { settings } = req.body;
-    
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { settings },
-      { new: true, runValidators: true }
-    ).select('settings');
-    
+
+    const UserModel = User.User ? User.User() : null;
+    if (!UserModel) {
+      return res.status(503).json({ error: 'User model not available' });
+    }
+
+    const user = await UserModel.findByPk(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
+    await user.update({ settings });
+
     res.json({
       message: 'Settings updated successfully',
       settings: user.settings

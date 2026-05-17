@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, TextField, Button, Grid, Card, CardContent,
   FormControl, InputLabel, Select, MenuItem, Chip, Avatar, List,
@@ -14,6 +14,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/appConfig';
+
 
 const JobPostingPage = () => {
   const { user } = useAuth();
@@ -100,7 +102,7 @@ const JobPostingPage = () => {
       setError(null);
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/employer/jobs', {
+      const response = await fetch(`${API_BASE_URL}/employer/jobs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +137,7 @@ const JobPostingPage = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3000/api/employer/jobs/${jobData._id}/matching-candidates`, {
+      const response = await fetch(`${API_BASE_URL}/employer/jobs/${jobData._id}/matching-candidates`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -164,7 +166,7 @@ const JobPostingPage = () => {
         notes: `Interview for ${jobData.title} position`
       };
 
-      const response = await fetch('http://localhost:3000/api/video/interviews', {
+      const response = await fetch(`${API_BASE_URL}/video/interviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -339,7 +341,7 @@ const JobPostingPage = () => {
       <CardContent>
         <Typography variant="h6" gutterBottom>{jobData.title}</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {jobData.company} • {jobData.location} • {jobData.type}
+          {jobData.company} â€¢ {jobData.location} â€¢ {jobData.type}
         </Typography>
         <Typography variant="body1" paragraph>
           {jobData.description}

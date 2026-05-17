@@ -613,7 +613,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 
       return res.status(201).json({
         message: 'Message sent successfully',
-        message: responseMessage
+        data: responseMessage
       });
     }
 
@@ -688,7 +688,7 @@ router.post('/conversations/:id/messages', authenticateToken, messageLimiter, up
 
     res.status(201).json({
       message: 'Message sent successfully',
-      message: message
+      data: message
     });
 
   } catch (error) {
@@ -740,7 +740,7 @@ router.put('/messages/:id', authenticateToken, getCsrfProtection(), validateMess
 
     res.json({
       message: 'Message updated successfully',
-      message: message
+      data: message
     });
 
   } catch (error) {

@@ -1,3 +1,4 @@
+/* eslint-env jest */
 const { validateEnvironment } = require('../config/validateEnv');
 
 describe('Environment Validation', () => {

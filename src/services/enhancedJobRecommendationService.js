@@ -1,49 +1,56 @@
-const axios = require('axios');
+/**
+ * Enhanced job recommendation service — 100% real-time data via Apify.
+ * No hardcoded companies, no fake listings, no mock salary data.
+ */
+const { searchLinkedInJobsViaApify, getLinkedInRecommendations } = require('./apifyService');
 const logger = require('../middleware/logger');
 
 class EnhancedJobRecommendationService {
   constructor() {
-    this.minJobCount = 15; // Minimum jobs to return
-    this.targetJobCount = 20; // Target number of jobs
-    this.jobCounter = 0;
+    this.targetJobCount = 20;
   }
 
   /**
-   * Get comprehensive job recommendations with profile improvement suggestions
-   * @param {Object} userProfile - User's profile data
-   * @param {Object} resume - User's parsed resume data
-   * @param {Object} options - Search options
-   * @returns {Object} Jobs and recommendations
+   * Get comprehensive job recommendations with profile improvement suggestions.
+   * @param {Object} userProfile
+   * @param {Object} resume - Parsed resume data
+   * @param {Object} options
+   * @returns {Promise<Object>}
    */
   async getEnhancedRecommendations(userProfile, resume, options = {}) {
     try {
-      // Extract user data
       const userSkills = this.extractSkills(userProfile, resume);
       const userExperience = this.extractExperience(userProfile, resume);
-      const userLocation = userProfile.location || options.location || 'Remote';
+      const userLocation = typeof userProfile.location === 'object'
+        ? [userProfile.location.city, userProfile.location.state, userProfile.location.country].filter(Boolean).join(', ')
+        : (userProfile.location || options.location || '');
 
-      // Get jobs from multiple sources
-      const jobs = await this.aggregateJobsFromSources(userSkills, userExperience, userLocation, options);
+      // Fetch real-time LinkedIn jobs via Apify
+      const jobs = await getLinkedInRecommendations(
+        {
+          skills: userSkills,
+          location: userLocation,
+          currentRole: userProfile.title || '',
+          experienceLevel: this.mapExperienceLevel(userExperience.totalYears)
+        },
+        Math.max(this.targetJobCount, options.limit || this.targetJobCount)
+      );
 
-      // Score and rank jobs based on user profile
       const scoredJobs = this.scoreAndRankJobs(jobs, userProfile, resume);
-
-      // Get profile improvement suggestions
       const profileSuggestions = this.generateProfileSuggestions(userProfile, resume, scoredJobs);
-
-      // Ensure minimum job count
-      const finalJobs = scoredJobs.slice(0, Math.max(this.targetJobCount, options.limit || this.targetJobCount));
 
       return {
         success: true,
-        count: finalJobs.length,
-        jobs: finalJobs,
-        profileSuggestions: profileSuggestions,
+        count: scoredJobs.length,
+        jobs: scoredJobs,
+        profileSuggestions,
         userStats: {
           totalSkills: userSkills.length,
           yearsOfExperience: userExperience.totalYears,
           profileCompleteness: this.calculateProfileCompleteness(userProfile, resume)
-        }
+        },
+        source: 'LinkedIn (Real-time via Apify)',
+        lastUpdated: new Date().toISOString()
       };
     } catch (error) {
       logger.error('Enhanced job recommendation error:', error);
@@ -52,815 +59,204 @@ class EnhancedJobRecommendationService {
   }
 
   /**
-   * Aggregate jobs from multiple sources
+   * Search jobs with specific filters via Apify.
    */
-  async aggregateJobsFromSources(skills, experience, location, options) {
-    const allJobs = [];
-
-    // Source 1: Generate realistic tech company jobs
-    const techJobs = this.generateTechCompanyJobs(skills, location);
-    allJobs.push(...techJobs);
-
-    // Source 2: Generate startup jobs
-    const startupJobs = this.generateStartupJobs(skills, location);
-    allJobs.push(...startupJobs);
-
-    // Source 3: Generate remote-first company jobs
-    const remoteJobs = this.generateRemoteFirstJobs(skills);
-    allJobs.push(...remoteJobs);
-
-    // Source 4: Try external APIs (with fallback)
-    try {
-      const externalJobs = await this.fetchExternalJobs(skills, location);
-      allJobs.push(...externalJobs);
-    } catch (error) {
-      logger.warn('External job fetch failed:', error.message);
-    }
-
-    return allJobs;
-  }
-
-  /**
-   * Generate tech company jobs
-   */
-  generateTechCompanyJobs(skills, location) {
-    const companies = [
-      { name: 'Google', tier: 'FAANG', url: 'https://careers.google.com', salaryMultiplier: 1.3 },
-      { name: 'Microsoft', tier: 'FAANG', url: 'https://careers.microsoft.com', salaryMultiplier: 1.25 },
-      { name: 'Amazon', tier: 'FAANG', url: 'https://amazon.jobs', salaryMultiplier: 1.3 },
-      { name: 'Meta', tier: 'FAANG', url: 'https://metacareers.com', salaryMultiplier: 1.35 },
-      { name: 'Apple', tier: 'FAANG', url: 'https://jobs.apple.com', salaryMultiplier: 1.3 },
-      { name: 'Netflix', tier: 'FAANG', url: 'https://jobs.netflix.com', salaryMultiplier: 1.4 },
-      { name: 'Salesforce', tier: 'Enterprise', url: 'https://salesforce.com/careers', salaryMultiplier: 1.2 },
-      { name: 'Oracle', tier: 'Enterprise', url: 'https://oracle.com/careers', salaryMultiplier: 1.15 },
-      { name: 'IBM', tier: 'Enterprise', url: 'https://ibm.com/careers', salaryMultiplier: 1.1 },
-      { name: 'Adobe', tier: 'Tech', url: 'https://adobe.com/careers', salaryMultiplier: 1.25 }
-    ];
-
-    const jobTitles = this.generateJobTitlesFromSkills(skills);
-    const jobs = [];
-
-    companies.forEach(company => {
-      const selectedTitles = this.getDeterministicItems(jobTitles, 2, `${company.name}:${location}`);
-      selectedTitles.forEach(title => {
-        jobs.push(this.createJobListing(company, title, location, skills));
-      });
+  async searchJobs(query, filters = {}) {
+    const jobs = await searchLinkedInJobsViaApify({
+      query,
+      location: filters.location || '',
+      limit: filters.limit || 25,
+      experienceLevel: filters.experienceLevel || '',
+      jobType: filters.jobType || '',
+      datePosted: filters.datePosted || 'past_month'
     });
-
     return jobs;
   }
 
-  /**
-   * Generate startup jobs
-   */
-  generateStartupJobs(skills, location) {
-    const startups = [
-      { name: 'Stripe', stage: 'Late Stage', url: 'https://stripe.com/jobs', salaryMultiplier: 1.2 },
-      { name: 'Databricks', stage: 'Late Stage', url: 'https://databricks.com/company/careers', salaryMultiplier: 1.25 },
-      { name: 'Notion', stage: 'Growth', url: 'https://notion.so/careers', salaryMultiplier: 1.15 },
-      { name: 'Discord', stage: 'Growth', url: 'https://discord.com/jobs', salaryMultiplier: 1.2 },
-      { name: 'Figma', stage: 'Growth', url: 'https://figma.com/careers', salaryMultiplier: 1.25 },
-      { name: 'Airtable', stage: 'Growth', url: 'https://airtable.com/careers', salaryMultiplier: 1.15 },
-      { name: 'Webflow', stage: 'Series B', url: 'https://webflow.com/careers', salaryMultiplier: 1.1 },
-      { name: 'Linear', stage: 'Series B', url: 'https://linear.app/careers', salaryMultiplier: 1.1 }
-    ];
+  // ─── Scoring ─────────────────────────────────────────────────────────────
 
-    const jobs = [];
-    const jobTitles = this.generateJobTitlesFromSkills(skills);
-
-    startups.forEach(startup => {
-      const selectedTitles = this.getDeterministicItems(jobTitles, 1, `${startup.name}:${location}`);
-      selectedTitles.forEach(title => {
-        jobs.push(this.createJobListing(startup, title, location, skills));
-      });
-    });
-
-    return jobs;
-  }
-
-  /**
-   * Generate remote-first company jobs
-   */
-  generateRemoteFirstJobs(skills) {
-    const remoteCompanies = [
-      { name: 'GitLab', url: 'https://about.gitlab.com/jobs', salaryMultiplier: 1.15 },
-      { name: 'Zapier', url: 'https://zapier.com/jobs', salaryMultiplier: 1.1 },
-      { name: 'Automattic', url: 'https://automattic.com/work-with-us', salaryMultiplier: 1.1 },
-      { name: 'Buffer', url: 'https://buffer.com/journey', salaryMultiplier: 1.05 },
-      { name: 'Doist', url: 'https://doist.com/jobs', salaryMultiplier: 1.1 },
-      { name: 'Toptal', url: 'https://toptal.com/careers', salaryMultiplier: 1.2 }
-    ];
-
-    const jobs = [];
-    const jobTitles = this.generateJobTitlesFromSkills(skills);
-
-    remoteCompanies.forEach(company => {
-      const title = this.getDeterministicItems(jobTitles, 1, `${company.name}:remote`)[0];
-      jobs.push(this.createJobListing(company, title, 'Remote (Worldwide)', skills, true));
-    });
-
-    return jobs;
-  }
-
-  /**
-   * Create a detailed job listing
-   */
-  createJobListing(company, title, location, userSkills, isFullyRemote = false) {
-    const experienceLevels = ['Entry', 'Mid', 'Senior', 'Lead'];
-    const experienceLevel = this.getDeterministicItems(experienceLevels, 1, `${company.name}:${title}`)[0];
-    
-    const requiredSkills = this.selectRelevantSkills(userSkills, title);
-    const salaryRange = this.calculateSalaryRange(title, experienceLevel, company.salaryMultiplier || 1.0);
-    
-    return {
-      id: this.getSequentialJobId(company.name, title),
-      title: `${experienceLevel} ${title}`,
-      company: company.name,
-      companyUrl: company.url,
-      companyTier: company.tier || company.stage || 'Tech',
-      location: isFullyRemote ? 'Remote (Worldwide)' : location,
-      remote: true,
-      type: 'Full-time',
-      experienceLevel: experienceLevel.toLowerCase(),
-      salary: salaryRange,
-      requiredSkills: requiredSkills,
-      preferredSkills: this.generatePreferredSkills(requiredSkills),
-      description: this.generateJobDescription(title, company.name, requiredSkills),
-      responsibilities: this.generateResponsibilities(title, experienceLevel),
-      benefits: this.generateBenefits(company),
-      posted: this.getDeterministicRecentDate(company.name, title),
-      source: 'CareerConnect AI',
-      isRealTime: true,
-      applicationUrl: `${company.url}`,
-      matchScore: 0 // Will be calculated
-    };
-  }
-
-  /**
-   * Generate job description
-   */
-  generateJobDescription(title, companyName, skills) {
-    const descriptions = {
-      'Software Engineer': `Join ${companyName} as a Software Engineer and work on cutting-edge technology solutions. You'll collaborate with talented engineers to build scalable systems that impact millions of users.`,
-      'Frontend Developer': `${companyName} is seeking a Frontend Developer to create beautiful, responsive user interfaces. You'll work with modern frameworks and tools to deliver exceptional user experiences.`,
-      'Backend Developer': `As a Backend Developer at ${companyName}, you'll design and implement robust server-side applications, APIs, and databases that power our platform.`,
-      'Full Stack Developer': `${companyName} is looking for a Full Stack Developer to work across our entire technology stack, from database to user interface.`,
-      'DevOps Engineer': `Join ${companyName}'s infrastructure team as a DevOps Engineer. You'll automate deployments, monitor systems, and ensure high availability.`,
-      'Data Scientist': `${companyName} is seeking a Data Scientist to analyze complex datasets and build ML models that drive business decisions.`,
-      'Machine Learning Engineer': `Build and deploy machine learning models at scale with ${companyName}. You'll work on challenging problems with real-world impact.`,
-      'Product Manager': `Lead product strategy and execution at ${companyName}. You'll work with engineering, design, and business teams to deliver innovative products.`,
-      'UI/UX Designer': `${companyName} is seeking a UI/UX Designer to create intuitive, beautiful interfaces. You'll own the entire design process from research to implementation.`,
-      'Mobile Developer': `Develop native mobile applications for ${companyName}. You'll work on features used by millions of users daily.`
-    };
-
-    return descriptions[title] || `Join ${companyName} as a ${title}. Work with ${skills.slice(0, 3).join(', ')} and more cutting-edge technologies.`;
-  }
-
-  /**
-   * Generate responsibilities
-   */
-  generateResponsibilities(title, level) {
-    const baseResponsibilities = [
-      'Write clean, maintainable, and efficient code',
-      'Collaborate with cross-functional teams',
-      'Participate in code reviews and technical discussions',
-      'Contribute to technical documentation'
-    ];
-
-    const seniorResponsibilities = [
-      'Lead technical design and architecture decisions',
-      'Mentor junior engineers and conduct technical interviews',
-      'Drive technical excellence and best practices',
-      'Collaborate with product and design teams on roadmap planning'
-    ];
-
-    if (level === 'Senior' || level === 'Lead') {
-      return [...baseResponsibilities, ...seniorResponsibilities];
-    }
-
-    return baseResponsibilities;
-  }
-
-  /**
-   * Generate benefits
-   */
-  generateBenefits(company) {
-    const standardBenefits = [
-      'Competitive salary and equity',
-      'Health, dental, and vision insurance',
-      '401(k) with company match',
-      'Unlimited PTO',
-      'Remote work options',
-      'Professional development budget',
-      'Latest hardware and software',
-      'Team events and off-sites'
-    ];
-
-    const premiumBenefits = [
-      'Generous stock options',
-      'Relocation assistance',
-      'Parental leave',
-      'Wellness stipend',
-      'Home office setup budget'
-    ];
-
-    if (company.tier === 'FAANG' || company.salaryMultiplier >= 1.25) {
-      return [...standardBenefits, ...premiumBenefits];
-    }
-
-    return standardBenefits;
-  }
-
-  /**
-   * Calculate salary range based on role and level
-   */
-  calculateSalaryRange(title, level, multiplier = 1.0) {
-    const baseSalaries = {
-      'Entry': { min: 70000, max: 100000 },
-      'Mid': { min: 100000, max: 140000 },
-      'Senior': { min: 140000, max: 190000 },
-      'Lead': { min: 180000, max: 250000 }
-    };
-
-    const range = baseSalaries[level] || baseSalaries['Mid'];
-    
-    return {
-      min: Math.round(range.min * multiplier),
-      max: Math.round(range.max * multiplier),
-      currency: 'USD',
-      period: 'annual'
-    };
-  }
-
-  /**
-   * Score and rank jobs based on user profile
-   */
   scoreAndRankJobs(jobs, userProfile, resume) {
-    const scoredJobs = jobs.map(job => {
-      const score = this.calculateJobMatchScore(job, userProfile, resume);
-      return {
-        ...job,
-        matchScore: score.total,
-        matchBreakdown: score.breakdown,
-        matchReasons: score.reasons
-      };
-    });
-
-    // Sort by match score
-    return scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
-  }
-
-  /**
-   * Calculate job match score
-   */
-  calculateJobMatchScore(job, userProfile, resume) {
-    let totalScore = 0;
-    const breakdown = {};
-    const reasons = [];
-
-    // Skills match (40% weight)
-    const skillsMatch = this.calculateSkillsMatch(job.requiredSkills, userProfile, resume);
-    breakdown.skills = skillsMatch.score;
-    totalScore += skillsMatch.score * 0.4;
-    if (skillsMatch.matchedSkills.length > 0) {
-      reasons.push({
-        type: 'skills',
-        icon: 'OK',
-        message: `Matches ${skillsMatch.matchedSkills.length}/${job.requiredSkills.length} required skills`,
-        details: skillsMatch.matchedSkills
-      });
-    }
-
-    // Experience match (25% weight)
-    const experienceMatch = this.calculateExperienceMatch(job.experienceLevel, userProfile, resume);
-    breakdown.experience = experienceMatch.score;
-    totalScore += experienceMatch.score * 0.25;
-    if (experienceMatch.score > 70) {
-      reasons.push({
-        type: 'experience',
-        icon: 'OK',
-        message: experienceMatch.message
-      });
-    }
-
-    // Location match (15% weight)
-    const locationMatch = this.calculateLocationMatch(job.location, userProfile);
-    breakdown.location = locationMatch.score;
-    totalScore += locationMatch.score * 0.15;
-    if (locationMatch.score === 100) {
-      reasons.push({
-        type: 'location',
-        icon: 'OK',
-        message: locationMatch.message
-      });
-    }
-
-    // Salary match (10% weight)
-    const salaryMatch = this.calculateSalaryMatch(job.salary, userProfile);
-    breakdown.salary = salaryMatch.score;
-    totalScore += salaryMatch.score * 0.10;
-
-    // Company tier match (10% weight)
-    const tierMatch = this.calculateCompanyTierMatch(job.companyTier);
-    breakdown.companyTier = tierMatch.score;
-    totalScore += tierMatch.score * 0.10;
-    if (tierMatch.score === 100) {
-      reasons.push({
-        type: 'company',
-        icon: 'Top',
-        message: tierMatch.message
-      });
-    }
-
-    return {
-      total: Math.round(totalScore),
-      breakdown,
-      reasons
-    };
-  }
-
-  /**
-   * Calculate skills match
-   */
-  calculateSkillsMatch(requiredSkills, userProfile, resume) {
     const userSkills = this.extractSkills(userProfile, resume).map(s => s.toLowerCase());
-    const matchedSkills = requiredSkills.filter(skill => 
-      userSkills.some(userSkill => 
-        userSkill.includes(skill.toLowerCase()) || skill.toLowerCase().includes(userSkill)
-      )
-    );
 
-    const score = requiredSkills.length > 0 ? (matchedSkills.length / requiredSkills.length) * 100 : 0;
-    
-    return {
-      score: Math.round(score),
-      matchedSkills,
-      missingSkills: requiredSkills.filter(s => !matchedSkills.includes(s))
-    };
+    return jobs
+      .map(job => {
+        const breakdown = {};
+        let totalScore = 0;
+
+        // Skills match (40%)
+        const skillsMatch = this.calculateSkillsMatch(job, userSkills);
+        breakdown.skills = skillsMatch.score;
+        totalScore += skillsMatch.score * 0.4;
+
+        // Location match (20%)
+        const locationMatch = this.calculateLocationMatch(job.location, userProfile);
+        breakdown.location = locationMatch.score;
+        totalScore += locationMatch.score * 0.2;
+
+        // Title relevance (25%)
+        const titleScore = this.calculateTitleRelevance(job.title, userProfile);
+        breakdown.title = titleScore;
+        totalScore += titleScore * 0.25;
+
+        // Recency (15%)
+        const recencyScore = this.calculateRecencyScore(job.postedAt);
+        breakdown.recency = recencyScore;
+        totalScore += recencyScore * 0.15;
+
+        return {
+          ...job,
+          matchScore: Math.round(Math.min(totalScore, 100)),
+          matchBreakdown: breakdown,
+          matchReasons: skillsMatch.matchedSkills.length > 0
+            ? [`Matches your skills: ${skillsMatch.matchedSkills.slice(0, 3).join(', ')}`]
+            : []
+        };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore);
   }
 
-  /**
-   * Calculate experience match
-   */
-  calculateExperienceMatch(jobLevel, userProfile, resume) {
-    const userExp = this.extractExperience(userProfile, resume);
-    const levelMap = { 'entry': 0, 'mid': 3, 'senior': 7, 'lead': 10 };
-    const requiredYears = levelMap[jobLevel.toLowerCase()] || 0;
-
-    if (userExp.totalYears >= requiredYears) {
-      return {
-        score: 100,
-        message: `${userExp.totalYears} years experience (${jobLevel} level)`
-      };
-    } else if (userExp.totalYears >= requiredYears * 0.7) {
-      return {
-        score: 75,
-        message: `${userExp.totalYears} years experience (close to ${jobLevel} level)`
-      };
-    } else {
-      return {
-        score: 50,
-        message: `${userExp.totalYears} years experience`
-      };
-    }
+  calculateSkillsMatch(job, userSkillsLower) {
+    if (!userSkillsLower.length) return { score: 50, matchedSkills: [] };
+    const jobText = `${job.title} ${job.description}`.toLowerCase();
+    const matchedSkills = userSkillsLower.filter(s => jobText.includes(s));
+    const score = Math.round((matchedSkills.length / userSkillsLower.length) * 100);
+    return { score: Math.min(score, 100), matchedSkills };
   }
 
-  /**
-   * Calculate location match
-   */
   calculateLocationMatch(jobLocation, userProfile) {
-    if (jobLocation.toLowerCase().includes('remote')) {
-      return {
-        score: 100,
-        message: 'Remote position - location flexible'
-      };
-    }
+    const userLoc = typeof userProfile.location === 'object'
+      ? userProfile.location.city || ''
+      : (userProfile.location || '');
 
-    const userLocation = userProfile.location || '';
-    if (userLocation && jobLocation.toLowerCase().includes(userLocation.toLowerCase())) {
-      return {
-        score: 100,
-        message: 'Location matches your preference'
-      };
-    }
+    if (!userLoc) return { score: 60, message: 'Location not specified' };
 
-    return { score: 60, message: 'Different location' };
+    const jobLocLower = (jobLocation || '').toLowerCase();
+    const userLocLower = userLoc.toLowerCase();
+
+    if (jobLocLower.includes('remote')) return { score: 90, message: 'Remote position' };
+    if (jobLocLower.includes(userLocLower) || userLocLower.includes(jobLocLower)) {
+      return { score: 100, message: 'Location match' };
+    }
+    return { score: 40, message: 'Different location' };
   }
 
-  /**
-   * Calculate salary match
-   */
-  calculateSalaryMatch(jobSalary, userProfile) {
-    const userExpectation = userProfile.salaryExpectation || 100000;
-    
-    if (jobSalary.max >= userExpectation) {
-      return { score: 100 };
-    } else if (jobSalary.max >= userExpectation * 0.9) {
-      return { score: 80 };
-    } else {
-      return { score: 60 };
-    }
+  calculateTitleRelevance(jobTitle, userProfile) {
+    const userTitle = (userProfile.title || userProfile.currentRole || '').toLowerCase();
+    const jobTitleLower = (jobTitle || '').toLowerCase();
+    if (!userTitle) return 50;
+    if (jobTitleLower.includes(userTitle) || userTitle.includes(jobTitleLower)) return 100;
+    const userWords = userTitle.split(/\s+/);
+    const matches = userWords.filter(w => w.length > 3 && jobTitleLower.includes(w));
+    return Math.round((matches.length / Math.max(userWords.length, 1)) * 100);
   }
 
-  /**
-   * Calculate company tier match
-   */
-  calculateCompanyTierMatch(tier) {
-    if (tier === 'FAANG') {
-      return {
-        score: 100,
-        message: 'Top-tier tech company (FAANG)'
-      };
-    } else if (tier === 'Late Stage' || tier === 'Enterprise') {
-      return {
-        score: 90,
-        message: 'Established company'
-      };
-    } else {
-      return { score: 75, message: 'Growing company' };
-    }
+  calculateRecencyScore(postedAt) {
+    if (!postedAt) return 50;
+    const daysAgo = (Date.now() - new Date(postedAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysAgo <= 1) return 100;
+    if (daysAgo <= 7) return 85;
+    if (daysAgo <= 14) return 70;
+    if (daysAgo <= 30) return 55;
+    return 30;
   }
 
-  /**
-   * Generate profile improvement suggestions
-   */
-  generateProfileSuggestions(userProfile, resume, scoredJobs) {
+  // ─── Profile analysis ────────────────────────────────────────────────────
+
+  extractSkills(userProfile, resume) {
+    const skills = new Set();
+    if (Array.isArray(userProfile.skills)) {
+      userProfile.skills.forEach(s => skills.add(typeof s === 'object' ? s.name : s));
+    }
+    if (resume && Array.isArray(resume.skills)) {
+      resume.skills.forEach(s => skills.add(s.name || s));
+    }
+    return [...skills].filter(Boolean);
+  }
+
+  extractExperience(userProfile, resume) {
+    let totalYears = 0;
+    if (Array.isArray(userProfile.experience)) {
+      totalYears = userProfile.experience.length * 1.5;
+    }
+    if (resume && Array.isArray(resume.experience)) {
+      totalYears = Math.max(totalYears, resume.experience.length * 1.5);
+    }
+    return { totalYears: Math.round(totalYears) };
+  }
+
+  mapExperienceLevel(years) {
+    if (years >= 8) return 'director';
+    if (years >= 5) return 'mid_senior_level';
+    if (years >= 2) return 'associate';
+    return 'entry_level';
+  }
+
+  calculateProfileCompleteness(userProfile, resume) {
+    const checks = [
+      !!userProfile.firstName,
+      !!userProfile.lastName,
+      !!userProfile.email,
+      !!userProfile.location,
+      !!(userProfile.skills && userProfile.skills.length > 0),
+      !!userProfile.bio,
+      !!(resume && resume.experience && resume.experience.length > 0),
+      !!(resume && resume.education && resume.education.length > 0)
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }
+
+  generateProfileSuggestions(userProfile, resume, jobs) {
     const suggestions = [];
+    const missing = [];
 
-    // Analyze top jobs to find common requirements
-    const topJobs = scoredJobs.slice(0, 10);
-    const allRequiredSkills = topJobs.flatMap(job => job.requiredSkills);
-    const userSkills = this.extractSkills(userProfile, resume).map(s => s.toLowerCase());
+    if (!userProfile.bio) missing.push('Professional summary');
+    if (!userProfile.location) missing.push('Location');
+    if (!userProfile.skills || userProfile.skills.length < 5) missing.push('More skills (at least 5)');
+    if (!resume || !resume.experience || resume.experience.length === 0) missing.push('Work experience');
+    if (!resume || !resume.education || resume.education.length === 0) missing.push('Education');
 
-    // Find missing high-demand skills
-    const skillFrequency = {};
-    allRequiredSkills.forEach(skill => {
-      const skillLower = skill.toLowerCase();
-      skillFrequency[skillLower] = (skillFrequency[skillLower] || 0) + 1;
-    });
-
-    const missingSkills = Object.entries(skillFrequency)
-      .filter(([skill,]) => !userSkills.some(us => us.includes(skill) || skill.includes(us)))
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10)
-      .map(([skill, count]) => ({
-        skill,
-        demand: count,
-        demandLevel: count >= 7 ? 'Very High' : count >= 5 ? 'High' : 'Medium'
-      }));
-
-    if (missingSkills.length > 0) {
+    if (missing.length > 0) {
       suggestions.push({
-        category: 'Skills',
-        priority: 'High',
-        icon: 'Target',
-        title: 'Add In-Demand Skills',
-        description: 'These skills appear frequently in your recommended jobs',
-        action: 'Learn and add these skills to increase your job matches',
-        items: missingSkills.slice(0, 5).map(s => ({
-          name: s.skill,
-          demand: s.demandLevel,
-          appearsIn: `${s.demand} out of 10 top matches`
-        })),
-        impact: 'Could increase job matches by 30-50%'
+        type: 'profile_completion',
+        priority: 'high',
+        title: 'Complete your profile',
+        description: `Add missing sections: ${missing.join(', ')}`,
+        action: 'Edit your profile to increase match scores'
       });
     }
 
-    // Profile completeness
-    const completeness = this.calculateProfileCompleteness(userProfile, resume);
-    if (completeness < 100) {
-      const missing = [];
-      if (!userProfile.headline) missing.push('Professional headline');
-      if (!userProfile.about) missing.push('About/Summary section');
-      if (!userProfile.location) missing.push('Location');
-      if (!userProfile.phone) missing.push('Phone number');
-      if (!userProfile.linkedin) missing.push('LinkedIn profile URL');
-      if (!userProfile.website) missing.push('Portfolio/Website');
+    // Identify skills appearing frequently in matched jobs but missing from profile
+    if (jobs.length > 0) {
+      const profileSkills = new Set(
+        (userProfile.skills || []).map(s => (typeof s === 'object' ? s.name : s).toLowerCase())
+      );
+      const jobSkillFreq = {};
+      jobs.forEach(job => {
+        (job.skills || []).forEach(skill => {
+          const s = skill.toLowerCase();
+          if (!profileSkills.has(s)) {
+            jobSkillFreq[s] = (jobSkillFreq[s] || 0) + 1;
+          }
+        });
+      });
 
-      if (missing.length > 0) {
+      const trendingSkills = Object.entries(jobSkillFreq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([skill]) => skill);
+
+      if (trendingSkills.length > 0) {
         suggestions.push({
-          category: 'Profile',
-          priority: 'Medium',
-          icon: 'Note',
-          title: 'Complete Your Profile',
-          description: `Your profile is ${completeness}% complete`,
-          action: 'Add missing information to appear more professional',
-          items: missing.map(item => ({ name: item })),
-          impact: 'Could increase profile views by 40%'
+          type: 'skill_gap',
+          priority: 'medium',
+          title: 'High-demand skills in your target roles',
+          description: `These skills appear frequently in your recommended jobs: ${trendingSkills.join(', ')}`,
+          action: 'Add these skills to your profile to improve match scores'
         });
       }
     }
 
-    // Experience suggestions
-    const userExp = this.extractExperience(userProfile, resume);
-    if (userExp.positions.length === 0) {
-      suggestions.push({
-        category: 'Experience',
-        priority: 'High',
-        icon: 'Work',
-        title: 'Add Work Experience',
-        description: 'Your profile lacks detailed work experience',
-        action: 'Add your previous roles, responsibilities, and achievements',
-        items: [
-          { name: 'Add at least 2-3 previous positions' },
-          { name: 'Include measurable achievements' },
-          { name: 'List technologies and tools used' }
-        ],
-        impact: 'Essential for employer evaluation'
-      });
-    }
-
-    // Certification suggestions
-    const topSkills = missingSkills.slice(0, 3);
-    if (topSkills.length > 0) {
-      suggestions.push({
-        category: 'Certifications',
-        priority: 'Low',
-        icon: 'Cert',
-        title: 'Consider Relevant Certifications',
-        description: 'Boost your credibility with industry certifications',
-        action: 'Get certified in high-demand skills',
-        items: topSkills.map(s => ({
-          name: this.suggestCertification(s.skill),
-          skill: s.skill,
-          demand: s.demandLevel
-        })),
-        impact: 'Can increase interview calls by 25%'
-      });
-    }
-
-    // Project suggestions
-    if (!resume.projects || resume.projects.length < 2) {
-      suggestions.push({
-        category: 'Projects',
-        priority: 'Medium',
-        icon: 'Launch',
-        title: 'Showcase Your Projects',
-        description: 'Add portfolio projects to demonstrate your skills',
-        action: 'Build and document 2-3 substantial projects',
-        items: [
-          { name: 'Create a GitHub repository for each project' },
-          { name: 'Add live demos or screenshots' },
-          { name: 'Write clear README documentation' },
-          { name: 'Highlight technologies and problem-solving approach' }
-        ],
-        impact: 'Projects can increase callbacks by 35%'
-      });
-    }
-
-    // Keywords optimization
-    suggestions.push({
-      category: 'Keywords',
-      priority: 'Medium',
-      icon: 'Search',
-      title: 'Optimize Profile Keywords',
-      description: 'Use industry-standard terms for better discoverability',
-      action: 'Include these keywords naturally in your profile',
-      items: this.generateKeywordSuggestions(topJobs, userSkills),
-      impact: 'Better visibility in recruiter searches'
-    });
-
     return suggestions;
-  }
-
-  /**
-   * Suggest certification for a skill
-   */
-  suggestCertification(skill) {
-    const certMap = {
-      'aws': 'AWS Certified Solutions Architect',
-      'azure': 'Microsoft Azure Fundamentals',
-      'kubernetes': 'Certified Kubernetes Administrator (CKA)',
-      'react': 'Meta React Developer Certificate',
-      'python': 'Python Institute PCAP',
-      'java': 'Oracle Certified Java Programmer',
-      'docker': 'Docker Certified Associate',
-      'terraform': 'HashiCorp Terraform Associate',
-      'security': 'CompTIA Security+',
-      'project management': 'PMP or Scrum Master'
-    };
-
-    for (const [key, cert] of Object.entries(certMap)) {
-      if (skill.includes(key)) return cert;
-    }
-
-    return `Professional certification in ${skill}`;
-  }
-
-  /**
-   * Generate keyword suggestions
-   */
-  generateKeywordSuggestions(jobs, userSkills) {
-    const keywords = new Set();
-    
-    jobs.slice(0, 5).forEach(job => {
-      job.requiredSkills.forEach(skill => {
-        if (!userSkills.some(us => us.includes(skill.toLowerCase()))) {
-          keywords.add(skill);
-        }
-      });
-    });
-
-    return Array.from(keywords).slice(0, 10).map(keyword => ({
-      name: keyword,
-      reason: 'Frequently requested in top job matches'
-    }));
-  }
-
-  /**
-   * Calculate profile completeness
-   */
-  calculateProfileCompleteness(userProfile, resume) {
-    let score = 0;
-    const checks = [
-      { field: userProfile.firstName, points: 5 },
-      { field: userProfile.lastName, points: 5 },
-      { field: userProfile.email, points: 5 },
-      { field: userProfile.phone, points: 10 },
-      { field: userProfile.location, points: 10 },
-      { field: userProfile.headline, points: 15 },
-      { field: userProfile.about, points: 15 },
-      { field: userProfile.linkedin, points: 10 },
-      { field: userProfile.website, points: 10 },
-      { field: resume && resume.skills && resume.skills.length > 0, points: 15 }
-    ];
-
-    checks.forEach(check => {
-      if (check.field) score += check.points;
-    });
-
-    return score;
-  }
-
-  /**
-   * Extract skills from profile and resume
-   */
-  extractSkills(userProfile, resume) {
-    const skills = new Set();
-    
-    if (userProfile.skills) {
-      userProfile.skills.forEach(skill => skills.add(skill));
-    }
-    
-    if (resume && resume.skills) {
-      resume.skills.forEach(skill => skills.add(skill.name || skill));
-    }
-
-    return Array.from(skills);
-  }
-
-  /**
-   * Extract experience from profile and resume
-   */
-  extractExperience(userProfile, resume) {
-    const positions = [];
-    let totalYears = 0;
-
-    if (resume && resume.experience) {
-      positions.push(...resume.experience);
-      totalYears = resume.experience.reduce((sum, exp) => sum + (exp.duration || 0), 0);
-    }
-
-    if (userProfile.experience) {
-      if (userProfile.experience.positions) {
-        positions.push(...userProfile.experience.positions);
-      }
-      if (userProfile.experience.years) {
-        totalYears = Math.max(totalYears, userProfile.experience.years);
-      }
-    }
-
-    return { positions, totalYears };
-  }
-
-  /**
-   * Generate job titles from user skills
-   */
-  generateJobTitlesFromSkills(skills) {
-    const titles = new Set();
-
-    // Map skills to job titles
-    if (skills.some(s => ['react', 'vue', 'angular', 'frontend', 'html', 'css'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('Frontend Developer');
-    }
-    if (skills.some(s => ['node', 'python', 'java', 'backend', 'api', 'database'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('Backend Developer');
-    }
-    if (skills.some(s => ['fullstack', 'full stack', 'full-stack'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('Full Stack Developer');
-    }
-    if (skills.some(s => ['devops', 'kubernetes', 'docker', 'ci/cd', 'aws', 'azure'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('DevOps Engineer');
-    }
-    if (skills.some(s => ['ml', 'machine learning', 'tensorflow', 'pytorch'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('Machine Learning Engineer');
-    }
-    if (skills.some(s => ['data', 'analytics', 'sql', 'python'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('Data Scientist');
-    }
-    if (skills.some(s => ['mobile', 'ios', 'android', 'swift', 'kotlin', 'react native'].some(t => s.toLowerCase().includes(t)))) {
-      titles.add('Mobile Developer');
-    }
-
-    // Always include Software Engineer
-    titles.add('Software Engineer');
-
-    return Array.from(titles);
-  }
-
-  /**
-   * Select relevant skills for a job
-   */
-  selectRelevantSkills(userSkills, jobTitle) {
-    const skillMap = {
-      'Frontend Developer': ['JavaScript', 'React', 'TypeScript', 'CSS', 'HTML'],
-      'Backend Developer': ['Python', 'Node.js', 'API Design', 'Database', 'REST'],
-      'Full Stack Developer': ['JavaScript', 'React', 'Node.js', 'MongoDB', 'AWS'],
-      'DevOps Engineer': ['Kubernetes', 'Docker', 'AWS', 'CI/CD', 'Terraform'],
-      'Data Scientist': ['Python', 'SQL', 'Machine Learning', 'Statistics', 'Pandas'],
-      'Machine Learning Engineer': ['Python', 'TensorFlow', 'PyTorch', 'ML', 'Deep Learning'],
-      'Mobile Developer': ['React Native', 'iOS', 'Android', 'Swift', 'Mobile UI']
-    };
-
-    const baseSkills = skillMap[jobTitle] || ['JavaScript', 'Git', 'Problem Solving'];
-    const userSkillsLower = userSkills.map(s => s.toLowerCase());
-    
-    // Include matching user skills
-    const matchingSkills = baseSkills.filter(skill => 
-      userSkillsLower.some(us => us.includes(skill.toLowerCase()))
-    );
-
-    // Combine with some base skills
-    const finalSkills = [...new Set([...matchingSkills, ...baseSkills.slice(0, 5)])];
-    
-    return finalSkills.slice(0, 6);
-  }
-
-  /**
-   * Generate preferred skills
-   */
-  generatePreferredSkills(requiredSkills) {
-    const allSkills = [
-      'Git', 'Agile', 'Scrum', 'JIRA', 'Communication', 
-      'Problem Solving', 'Testing', 'CI/CD', 'Microservices',
-      'GraphQL', 'Redis', 'Elasticsearch'
-    ];
-
-    return allSkills
-      .filter(skill => !requiredSkills.includes(skill))
-      .slice(0, 5);
-  }
-
-  /**
-   * Fetch external jobs from APIs
-   */
-  async fetchExternalJobs(skills, location) {
-    // Placeholder for external API integration
-    // Could integrate with RemoteOK, GitHub Jobs, etc.
-    return [];
-  }
-
-  /**
-   * Get random items from array
-   */
-  getDeterministicItems(array, count, seed = '') {
-    if (!Array.isArray(array) || array.length === 0 || count <= 0) {
-      return [];
-    }
-
-    const offset = this.hashString(seed) % array.length;
-    const ordered = [...array.slice(offset), ...array.slice(0, offset)];
-    return ordered.slice(0, Math.min(count, ordered.length));
-  }
-
-  /**
-   * Get deterministic recent date
-   */
-  getDeterministicRecentDate(companyName, title) {
-    const seed = `${companyName}:${title}`;
-    const daysAgo = (this.hashString(seed) % 14) + 1; // 1-14 days ago
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    return date.toISOString();
-  }
-
-  getSequentialJobId(companyName, title) {
-    this.jobCounter += 1;
-    const base = `${companyName}-${title}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    return `job_${base}_${this.jobCounter}`;
-  }
-
-  hashString(value) {
-    const input = String(value || 'seed');
-    let hash = 0;
-    for (let i = 0; i < input.length; i += 1) {
-      hash = ((hash << 5) - hash) + input.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash);
   }
 }
 

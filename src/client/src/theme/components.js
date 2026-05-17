@@ -127,6 +127,7 @@ export const components = {
         fontFamily: '"Inter", sans-serif',
         fontWeight: 600,
         fontSize: '0.8rem',
+        height: 'auto',
         letterSpacing: '0.02em',
         padding: '6px 12px',
         transition: 'all 0.3s ease',
@@ -280,13 +281,4 @@ export const components = {
     },
   },
   
-  MuiChip: {
-    styleOverrides: {
-      root: {
-        fontSize: '0.8rem',
-        height: 'auto',
-        padding: '4px 2px',
-      },
-    },
-  },
 };
