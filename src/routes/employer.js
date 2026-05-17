@@ -50,10 +50,7 @@ const interviewMemoryStore = {
   seq: 1
 };
 
-const localJobStore = {
-  items: new Map(),
-  seq: 1
-};
+const localJobStore = require('./localJobStore');
 
 const isMongoObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value));
 const isNumericId = (value) => /^\d+$/.test(String(value));
@@ -288,20 +285,35 @@ router.get('/jobs', async (req, res) => {
 
     const { page = 1, limit = 10, status } = req.query;
     const employerId = req.user.userId;
-    
-    const query = { employer: employerId };
+
+    if (!isMongoObjectId(employerId)) {
+      const allJobs = Array.from(localJobStore.items.values())
+        .filter(j => String(j.employerId) === String(employerId))
+        .filter(j => !status || j.status === status)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      const pageJobs = allJobs.slice(skip, skip + parseInt(limit));
+      return res.json({
+        jobs: pageJobs,
+        total: allJobs.length,
+        page: parseInt(page),
+        totalPages: Math.ceil(allJobs.length / parseInt(limit)) || 0
+      });
+    }
+
+    const query = { employerId };
     if (status) {
       query.status = status;
     }
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const jobs = await Job.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     const total = await Job.countDocuments(query);
-    
+
     res.json({
       jobs,
       total,
@@ -329,9 +341,17 @@ router.get('/jobs/:id', async (req, res) => {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
+    if (!isMongoObjectId(req.user.userId)) {
+      const localJob = localJobStore.items.get(req.params.id);
+      if (!localJob || String(localJob.employerId) !== String(req.user.userId)) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+      return res.json({ job: localJob });
+    }
+
     const job = await Job.findOne({
       _id: req.params.id,
-      employer: req.user.userId
+      employerId: req.user.userId
     }).populate('applications.applicant', 'firstName lastName email profile');
     
     if (!job) {

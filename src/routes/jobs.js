@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const { csrfWithJWT } = require('../middleware/csrf');
+const localJobStore = require('./localJobStore');
 // Try to import models (optional)
 let Job = null;
 let User = null;
@@ -373,14 +374,27 @@ router.get('/search', authenticateToken, jobSearchLimiter, async (req, res) => {
       }
     }
 
+    // Include local-store jobs (SQLite-user-created jobs)
+    const localStoreJobs = Array.from(localJobStore.items.values()).filter(j => {
+      if (j.status && j.status !== 'active') return false;
+      if (q) {
+        const lq = q.toLowerCase();
+        const title = (j.title || '').toLowerCase();
+        const desc = (j.description || '').toLowerCase();
+        const company = (j.company?.name || j.company || '').toLowerCase();
+        if (!title.includes(lq) && !desc.includes(lq) && !company.includes(lq)) return false;
+      }
+      return true;
+    });
+
     // Combine local and LinkedIn jobs
-    const allJobs = [...jobs, ...linkedinJobs];
+    const allJobs = [...jobs, ...localStoreJobs, ...linkedinJobs];
 
     res.json({
       jobs: allJobs,
-      total: total + linkedinJobs.length,
+      total: total + localStoreJobs.length + linkedinJobs.length,
       page: parseInt(page),
-      totalPages: Math.ceil((total + linkedinJobs.length) / limit)
+      totalPages: Math.ceil((total + localStoreJobs.length + linkedinJobs.length) / limit)
     });
 
   } catch (error) {
@@ -447,6 +461,14 @@ router.get('/applications', authenticateToken, jobSearchLimiter, async (req, res
   }
 });
 
+// @route   GET /api/jobs/:id (local store fallback for non-ObjectId IDs)
+router.get('/:id', (req, res, next) => {
+  if (/^[0-9a-fA-F]{24}$/.test(req.params.id)) return next();
+  const job = localJobStore.items.get(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json({ job, similarJobs: [] });
+});
+
 // @route   GET /api/jobs/:id
 // @desc    Get job details
 // @access  Public
@@ -496,6 +518,19 @@ router.post('/apply/:id', csrfWithJWT, authenticateToken, upload.single('resume'
     const { id } = req.params;
     const { coverLetter } = req.body;
     const userId = req.user.userId;
+
+    // Handle local store jobs (non-ObjectId IDs)
+    const isLocalJob = !/^[0-9a-fA-F]{24}$/.test(id);
+    if (isLocalJob) {
+      const localJob = localJobStore.items.get(id);
+      if (!localJob) return res.status(404).json({ error: 'Job not found' });
+      if (!localJob.applications) localJob.applications = [];
+      if (localJob.applications.some(a => String(a.applicant) === String(userId))) {
+        return res.status(400).json({ error: 'You have already applied for this job' });
+      }
+      localJob.applications.push({ applicant: userId, coverLetter, appliedAt: new Date(), status: 'pending' });
+      return res.json({ message: 'Application submitted successfully' });
+    }
 
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
