@@ -1,22 +1,69 @@
 # CareerConnect AI
 
-CareerConnect AI is an AI-powered hiring and job-search platform for both job seekers and employers.
-It combines resume intelligence, smart matching, interview workflows, and analytics in one product.
+> v2.0.0 — AI-powered hiring and job-search platform for job seekers and employers.
 
-## Highlights
+CareerConnect AI combines resume intelligence, AI-driven job matching, real-time chat, video interviews, and analytics in a single full-stack application. It works out of the box with SQLite — no MongoDB or Redis required to get started.
 
-- Unified experience for candidates and hiring teams
-- AI-assisted resume analysis and role matching
-- Secure auth stack with JWT + OAuth providers
-- Real-time features with Socket.IO
-- Production-ready backend + modern React frontend
+---
+
+## Features
+
+### For Job Seekers
+
+- AI resume parsing and analysis (BERT + Universal Sentence Encoder)
+- Personalized job recommendations from three sources: internal DB, LinkedIn feed, GPT-generated listings
+- One-click job applications with resume and cover letter
+- Interview scheduling, confirmation, and video call integration (Google Meet)
+- Career improvement suggestions powered by ML skill-gap analysis
+- Real-time chat with recruiters via Socket.IO
+- Saved jobs, job alerts, and application tracking
+- Multi-language UI (i18n via react-i18next)
+
+### For Employers
+
+- Job posting with automatic LinkedIn distribution
+- AI-powered candidate matching and ranking
+- Applicant pipeline management with status tracking
+- Interview scheduling and calendar management
+- Company profile and team management
+- Analytics dashboard with hiring funnel metrics
+- Candidate search with skill-based filtering
+- Real-time notifications for new applications
+
+### Platform
+
+- OAuth 2.0 via Google, LinkedIn, and GitHub
+- JWT authentication with refresh-token rotation
+- Role-based access control (jobseeker / employer)
+- CSRF protection on all state-changing endpoints
+- Rate limiting, helmet, and input validation on every route
+- Hybrid storage: SQLite (users/auth) + MongoDB (jobs/interviews/chat)
+- Redis caching (optional, graceful fallback when unavailable)
+
+---
 
 ## Tech Stack
 
-- Backend: Node.js, Express, Sequelize, SQLite, Mongoose
-- Frontend: React 18, Vite, Material UI, React Query
-- AI: TensorFlow.js, Universal Sentence Encoder
-- Ops: Docker, PM2, Nginx
+| Layer | Technology |
+| --- | --- |
+| Runtime | Node.js 18+, Express 4 |
+| Frontend | React 18, Vite, Material UI v5, React Router v6 |
+| State & Data | React Query, React Hook Form, Axios |
+| Real-time | Socket.IO (server + client) |
+| Animation & 3D | Framer Motion, Three.js (`@react-three/fiber`) |
+| Charts | Recharts |
+| Auth | Passport.js (JWT, Google, LinkedIn, GitHub), bcryptjs |
+| Primary DB | SQLite via Sequelize |
+| Document DB | MongoDB via Mongoose (optional) |
+| Cache | Redis + Bull queue (optional) |
+| AI / ML | TensorFlow.js, Universal Sentence Encoder, OpenAI API, Groq |
+| PDF | pdf-parse, react-pdf |
+| File uploads | Multer |
+| Validation | express-validator, Zod |
+| Logging | Winston |
+| Process mgmt | PM2, Docker + Nginx |
+
+---
 
 ## Architecture
 
@@ -24,212 +71,307 @@ It combines resume intelligence, smart matching, interview workflows, and analyt
 flowchart TD
     U[Users: Job Seekers and Employers]
 
-    subgraph FE[Presentation Layer - React and Vite]
-        SPA[SPA Pages and Components]
-        CTX[Contexts and Providers]
+    subgraph FE[Presentation Layer — React + Vite]
+        SPA[Pages and Components]
+        CTX[Auth + App Contexts]
         WS[Socket.IO Client]
     end
 
-    subgraph API[API Layer - Express]
-        RT[Routes: auth, jobs, employer, employee, bert]
-        MW[Middleware: auth, validation, security, errors]
+    subgraph API[API Layer — Express]
+        RT[Routes: auth, jobs, employer, employee, resume, profile, chat, video, ml, bert]
+        MW[Middleware: JWT auth, CSRF, validation, rate limiting, helmet]
         HC[Health and status endpoints]
     end
 
-    subgraph SRV[Domain and Service Layer]
-        BS[Business Services]
-        REC[Recommendation and Matching Services]
-        NLP[Resume and Skill Intelligence Services]
-        REAL[Real-time Job and Notification Services]
+    subgraph SRV[Service Layer]
+        REC[Job Recommendation + Candidate Matching]
+        NLP[BERT Resume + Skill Gap Analysis]
+        AI[GPT + Groq Career Intelligence]
+        RT2[Real-time Job + Notification Services]
+        LI[LinkedIn Distribution Service]
     end
 
-    subgraph DATA[Data and Integration Layer]
-        SQL[(SQLite via Sequelize)]
-        DOC[(Mongoose-compatible models)]
-        REDIS[(Redis cache optional)]
-        OAUTH[OAuth Providers: Google, LinkedIn, GitHub]
-        EXT[External APIs and meeting integrations]
+    subgraph DATA[Data Layer]
+        SQL[(SQLite via Sequelize — users, auth)]
+        DOC[(MongoDB via Mongoose — jobs, interviews, chat)]
+        REDIS[(Redis cache + Bull queues — optional)]
+        OAUTH[OAuth: Google / LinkedIn / GitHub]
+        EXT[External: LinkedIn API, Google Meet, OpenAI]
     end
 
     U --> SPA
     SPA --> RT
     CTX --> RT
-    WS <--> REAL
+    WS <--> RT2
 
     RT --> MW
-    MW --> BS
-    BS --> REC
-    BS --> NLP
-    BS --> REAL
+    MW --> REC
+    MW --> NLP
+    MW --> AI
+    MW --> RT2
+    MW --> LI
 
     REC --> SQL
+    REC --> DOC
     NLP --> SQL
-    BS --> DOC
-    BS --> REDIS
+    AI --> EXT
+    LI --> EXT
     MW --> OAUTH
-    BS --> EXT
+    RT --> DOC
+    RT --> SQL
+    RT --> REDIS
 
     HC --> SQL
     HC --> REDIS
 ```
 
-Architecture summary:
+### Request Lifecycle
 
-- Frontend requests flow through route and middleware layers before reaching business services.
-- Service modules encapsulate hiring, recommendation, resume-intelligence, and real-time logic.
-- Persistence and integrations are isolated in the data/integration layer for maintainability.
+1. React client calls an API route with a JWT Bearer token.
+2. Express middleware validates the token, enforces CSRF (for mutations), and applies rate limits.
+3. Route handler delegates to the appropriate service module.
+4. Service reads/writes SQLite (user data) or MongoDB (jobs, interviews, chat).
+5. AI modules (BERT, GPT, Groq) enrich recommendations and analysis on demand.
+6. API returns a normalized JSON response; Socket.IO publishes real-time events when needed.
 
-### Runtime Flow
-
-1. Client calls API route.
-2. Middleware validates and authorizes request.
-3. Route delegates to service.
-4. Service reads/writes data and optionally invokes AI modules.
-5. API returns normalized response; Socket.IO publishes real-time updates when needed.
+---
 
 ## File Structure
 
-Top-level layout:
-
 ```text
 careerconnect-ai/
-    src/
-        client/                # React frontend
-        config/                # Shared configuration
-        database/              # DB initialization and models wiring
-        middleware/            # Auth, validation, error and request middleware
-        ml/                    # ML-specific helpers and runtime pieces
-        models/                # Data models and schema definitions
-        routes/                # Express route modules
-        server/                # Server bootstrap and auth strategy wiring
-        services/              # Core business and AI orchestration services
-        utils/                 # Shared backend utilities
-        workers/               # Background/async processing workers
-        __tests__/             # Backend-focused tests
-    public/                  # Built static assets served by backend
-    uploads/                 # Runtime upload storage
-    scripts/                 # Setup, seed, test, and operational scripts
-    Dockerfile
-    docker-compose.yml
-    ecosystem.config.js
+├── src/
+│   ├── client/                # React 18 frontend (Vite)
+│   │   └── src/
+│   │       ├── components/    # Reusable UI components (Layout, ErrorBoundary, Auth guards)
+│   │       ├── contexts/      # AuthContext, AppContext, SocketContext
+│   │       ├── hooks/         # Custom React hooks
+│   │       ├── pages/         # Route-level pages (Auth, Employee, Employer, Jobs, Resume, …)
+│   │       ├── services/      # Axios API clients (authService, jobService, resumeService, …)
+│   │       ├── theme/         # Material UI theme config
+│   │       ├── App.jsx        # Route composition with lazy loading
+│   │       └── main.jsx       # App entrypoint
+│   ├── config/                # Shared server config
+│   ├── database/              # DB initialization and model wiring
+│   ├── middleware/            # auth, validation, CSRF, rate limiting, error handling
+│   ├── ml/                    # TensorFlow / BERT runtime helpers
+│   ├── models/                # Sequelize (User) and Mongoose (Job, Interview, Chat) models
+│   ├── routes/                # Express route modules (see API Routes below)
+│   ├── server/                # Express bootstrap, Passport strategy wiring, Socket.IO setup
+│   ├── services/              # Business and AI orchestration services
+│   ├── utils/                 # Shared backend utilities
+│   ├── workers/               # Background job processors (Bull queues)
+│   └── __tests__/             # Backend tests (Jest)
+├── scripts/                   # Setup, seed, test, and operational scripts
+├── uploads/                   # Runtime file storage (resumes, avatars)
+├── Dockerfile
+├── docker-compose.yml         # Nginx load balancer + 4 app replicas
+└── ecosystem.config.js        # PM2 cluster config
 ```
 
-Frontend structure:
+---
 
-```text
-src/client/src/
-    components/              # Reusable UI components
-    contexts/                # React contexts (including socket context)
-    hooks/                   # Reusable frontend hooks
-    pages/                   # Route-level pages
-    providers/               # App-level providers
-    services/                # Frontend API clients
-    styles/                  # Global and shared styles
-    theme/                   # Material UI theme configuration
-    utils/                   # Frontend utilities
-    App.jsx                  # Route composition
-    main.jsx                 # App entrypoint
-```
+## API Routes
 
-Backend service examples:
+| Prefix | Module | Description |
+| --- | --- | --- |
+| `/api/auth` | `auth.js` | Register, login, logout, token refresh, OAuth callbacks, account deletion |
+| `/api/employee` | `employee.js` | Dashboard stats, applications, saved jobs, job alerts, interviews, skill recommendations |
+| `/api/employer` | `employer.js` | Dashboard, job CRUD, interview scheduling, candidate search, analytics, company profile |
+| `/api/jobs` | `jobs.js` | Job search, recommendations, job detail, apply, save/unsave |
+| `/api/resume` | `resume.js` | Upload, list, analysis, public resume, delete |
+| `/api/profile` | `profile.js` | Get/update profile, skills, experience, education, avatar, stats |
+| `/api/chat` | `chat.js` | Conversations, messages, attachments, real-time via Socket.IO |
+| `/api/video` | `video.js` | Video interview scheduling, join/end session, Google Meet link generation |
+| `/api/ml` | `ml.js` | BERT resume parsing, job recommendations, career improvement, skill gap analysis |
+| `/api/bert` | `bertRoutes.js` | Direct BERT embedding and text analysis endpoints |
+| `/api/gpt-jobs` | `gpt-jobs.js` | GPT/Groq-generated job listings and search |
+| `/api/linkedin-jobs` | `linkedin-jobs.js` | LinkedIn job feed search |
+| `/health` | — | Health check (DB + cache status) |
+| `/api/status` | — | Authenticated status endpoint |
 
-- Recommendation and matching: enhancedJobRecommendationService, candidateMatchingService
-- Resume and skill intelligence: bertResumeService, skillGapAnalysisService, careerImprovementService
-- Infra and support: bertCacheService, bertPoolManager, realTimeJobService
+---
 
 ## Quick Start
 
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+- MongoDB (optional — falls back gracefully if unavailable)
+- Redis (optional — falls back gracefully if unavailable)
+
 ### Option 1: Windows Fast Start
 
-```bash
+```bat
 quick-start-dashboards.bat
 ```
 
-### Option 2: Manual
+### Option 2: Manual Setup
 
 ```bash
+# 1. Install dependencies
 npm install
-cd src/client
-npm install
-cd ../..
-copy .env.example .env
+cd src/client && npm install && cd ../..
+
+# 2. Configure environment
+copy .env.example .env      # Windows
+cp .env.example .env        # macOS / Linux
+# Edit .env — at minimum set JWT_SECRET and JWT_REFRESH_SECRET
+
+# 3. Build the frontend
 npm run build:client
+
+# 4. Start the server
 npm start
 ```
 
-App URL: `http://localhost:3000`
+App: `http://localhost:3000`
 Health check: `http://localhost:3000/health`
 
-## Local Test Accounts
-
-If you need known credentials for local verification, seed/reset users with:
+### Seed Test Accounts
 
 ```bash
 node scripts/reset-users.js
 ```
 
-Default local accounts created by that script:
+| Role | Email | Password |
+| --- | --- | --- |
+| Job seeker | `test@test.com` | `test123` |
+| Employer | `employer@test.com` | `employer123` |
+| Admin test | `admin@test.com` | `admin123` |
 
-- Jobseeker: `test@test.com` / `test123`
-- Employer: `employer@test.com` / `employer123`
-- Admin-like test account: `admin@test.com` / `admin123`
+---
 
-## Configuration and Environment
+## Configuration
 
-Create `.env` from `.env.example` and provide at least:
+Copy `.env.example` to `.env` and fill in the values. Required fields are marked.
 
-- Server settings (PORT, NODE_ENV)
-- JWT secret and auth-related values
-- OAuth client IDs/secrets (Google, LinkedIn, GitHub if enabled)
-- Optional Redis and AI provider settings
+```env
+# ── Server ──────────────────────────────────────────────
+NODE_ENV=development
+PORT=3000
+CLIENT_URL=http://localhost:3000
 
-Do not commit secrets.
+# ── Auth (REQUIRED) ─────────────────────────────────────
+JWT_SECRET=<min 32 chars>
+JWT_REFRESH_SECRET=<min 32 chars>
+JWT_EXPIRE=1d
+JWT_REFRESH_EXPIRE=30d
+
+# ── Databases ────────────────────────────────────────────
+MONGODB_URI=mongodb://localhost:27017/careerconnect_ai   # optional
+REDIS_URL=redis://localhost:6379                         # optional
+
+# ── OAuth (all optional) ─────────────────────────────────
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
+LINKEDIN_CALLBACK_URL=http://localhost:3000/api/auth/linkedin/callback
+
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
+
+# ── AI Services (optional) ───────────────────────────────
+OPENAI_API_KEY=
+GROQ_API_KEY=
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# ── Google Meet (optional) ───────────────────────────────
+GOOGLE_MEET_API_KEY=
+
+# ── Dev helpers ──────────────────────────────────────────
+ENABLE_DEV_OAUTH_MOCK=true
+```
+
+The server starts and operates fully without MongoDB, Redis, or any AI API keys — those features degrade gracefully when the services are unavailable.
+
+---
 
 ## Development
 
-Backend:
+Run backend and frontend in separate terminals:
 
 ```bash
+# Terminal 1 — backend (auto-restarts with nodemon)
 npm run dev
-```
 
-Frontend:
-
-```bash
+# Terminal 2 — frontend (Vite HMR)
 cd src/client
 npm run dev
 ```
 
-## Build and Run (Production Mode)
+Frontend dev server: `http://localhost:5173`
+Backend API: `http://localhost:3000/api`
+
+---
+
+## Production
+
+### Standard
 
 ```bash
-npm run build:client
-npm start
+npm run build:client   # Build React app into src/client/dist
+npm start              # Serve everything from Express on port 3000
 ```
 
-Website URL: `http://localhost:3000`
-
-Quick health check:
+### PM2 Cluster
 
 ```bash
-curl http://localhost:3000/health
+npm run start:pm2      # Start with PM2 (uses ecosystem.config.js)
+npm run logs:pm2       # Tail logs
+npm run restart:pm2    # Rolling restart
+npm run stop:pm2       # Stop all instances
 ```
 
-## OAuth Status (Updated Mar 2026)
+### Docker (Nginx + 4 replicas)
 
-Current provider status:
+```bash
+docker-compose up -d
+```
+
+The compose file starts Nginx as a load balancer across four app replicas. Pair with an external MongoDB and Redis service for production persistence.
+
+---
+
+## Testing and Linting
+
+```bash
+npm test                # Jest — backend unit tests
+npm run test:watch      # Watch mode
+npm run test:coverage   # Coverage report
+npm run test:load       # Load test script
+
+npm run lint            # ESLint
+npm run lint:fix        # Auto-fix lint errors
+npm run format          # Prettier
+```
+
+Frontend tests (from `src/client`):
+
+```bash
+cd src/client
+npm test
+```
+
+---
+
+## OAuth Setup
+
+All three providers are optional. Enable only the ones you need.
+
+Current provider status (updated May 2026):
 
 - Google OAuth: working end-to-end
-- LinkedIn OAuth: working end-to-end
+- LinkedIn OAuth: working end-to-end (uses OIDC userinfo; legacy endpoints as fallback)
 - GitHub OAuth: working end-to-end
 
-Implementation notes:
-
-- LinkedIn callback now prefers OIDC `userinfo` for `openid profile email` flows.
-- Legacy LinkedIn profile/email endpoints are used only as fallback compatibility paths.
-- Auth diagnostics endpoint now reports all providers (`google`, `linkedin`, `github`) consistently.
-
-Verification commands:
+Verify providers:
 
 ```bash
 node scripts/test-oauth.js
@@ -239,73 +381,74 @@ node scripts/test-oauth.js
 node -e "const axios=require('axios'); axios.get('http://127.0.0.1:3000/api/auth/test').then(r=>console.log(r.data.oauth));"
 ```
 
-## Testing and Linting
+Set `ENABLE_DEV_OAUTH_MOCK=true` in `.env` to bypass real OAuth during local development.
 
-```bash
-npm test
-npm run lint
-```
+---
 
-Additional client checks can be run from `src/client` when needed.
+## Security
 
-## Key Routes
+- JWT access tokens (1-day expiry) + refresh tokens (30-day expiry) with rotation.
+- CSRF protection (`csrfWithJWT` middleware) on all state-changing endpoints; skipped automatically for Bearer-token API clients.
+- `helmet` sets secure HTTP headers on every response.
+- Per-route and per-IP rate limiting via `express-rate-limit`.
+- `express-validator` and `Zod` enforce input schemas at the API boundary.
+- Passwords hashed with bcryptjs (12 rounds).
+- OAuth tokens are never stored; only the resulting JWT is issued to the client.
+- All file uploads are size-limited and type-checked by Multer before processing.
 
-- Auth: `/api/auth/*`
-- Candidate flows: `/api/employee/*`
-- Employer flows: `/api/employer/*`
-- Jobs: `/api/jobs/*`
-- AI services: `/api/ml/*`, `/api/bert/*`
-- Status: `/health`, `/api/status`
+Do not commit `.env`, `*.sqlite`, or service account JSON files. All are in `.gitignore`.
+
+---
 
 ## Troubleshooting
 
-- Port 3000 already in use (Windows PowerShell):
+### Port 3000 already in use (Windows)
 
 ```powershell
 $conn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
 if ($conn) {
-    $pids = $conn | Select-Object -ExpandProperty OwningProcess -Unique
-    foreach ($procId in $pids) { Stop-Process -Id $procId -Force }
+    $conn | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force }
 }
 ```
 
-- Server starts but resume upload paths are missing:
+### Upload directories missing
 
 ```bash
-mkdir uploads/temp uploads/resumes uploads/avatars
+mkdir -p uploads/temp uploads/resumes uploads/avatars
 ```
 
-- Verify backend startup quickly:
+### TensorFlow native bindings warning on startup
+
+The `TensorFlow.js native bindings not available, using CPU fallback` message is expected in most environments. BERT features still work via the WASM/CPU backend — no action needed.
+
+### MongoDB not available
+
+Jobs and interviews fall back to an in-memory store (`localJobStore`) when MongoDB is unreachable. Data in the in-memory store does not persist across server restarts. Start MongoDB or set `MONGODB_URI` to a live instance for persistence.
+
+### Redis not available
+
+Caching and Bull queues are skipped when Redis is unreachable. The application continues to function without them.
+
+### Verify the server is up
 
 ```bash
-npm start
 curl http://localhost:3000/health
 ```
 
-## Security and Reliability
+---
 
-- JWT + OAuth support for secure authentication flows.
-- Input validation and middleware-driven request guardrails.
-- Centralized error handling and health endpoints for monitoring.
-- Graceful service startup behavior with optional dependency fallback where applicable.
+## Additional Documentation
 
-## Build, Deploy, and Operations
+| File | Contents |
+| --- | --- |
+| `BERT_INTEGRATION.md` | BERT model setup, pool configuration, and caching |
+| `OAUTH_SETUP_GUIDE.md` | Step-by-step OAuth provider registration |
+| `REDIS_SETUP.md` | Redis install, config, and Bull queue details |
+| `ENHANCED_DASHBOARD_DOCUMENTATION.md` | Dashboard features and widget reference |
+| `IMPLEMENTATION_SUMMARY.md` | Architecture decisions and implementation notes |
 
-- Production build: `npm run build:client`
-- Start server: `npm start`
-- PM2 process mode: `npm run start:pm2`
-- Docker mode: `docker-compose up -d`
-
-For long-running environments, pair health checks with process supervision (PM2 or container orchestration).
-
-## Docs
-
-- `ENHANCED_DASHBOARD_DOCUMENTATION.md`
-- `BERT_INTEGRATION.md`
-- `IMPLEMENTATION_SUMMARY.md`
-- `OAUTH_SETUP_GUIDE.md`
-- `REDIS_SETUP.md`
+---
 
 ## Project Goal
 
-Deliver a fast, secure, and AI-assisted career platform that improves hiring and job-search outcomes without compromising reliability.
+Deliver a fast, secure, and AI-assisted career platform that improves hiring and job-search outcomes for both sides of the market — without compromising reliability or requiring all optional services to be running.
