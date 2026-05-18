@@ -169,9 +169,9 @@ const ApplicationsPageNew = () => {
     <Box>
       <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
         My Applications
+      </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         {t('applications.trackStatus', 'Track your job applications and their status')}
-      </Typography>
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}

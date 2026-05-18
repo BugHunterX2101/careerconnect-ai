@@ -51,11 +51,12 @@ import {
   CheckBox,
   AttachMoney
 } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Trans } from 'react-i18next';
 
 const ResumeAnalysisPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [analysis, setAnalysis] = useState(null);
   const [skillAnalysis, setSkillAnalysis] = useState(null);
   const [marketInsights, setMarketInsights] = useState(null);
@@ -872,21 +873,21 @@ const ResumeAnalysisPage = () => {
         <Button 
           variant="contained" 
           color="primary"
-          onClick={() => window.location.href = '/resume/upload'}
+          onClick={() => navigate('/resume/upload')}
         >
           Upload New Resume
         </Button>
-        <Button 
-          variant="outlined" 
+        <Button
+          variant="outlined"
           color="primary"
-          onClick={() => window.location.href = '/jobs/recommendations'}
+          onClick={() => navigate('/jobs/recommendations')}
         >
           View Job Recommendations
         </Button>
-        <Button 
-          variant="outlined" 
+        <Button
+          variant="outlined"
           color="secondary"
-          onClick={() => window.location.href = '/jobs/search'}
+          onClick={() => navigate('/jobs/search')}
         >
           Search Jobs
         </Button>

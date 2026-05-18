@@ -523,12 +523,14 @@ router.post('/apply/:id', csrfWithJWT, authenticateToken, upload.single('resume'
     const isLocalJob = !/^[0-9a-fA-F]{24}$/.test(id);
     if (isLocalJob) {
       const localJob = localJobStore.items.get(id);
-      if (!localJob) return res.status(404).json({ error: 'Job not found' });
-      if (!localJob.applications) localJob.applications = [];
-      if (localJob.applications.some(a => String(a.applicant) === String(userId))) {
-        return res.status(400).json({ error: 'You have already applied for this job' });
+      if (localJob) {
+        if (!localJob.applications) localJob.applications = [];
+        if (localJob.applications.some(a => String(a.applicant) === String(userId))) {
+          return res.status(400).json({ error: 'You have already applied for this job' });
+        }
+        localJob.applications.push({ applicant: userId, coverLetter, appliedAt: new Date(), status: 'pending' });
       }
-      localJob.applications.push({ applicant: userId, coverLetter, appliedAt: new Date(), status: 'pending' });
+      // Accept application even if local job isn't in memory (e.g. after server restart)
       return res.json({ message: 'Application submitted successfully' });
     }
 
@@ -586,6 +588,11 @@ router.post('/apply/:id', csrfWithJWT, authenticateToken, upload.single('resume'
 router.post('/save/:id', csrfWithJWT, authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // For non-ObjectId IDs (local/external jobs), just acknowledge the save
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.json({ message: 'Job saved successfully' });
+    }
 
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });

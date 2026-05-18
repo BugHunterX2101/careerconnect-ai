@@ -794,7 +794,6 @@ router.get('/job-alerts', async (req, res) => {
 // @access  Private (jobseeker)
 router.post('/job-alerts', [
   body('title').trim().isLength({ min: 1 }).withMessage('Alert title is required'),
-  body('criteria').isObject().withMessage('Search criteria is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -802,10 +801,18 @@ router.post('/job-alerts', [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Accept either a nested `criteria` object or flat fields (keywords, location, etc.)
+    const criteria = req.body.criteria || {
+      keywords: req.body.keywords,
+      location: req.body.location,
+      jobType: req.body.jobType,
+      salary: req.body.salary
+    };
+
     const alert = {
       id: `alert-${Date.now()}`,
       title: req.body.title,
-      criteria: req.body.criteria,
+      criteria,
       frequency: req.body.frequency || 'daily',
       active: true,
       createdAt: new Date().toISOString()

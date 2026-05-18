@@ -34,7 +34,7 @@ import {
   ArrowBack
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../../config/appConfig';
+import { resumeService } from '../../services/resumeService';
 
 const ResumeAnalysisPage = () => {
   const { t } = useTranslation();
@@ -50,21 +50,10 @@ const ResumeAnalysisPage = () => {
 
   const fetchResumeAnalysis = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/resume/${id}/analysis`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysis(data.analysis);
-      } else {
-        setError('Failed to load resume analysis');
-      }
+      const data = await resumeService.getResumeAnalysis(id);
+      setAnalysis(data.analysis || data);
     } catch (error) {
-      setError('Error loading analysis');
+      setError('Failed to load resume analysis');
     } finally {
       setLoading(false);
     }
@@ -311,14 +300,14 @@ const ResumeAnalysisPage = () => {
         <Button 
           variant="contained" 
           color="primary"
-          onClick={() => window.location.href = '/resume/upload'}
+          onClick={() => navigate('/resume/upload')}
         >
           {t('resume.upload.button')}
         </Button>
-        <Button 
-          variant="outlined" 
+        <Button
+          variant="outlined"
           color="primary"
-          onClick={() => window.location.href = '/jobs/recommendations'}
+          onClick={() => navigate('/jobs/recommendations')}
         >
           {t('jobs.recommendations.button')}
         </Button>

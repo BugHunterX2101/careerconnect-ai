@@ -39,8 +39,12 @@ import {
   Smartphone,
 } from '@mui/icons-material';
 import api from '../../services/api';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const SettingsPage = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [settings, setSettings] = useState({
     notifications: {
       email: true,
@@ -129,7 +133,8 @@ const SettingsPage = () => {
   const handleDeleteAccount = async () => {
     try {
       await api.delete('/auth/account');
-      window.location.href = '/';
+      logout();
+      navigate('/', { replace: true });
     } catch (err) {
       setError('Account deletion failed. Please contact support.');
       console.error('Delete account error:', err);

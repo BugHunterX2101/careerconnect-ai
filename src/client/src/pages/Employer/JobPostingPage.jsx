@@ -14,7 +14,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../../config/appConfig';
+import { jobService } from '../../services/jobService';
+import api from '../../services/api';
 
 
 const JobPostingPage = () => {
@@ -101,31 +102,13 @@ const JobPostingPage = () => {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/employer/jobs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...jobData,
-          requirements: jobData.skills
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setJobPosted(true);
-        setMatchingCandidates(data.matchingCandidates || []);
-        setCurrentStep(3); // Move to matching candidates step
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to post job');
-      }
+      const data = await jobService.postJob({ ...jobData, requirements: jobData.skills });
+      setJobPosted(true);
+      setMatchingCandidates(data.matchingCandidates || []);
+      setCurrentStep(3);
     } catch (error) {
       console.error('Error posting job:', error);
-      setError('Failed to post job');
+      setError(error.message || 'Failed to post job');
     } finally {
       setLoading(false);
     }
@@ -133,20 +116,11 @@ const JobPostingPage = () => {
 
   const refreshCandidates = async () => {
     if (!jobPosted) return;
-    
+
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/employer/jobs/${jobData._id}/matching-candidates`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMatchingCandidates(data.candidates || []);
-      }
+      const response = await api.get(`/employer/jobs/${jobData._id}/matching-candidates`);
+      setMatchingCandidates(response.data.candidates || []);
     } catch (error) {
       console.error('Error refreshing candidates:', error);
     } finally {
@@ -156,30 +130,16 @@ const JobPostingPage = () => {
 
   const scheduleInterview = async (candidateId) => {
     try {
-      const token = localStorage.getItem('token');
       const interviewData = {
         jobId: jobData._id,
         candidateId,
-        scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+        scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         duration: 60,
         type: 'video',
         notes: `Interview for ${jobData.title} position`
       };
-
-      const response = await fetch(`${API_BASE_URL}/video/interviews`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(interviewData)
-      });
-
-      if (response.ok) {
-        alert('Interview scheduled successfully!');
-      } else {
-        alert('Failed to schedule interview');
-      }
+      await jobService.scheduleInterview(interviewData);
+      alert('Interview scheduled successfully!');
     } catch (error) {
       console.error('Error scheduling interview:', error);
       alert('Failed to schedule interview');

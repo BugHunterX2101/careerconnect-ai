@@ -431,7 +431,7 @@ Please provide detailed analysis covering:
         handleJobClick(job);
       } else {
         // Navigate to application page
-        window.location.href = `/jobs/${job.id}/apply`;
+        navigate(`/jobs/${job._id || job.id}`);
       }
     } catch (error) {
       setSnackbar({ open: true, message: 'Failed to apply to job', severity: 'error' });

@@ -545,12 +545,24 @@ router.post('/jobs', [
 // @access  Private (employer)
 router.put('/jobs/:id', async (req, res) => {
   try {
+    const { id } = req.params;
+
+    // Local store fallback for non-ObjectId IDs
+    if (!isMongoObjectId(id)) {
+      const localJob = localJobStore.items.get(id);
+      if (!localJob || String(localJob.employerId) !== String(req.user.userId)) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+      Object.assign(localJob, req.body, { updatedAt: new Date().toISOString() });
+      return res.json({ message: 'Job updated successfully', job: localJob });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
     const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, employerId: req.user.userId },
+      { _id: id, employerId: req.user.userId },
       req.body,
       { new: true, runValidators: true }
     );
@@ -559,10 +571,7 @@ router.put('/jobs/:id', async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    res.json({
-      message: 'Job updated successfully',
-      job
-    });
+    res.json({ message: 'Job updated successfully', job });
 
   } catch (error) {
     getLogger().error('Update job error:', error);
@@ -575,14 +584,23 @@ router.put('/jobs/:id', async (req, res) => {
 // @access  Private (employer)
 router.delete('/jobs/:id', async (req, res) => {
   try {
+    const { id } = req.params;
+
+    // Local store fallback
+    if (!isMongoObjectId(id)) {
+      const localJob = localJobStore.items.get(id);
+      if (!localJob || String(localJob.employerId) !== String(req.user.userId)) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+      localJobStore.items.delete(id);
+      return res.json({ message: 'Job deleted successfully' });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const job = await Job.findOneAndDelete({
-      _id: req.params.id,
-      employerId: req.user.userId
-    });
+    const job = await Job.findOneAndDelete({ _id: id, employerId: req.user.userId });
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -635,14 +653,30 @@ router.patch('/jobs/:id/status', [
 // @access  Private (employer)
 router.get('/jobs/:id/applicants', async (req, res) => {
   try {
+    const { id } = req.params;
+    const { page = 1, limit = 20, status } = req.query;
+
+    // Local store fallback
+    if (!isMongoObjectId(id)) {
+      const localJob = localJobStore.items.get(id);
+      let applications = (localJob && localJob.applications) ? localJob.applications : [];
+      if (status) applications = applications.filter(a => a.status === status);
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      return res.json({
+        applicants: applications.slice(skip, skip + parseInt(limit)),
+        applications: applications.slice(skip, skip + parseInt(limit)),
+        total: applications.length,
+        page: parseInt(page),
+        totalPages: Math.ceil(applications.length / parseInt(limit))
+      });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const { page = 1, limit = 20, status } = req.query;
-    
     const job = await Job.findOne({
-      _id: req.params.id,
+      _id: id,
       employerId: req.user.userId
     }).populate({
       path: 'applications.applicant',
@@ -654,21 +688,20 @@ router.get('/jobs/:id/applicants', async (req, res) => {
     }
 
     let applications = job.applications || [];
-    
-    // Filter by status if provided
+
     if (status) {
       applications = applications.filter(app => app.status === status);
     }
 
-    // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const paginatedApplications = applications.slice(skip, skip + parseInt(limit));
 
     res.json({
+      applicants: paginatedApplications,
       applications: paginatedApplications,
       total: applications.length,
       page: parseInt(page),
-      totalPages: Math.ceil(applications.length / limit)
+      totalPages: Math.ceil(applications.length / parseInt(limit))
     });
 
   } catch (error) {
@@ -1239,7 +1272,7 @@ router.get('/interviews', async (req, res) => {
 // @desc    Schedule an interview
 // @access  Private (employer)
 router.post('/interviews', [
-  body('jobId').custom((value) => isMongoObjectId(value) || isNumericId(value)).withMessage('Valid job ID is required'),
+  body('jobId').custom((value) => !!value && String(value).length > 0).withMessage('Valid job ID is required'),
   body('candidateId').custom((value) => isMongoObjectId(value) || isNumericId(value)).withMessage('Valid candidate ID is required'),
   body('scheduledAt').isISO8601().withMessage('Valid date is required'),
   body('duration').isInt({ min: 15, max: 180 }).withMessage('Duration must be between 15 and 180 minutes'),
@@ -1374,12 +1407,22 @@ router.post('/interviews', [
 // @access  Private (employer)
 router.put('/interviews/:id', async (req, res) => {
   try {
+    const { id } = req.params;
+
+    // Handle in-memory interviews
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      const localInterview = interviewMemoryStore.items.get(id);
+      if (!localInterview) return res.status(404).json({ error: 'Interview not found' });
+      Object.assign(localInterview, req.body, { updatedAt: new Date().toISOString() });
+      return res.json({ message: 'Interview updated successfully', interview: localInterview });
+    }
+
     if (!Interview) {
       return res.status(503).json({ error: 'Interview model not available' });
     }
 
     const interview = await Interview.findOneAndUpdate(
-      { _id: req.params.id, interviewer: req.user.userId },
+      { _id: id, interviewer: req.user.userId },
       req.body,
       { new: true }
     ).populate([
@@ -1391,10 +1434,7 @@ router.put('/interviews/:id', async (req, res) => {
       return res.status(404).json({ error: 'Interview not found' });
     }
 
-    res.json({
-      message: 'Interview updated successfully',
-      interview
-    });
+    res.json({ message: 'Interview updated successfully', interview });
 
   } catch (error) {
     getLogger().error('Update interview error:', error);
@@ -1407,19 +1447,26 @@ router.put('/interviews/:id', async (req, res) => {
 // @access  Private (employer)
 router.patch('/interviews/:id/cancel', async (req, res) => {
   try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    // Handle in-memory interviews
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      const localInterview = interviewMemoryStore.items.get(id);
+      if (!localInterview) return res.status(404).json({ error: 'Interview not found' });
+      localInterview.status = 'cancelled';
+      localInterview.cancelReason = reason;
+      localInterview.cancelledAt = new Date().toISOString();
+      return res.json({ message: 'Interview cancelled successfully', interview: localInterview });
+    }
+
     if (!Interview) {
       return res.status(503).json({ error: 'Interview model not available' });
     }
 
-    const { reason } = req.body;
-    
     const interview = await Interview.findOneAndUpdate(
-      { _id: req.params.id, interviewer: req.user.userId },
-      { 
-        status: 'cancelled',
-        cancelReason: reason,
-        cancelledAt: new Date()
-      },
+      { _id: id, interviewer: req.user.userId },
+      { status: 'cancelled', cancelReason: reason, cancelledAt: new Date() },
       { new: true }
     );
 
@@ -1427,10 +1474,7 @@ router.patch('/interviews/:id/cancel', async (req, res) => {
       return res.status(404).json({ error: 'Interview not found' });
     }
 
-    res.json({
-      message: 'Interview cancelled successfully',
-      interview
-    });
+    res.json({ message: 'Interview cancelled successfully', interview });
 
   } catch (error) {
     getLogger().error('Cancel interview error:', error);
