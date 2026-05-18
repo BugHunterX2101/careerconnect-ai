@@ -191,6 +191,14 @@ app.get('/health', async (req, res) => {
 
 // Root endpoint with API information (add basic rate limiting)
 app.get('/', apiLimiter, (req, res) => {
+  // Serve the React SPA for browser requests; return JSON for API clients
+  const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
+  if (acceptsHtml) {
+    const frontendIndex = path.join(__dirname, '../client/dist/index.html');
+    if (fs.existsSync(frontendIndex)) {
+      return res.sendFile(frontendIndex);
+    }
+  }
   res.json({
     message: 'CareerConnect AI API',
     version: '2.0.0',
