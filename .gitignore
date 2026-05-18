@@ -2,20 +2,46 @@ node_modules/
 .env
 .env.local
 .env.*.local
+
+# Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+server.log
+server-err.log
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Build output
 dist/
 build/
+public/assets/
+public/index.html
 coverage/
+
+# Editor
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Databases
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# Uploads (runtime)
 uploads/temp/*
 !uploads/temp/.gitkeep
+
+# Lock files
 package-lock.json
 yarn.lock
+
+# Secrets / keys
 src/config/careerconnect-ai-471406-6afb348783e1.json
+*.pem
+*.key
