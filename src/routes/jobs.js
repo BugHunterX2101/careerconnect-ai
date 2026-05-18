@@ -116,6 +116,69 @@ const validateJobPosting = [
   body('company').trim().isLength({ min: 1 }).withMessage('Company name is required'),
 ];
 
+// @route   GET /api/jobs
+// @desc    List all jobs (public)
+// @access  Public
+router.get('/', jobSearchLimiter, async (req, res) => {
+  try {
+    const { search, location, type, page = 1, limit = 20 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Always include local in-memory jobs
+    const localJobs = Array.from(localJobStore.items.values());
+
+    let jobs = localJobs;
+    let total = localJobs.length;
+
+    if (Job && typeof Job.find === 'function') {
+      try {
+        const query = {};
+        if (search) {
+          query.$or = [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+            { company: { $regex: search, $options: 'i' } }
+          ];
+        }
+        if (location) query.location = { $regex: location, $options: 'i' };
+        if (type) query.type = type;
+
+        const dbJobs = await Job.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .lean();
+        total = (await Job.countDocuments(query)) + localJobs.length;
+        jobs = [...dbJobs, ...localJobs];
+      } catch (dbErr) {
+        // fall through to local
+      }
+    } else {
+      if (search) {
+        const q = search.toLowerCase();
+        jobs = jobs.filter(j =>
+          (j.title || '').toLowerCase().includes(q) ||
+          (j.description || '').toLowerCase().includes(q) ||
+          (j.company || '').toLowerCase().includes(q)
+        );
+      }
+      if (type) jobs = jobs.filter(j => j.type === type);
+      total = jobs.length;
+      jobs = jobs.slice(skip, skip + parseInt(limit));
+    }
+
+    return res.json({
+      jobs,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    getLogger().error('List jobs error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   GET /api/jobs/recommendations
 // @desc    Get personalized job recommendations for user
 // @access  Private

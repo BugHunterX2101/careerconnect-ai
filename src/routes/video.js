@@ -162,13 +162,16 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
   }
 });
 
+const mongoose = require('mongoose');
+const isMongoId = (v) => mongoose.Types.ObjectId.isValid(String(v)) && /^[0-9a-fA-F]{24}$/.test(String(v));
+
 // @route   GET /api/video/interviews
 // @desc    Get user's interviews
 // @access  Private
 router.get('/interviews', authenticateToken, async (req, res) => {
   try {
-    if (!Interview) {
-      return res.status(503).json({ error: 'Interview model not available' });
+    if (!Interview || !isMongoId(req.user.userId)) {
+      return res.json({ interviews: [], total: 0, page: 1, totalPages: 0 });
     }
 
     const userId = req.user.userId;
@@ -552,8 +555,8 @@ router.get('/meet-link/:interviewId', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/upcoming', authenticateToken, async (req, res) => {
   try {
-    if (!Interview) {
-      return res.status(503).json({ error: 'Interview model not available' });
+    if (!Interview || !isMongoId(req.user.userId)) {
+      return res.json({ upcomingInterviews: [] });
     }
 
     const userId = req.user.userId;

@@ -1132,19 +1132,47 @@ router.post('/candidates/:id/rating', async (req, res) => {
 // @access  Private (employer)
 router.get('/jobs/:jobId/matching-candidates', async (req, res) => {
   try {
+    const { jobId } = req.params;
+    const { limit = 15, minScore = 30 } = req.query;
+
+    // If jobId is not a Mongo ObjectId (local SQLite job), do in-process candidate scoring
+    if (!isMongoObjectId(jobId)) {
+      const localJob = localJobStore.items.get(jobId);
+      if (!localJob) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const UserModel = getSqlUserModel();
+      let candidates = [];
+      if (UserModel) {
+        try {
+          const allUsers = await UserModel.findAll({ where: { role: 'jobseeker' }, limit: 50 });
+          candidates = allUsers
+            .map((u) => {
+              const { matchScore, matchReasons } = scoreCandidateForJob(localJob, u);
+              return { candidate: u, matchScore, matchReasons };
+            })
+            .filter((c) => c.matchScore >= parseInt(minScore))
+            .sort((a, b) => b.matchScore - a.matchScore)
+            .slice(0, parseInt(limit));
+        } catch (e) {
+          getLogger().warn('Candidate matching SQL query error:', e.message);
+        }
+      }
+
+      return res.json({
+        candidates,
+        total: candidates.length,
+        job: localJob,
+        matchingCriteria: { minScore: parseInt(minScore), limit: parseInt(limit) }
+      });
+    }
+
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
     }
 
-    const { jobId } = req.params;
-    const { limit = 15, minScore = 30 } = req.query;
-
-    // Verify job belongs to employer
-    const job = await Job.findOne({
-      _id: jobId,
-      employerId: req.user.userId
-    });
-
+    const job = await Job.findOne({ _id: jobId, employerId: req.user.userId });
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -1160,12 +1188,8 @@ router.get('/jobs/:jobId/matching-candidates', async (req, res) => {
         candidates: results.candidates,
         total: results.total,
         job: results.job,
-        matchingCriteria: {
-          minScore: parseInt(minScore),
-          limit: parseInt(limit)
-        }
+        matchingCriteria: { minScore: parseInt(minScore), limit: parseInt(limit) }
       });
-
     } catch (error) {
       getLogger().error('Candidate matching error:', error);
       res.status(500).json({ error: 'Failed to find matching candidates' });

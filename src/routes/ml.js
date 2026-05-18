@@ -442,18 +442,14 @@ router.post('/job-recommendations', authenticateToken, mlLimiter, async (req, re
       console.warn('User model not available:', error.message);
     }
     
-    if (!User) {
-      return res.status(503).json({ error: 'User model not available' });
-    }
-    
     let user = null;
-    if (typeof User.findByPk === 'function') {
-      user = await User.findByPk(userId);
+    if (User && typeof User.findByPk === 'function') {
+      try { user = await User.findByPk(userId); } catch (e) { /* skip */ }
     }
 
     // Prepare recommendation parameters
     const params = {
-      skills: skills ? skills.split(',') : [],
+      skills: Array.isArray(skills) ? skills : (skills ? String(skills).split(',') : []),
       experience: experience || 'entry',
       location: location || '',
       remote: remote === 'true',
