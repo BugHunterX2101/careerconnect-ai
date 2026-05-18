@@ -20,6 +20,11 @@ import {
   AccordionSummary,
   AccordionDetails,
   alpha,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemText,
+  Divider,
 } from '@mui/material'
 import {
   Description,
@@ -81,6 +86,7 @@ const LandingPage = () => {
   const [showMobileCta, setShowMobileCta] = useState(false)
   const [enableMotion, setEnableMotion] = useState(false)
   const [activeRole, setActiveRole] = useState('seeker')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -369,8 +375,9 @@ const LandingPage = () => {
               Start Free
             </Button>
           </Stack>
-          <IconButton 
-            sx={{ 
+          <IconButton
+            onClick={() => setMobileMenuOpen(true)}
+            sx={{
               display: { xs: 'block', md: 'none' },
               color: scrolled ? 'text.primary' : 'white',
               backgroundColor: alpha('#ffffff', scrolled ? 0.1 : 0.2),
@@ -387,6 +394,36 @@ const LandingPage = () => {
           </IconButton>
         </Toolbar>
       </AppBar>
+
+      {/* Mobile Navigation Drawer */}
+      <Drawer anchor="right" open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)}>
+        <Box sx={{ width: 260, pt: 2 }}>
+          <Typography variant="h6" sx={{ px: 2, pb: 1, fontWeight: 800, background: 'linear-gradient(135deg, #3A5A8C 0%, #0D9488 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            CareerConnect AI
+          </Typography>
+          <Divider />
+          <List>
+            {[
+              { label: 'Features', path: '/features' },
+              { label: 'Pricing', path: '/pricing' },
+              { label: 'About', path: '/about' },
+            ].map(({ label, path }) => (
+              <ListItemButton key={label} onClick={() => { navigate(path); setMobileMenuOpen(false); }}>
+                <ListItemText primary={label} />
+              </ListItemButton>
+            ))}
+          </List>
+          <Divider />
+          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Button fullWidth variant="outlined" onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}>
+              Sign In
+            </Button>
+            <Button fullWidth variant="contained" onClick={() => { navigate('/register'); setMobileMenuOpen(false); }} sx={{ background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)' }}>
+              Start Free
+            </Button>
+          </Box>
+        </Box>
+      </Drawer>
 
       {/* Hero Section */}
       <Box
@@ -1192,9 +1229,13 @@ const LandingPage = () => {
                 Transforming careers with artificial intelligence and machine learning.
               </Typography>
               <Stack direction="row" spacing={2}>
-                <IconButton 
-                  sx={{ 
-                    color: 'white', 
+                <IconButton
+                  component="a"
+                  href="https://linkedin.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    color: 'white',
                     p: 1.5,
                     backgroundColor: 'rgba(139, 111, 71, 0.2)',
                     '&:hover': {
@@ -1206,9 +1247,13 @@ const LandingPage = () => {
                 >
                   <LinkedIn sx={{ fontSize: 28 }} />
                 </IconButton>
-                <IconButton 
-                  sx={{ 
-                    color: 'white', 
+                <IconButton
+                  component="a"
+                  href="https://github.com/BugHunterX2101/careerconnect-ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    color: 'white',
                     p: 1.5,
                     backgroundColor: 'rgba(139, 111, 71, 0.2)',
                     '&:hover': {
@@ -1220,9 +1265,10 @@ const LandingPage = () => {
                 >
                   <GitHub sx={{ fontSize: 28 }} />
                 </IconButton>
-                <IconButton 
-                  sx={{ 
-                    color: 'white', 
+                <IconButton
+                  onClick={() => navigate('/register')}
+                  sx={{
+                    color: 'white',
                     p: 1.5,
                     backgroundColor: 'rgba(139, 111, 71, 0.2)',
                     '&:hover': {
@@ -1243,9 +1289,9 @@ const LandingPage = () => {
                     Product
                   </Typography>
                   <Stack spacing={1.5}>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Features</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Pricing</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>API</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/features')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Features</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/pricing')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Pricing</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/register')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>API</Typography>
                   </Stack>
                 </Grid>
                 <Grid item xs={6} md={3}>
@@ -1253,9 +1299,9 @@ const LandingPage = () => {
                     Company
                   </Typography>
                   <Stack spacing={1.5}>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>About</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Careers</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Contact</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/about')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>About</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/register')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Careers</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/login')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Contact</Typography>
                   </Stack>
                 </Grid>
                 <Grid item xs={6} md={3}>
@@ -1263,9 +1309,9 @@ const LandingPage = () => {
                     Resources
                   </Typography>
                   <Stack spacing={1.5}>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Blog</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Help Center</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Community</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/features')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Blog</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/login')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Help Center</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/register')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Community</Typography>
                   </Stack>
                 </Grid>
                 <Grid item xs={6} md={3}>
@@ -1273,9 +1319,9 @@ const LandingPage = () => {
                     Legal
                   </Typography>
                   <Stack spacing={1.5}>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Privacy</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Terms</Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Security</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/privacy')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Privacy</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/terms')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Terms</Typography>
+                    <Typography variant="body2" onClick={() => navigate('/login')} sx={{ opacity: 0.85, fontSize: { xs: '0.95rem', md: '1rem' }, cursor: 'pointer', '&:hover': { opacity: 1, color: '#D4BA94', transform: 'translateX(5px)' }, transition: 'all 0.3s ease' }}>Security</Typography>
                   </Stack>
                 </Grid>
               </Grid>
@@ -1283,7 +1329,7 @@ const LandingPage = () => {
           </Grid>
           <Box sx={{ borderTop: '2px solid rgba(139, 111, 71, 0.3)', mt: 6, pt: 5, textAlign: 'center' }}>
             <Typography variant="body2" sx={{ opacity: 0.75, fontSize: { xs: '0.92rem', md: '0.95rem' }, fontWeight: 400, letterSpacing: '0.01em' }}>
-              © 2024 CareerConnect AI. All rights reserved. Built for career success.
+              © 2026 CareerConnect AI. All rights reserved. Built for career success.
             </Typography>
           </Box>
         </Container>

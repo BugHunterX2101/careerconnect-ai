@@ -23,11 +23,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { employerService } from '../../services/employerService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSocket } from '../../contexts/SocketContext';
 
 const EmployerDashboardEnhanced = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { socket, isConnected } = useSocket();
   
   // State management
   const [stats, setStats] = useState(null);
@@ -49,6 +51,25 @@ const EmployerDashboardEnhanced = () => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => loadDashboardData();
+    const events = [
+      'interview:scheduled',
+      'interview:cancelled',
+      'interview:completed',
+      'application:received',
+      'application:status_changed',
+      'job:posted',
+    ];
+    events.forEach(e => socket.on(e, refresh));
+    return () => events.forEach(e => socket.off(e, refresh));
+  }, [socket]);
+
+  useEffect(() => {
+    if (isConnected) loadDashboardData();
+  }, [isConnected]);
 
   const loadDashboardData = async () => {
     try {

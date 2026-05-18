@@ -91,14 +91,15 @@ const StatCard = React.memo(function StatCard({
 
 const AnalyticsPage = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState({
     overview: {
-      totalJobs: 15,
-      activeJobs: 8,
-      totalApplicants: 342,
-      interviewsScheduled: 28,
-      hiredCandidates: 12,
-      avgTimeToHire: 18
+      totalJobs: 0,
+      activeJobs: 0,
+      totalApplicants: 0,
+      interviewsScheduled: 0,
+      hiredCandidates: 0,
+      avgTimeToHire: 0
     },
     applicationTrends: [],
     jobPerformance: [],
@@ -144,6 +145,7 @@ const AnalyticsPage = () => {
 
   const fetchAnalytics = async () => {
     try {
+      setLoading(true);
       const data = await employerService.getAnalytics();
       if (data && typeof data === 'object') {
         setAnalytics(prev => ({
@@ -165,6 +167,8 @@ const AnalyticsPage = () => {
       }
     } catch (err) {
       console.error('Analytics fetch error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -206,6 +210,15 @@ const AnalyticsPage = () => {
         </Box>
       </Box>
     )
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <LinearProgress />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Loading analytics...</Typography>
+      </Box>
+    );
   }
 
   return (
