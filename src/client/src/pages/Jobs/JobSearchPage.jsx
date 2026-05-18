@@ -153,7 +153,7 @@ const JobSearchPage = () => {
       setLinkedinSearching(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`${API_BASE_URL}/jobs/linkedin/search`, {
+      const response = await fetch(`${API_BASE_URL}/linkedin-jobs/search`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -202,7 +202,7 @@ const JobSearchPage = () => {
         careerGoals: 'Find challenging opportunities in tech'
       };
       
-      const response = await fetch(`${API_BASE_URL}/ml/gpt-job-search`, {
+      const response = await fetch(`${API_BASE_URL}/gpt-jobs/gpt-job-search`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

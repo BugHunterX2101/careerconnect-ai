@@ -410,6 +410,24 @@ router.post('/logout', authenticateToken, (_req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
+// @route   DELETE /api/auth/account
+// @desc    Delete authenticated user's account
+// @access  Private
+router.delete('/account', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    if (UserModelModule) {
+      const User = UserModelModule.User || UserModelModule;
+      const user = await (User.findByPk ? User.findByPk(userId) : User.findOne({ where: { id: userId } }));
+      if (user) await user.destroy();
+    }
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 // @route   POST /api/auth/refresh
 // @desc    Refresh JWT token
 // @access  Private
