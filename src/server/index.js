@@ -148,9 +148,6 @@ app.use(passport.initialize());
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-// Serve frontend static files
-app.use(express.static(path.join(__dirname, '../../public')));
-
 // Health check endpoint (public for monitoring)
 app.get('/health', async (req, res) => {
   const health = {
