@@ -31,7 +31,6 @@ CareerConnect AI is a full-stack hiring and job-search platform that brings toge
 - [Testing and Linting](#testing-and-linting)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
-- [Additional Documentation](#additional-documentation)
 
 ---
 
@@ -672,18 +671,6 @@ node scripts/test-oauth.js
 # Quick check via API
 node -e "const axios=require('axios'); axios.get('http://127.0.0.1:3000/api/auth/test').then(r=>console.log(r.data.oauth));"
 ```
-
----
-
-## Additional Documentation
-
-| Document | Contents |
-| --- | --- |
-| `BERT_INTEGRATION.md` | BERT model setup, pool configuration, and response caching |
-| `OAUTH_SETUP_GUIDE.md` | Step-by-step OAuth provider registration for all three providers |
-| `REDIS_SETUP.md` | Redis installation, configuration, and Bull queue setup |
-| `ENHANCED_DASHBOARD_DOCUMENTATION.md` | Dashboard features, widgets, and customisation reference |
-| `IMPLEMENTATION_SUMMARY.md` | Architecture decisions and key implementation notes |
 
 ---
 
