@@ -143,9 +143,9 @@ const EmployerDashboardEnhanced = () => {
   return (
     <Box>
       {/* Header Section */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 4 }}>
         <Box>
-          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: '2.2rem', color: '#6B5544', letterSpacing: '-0.5px' }}>
+          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: { xs: '1.6rem', md: '2.2rem' }, color: '#6B5544', letterSpacing: '-0.5px' }}>
             Welcome back, {user?.firstName}!
           </Typography>
           <Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1rem', lineHeight: 1.6, maxWidth: '650px' }}>

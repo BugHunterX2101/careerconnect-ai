@@ -555,7 +555,7 @@ const CareerImprovementPage = () => {
           <Typography variant="subtitle2" gutterBottom>Priority Actions:</Typography>
           {suggestions.priorityActions.map((action, index) => (
             <Typography key={index} variant="body2">
-              â€¢ {action.action} (Impact: {action.impact}, Timeframe: {action.timeframe})
+              • {action.action} (Impact: {action.impact}, Timeframe: {action.timeframe})
             </Typography>
           ))}
         </Alert>

@@ -380,25 +380,18 @@ const JobManagementPage = () => {
         onClose={() => setAnchorEl(null)}
       >
         <MenuItem onClick={() => {
-          navigate(`/employer/jobs/${selectedJob?._id}`);
+          navigate(`/employer/jobs/${selectedJob?._id}/applicants`);
           setAnchorEl(null);
         }}>
           <Visibility sx={{ mr: 1 }} />
-          View Details
+          View Applicants
         </MenuItem>
         <MenuItem onClick={() => {
-          navigate(`/employer/jobs/${selectedJob?._id}/edit`);
-          setAnchorEl(null);
-        }}>
-          <Edit sx={{ mr: 1 }} />
-          Edit Job
-        </MenuItem>
-        <MenuItem onClick={() => {
-          navigate(`/employer/jobs/${selectedJob?._id}/applications`);
+          navigate(`/employer/jobs/${selectedJob?._id}/applicants`);
           setAnchorEl(null);
         }}>
           <People sx={{ mr: 1 }} />
-          View Applications
+          Manage Applications
         </MenuItem>
         <MenuItem onClick={() => {
           setShareDialog(true);

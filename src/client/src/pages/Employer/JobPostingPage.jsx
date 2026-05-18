@@ -20,7 +20,7 @@ import api from '../../services/api';
 
 const JobPostingPage = () => {
   const { user } = useAuth();
-  const { socket } = useSocket();
+  useSocket();
   const navigate = useNavigate();
   
   // Job posting form state
@@ -47,6 +47,7 @@ const JobPostingPage = () => {
   const [jobPosted, setJobPosted] = useState(false);
   const [newSkill, setNewSkill] = useState('');
   const [error, setError] = useState(null);
+  const [postedJobId, setPostedJobId] = useState(null);
 
   const steps = ['Job Details', 'Requirements', 'Review & Post', 'Matching Candidates'];
 
@@ -103,6 +104,8 @@ const JobPostingPage = () => {
       setError(null);
 
       const data = await jobService.postJob({ ...jobData, requirements: jobData.skills });
+      const jobId = data.job?._id || data._id;
+      setPostedJobId(jobId);
       setJobPosted(true);
       setMatchingCandidates(data.matchingCandidates || []);
       setCurrentStep(3);
@@ -115,11 +118,11 @@ const JobPostingPage = () => {
   };
 
   const refreshCandidates = async () => {
-    if (!jobPosted) return;
+    if (!jobPosted || !postedJobId) return;
 
     try {
       setLoading(true);
-      const response = await api.get(`/employer/jobs/${jobData._id}/matching-candidates`);
+      const response = await api.get(`/employer/jobs/${postedJobId}/matching-candidates`);
       setMatchingCandidates(response.data.candidates || []);
     } catch (error) {
       console.error('Error refreshing candidates:', error);
@@ -131,7 +134,7 @@ const JobPostingPage = () => {
   const scheduleInterview = async (candidateId) => {
     try {
       const interviewData = {
-        jobId: jobData._id,
+        jobId: postedJobId,
         candidateId,
         scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         duration: 60,
@@ -301,7 +304,7 @@ const JobPostingPage = () => {
       <CardContent>
         <Typography variant="h6" gutterBottom>{jobData.title}</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {jobData.company} â€¢ {jobData.location} â€¢ {jobData.type}
+          {jobData.company} • {jobData.location} • {jobData.type}
         </Typography>
         <Typography variant="body1" paragraph>
           {jobData.description}

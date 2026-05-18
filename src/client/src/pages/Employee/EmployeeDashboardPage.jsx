@@ -174,9 +174,9 @@ const EmployeeDashboardPage = () => {
 
   return (
     <Box className="motion-page-enter">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 4 }}>
         <Box>
-          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: '2.05rem', color: 'text.primary', letterSpacing: '-0.5px' }}>
+          <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, fontSize: { xs: '1.6rem', md: '2.05rem' }, color: 'text.primary', letterSpacing: '-0.5px' }}>
             Welcome back, {user?.firstName}!
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '1.05rem', lineHeight: 1.6, maxWidth: '650px' }}>
@@ -198,7 +198,7 @@ const EmployeeDashboardPage = () => {
             />
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexShrink: 0 }}>
           <Button
             variant="outlined"
             onClick={handleManualRefresh}
@@ -371,8 +371,8 @@ const EmployeeDashboardPage = () => {
       
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={6}>
-          <SignatureCard sx={{ 
+        <Grid item xs={12} sm={6} md={3}>
+          <SignatureCard sx={{
             cursor: 'pointer',
             borderRadius: 2,
             transition: 'all 0.25s ease',

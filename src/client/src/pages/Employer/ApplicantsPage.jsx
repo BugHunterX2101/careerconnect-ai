@@ -358,7 +358,7 @@ const ApplicantsPage = () => {
         <ApplicantCard applicant={applicant} />
       </Box>
     );
-  }, [filteredApplicants]);
+  }, [filteredApplicants, selectedApplicants]);
 
   return (
     <Box>

@@ -489,11 +489,11 @@ const InterviewSchedulerPage = () => {
                   label="Interview Date & Time"
                   value={interviewData.scheduledAt}
                   onChange={(newValue) => setInterviewData(prev => ({ ...prev, scheduledAt: newValue }))}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
                   minDateTime={new Date()}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel>{t('durationMinutes')}</InputLabel>
@@ -574,8 +574,8 @@ const InterviewSchedulerPage = () => {
                   label="Interview Date & Time"
                   value={interviewData.scheduledAt}
                   onChange={(newValue) => setInterviewData(prev => ({ ...prev, scheduledAt: newValue }))}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
                   minDateTime={new Date()}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
               

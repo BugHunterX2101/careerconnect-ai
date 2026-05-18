@@ -6,7 +6,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Work, School, ContactMail, ArrowBack, LocationOn,
-  Email, Phone, Language, LinkedIn, GitHub, Star
+  Email, Phone, Star
 } from '@mui/icons-material';
 import { employerService } from '../../services/employerService';
 
