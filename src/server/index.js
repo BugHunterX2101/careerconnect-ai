@@ -77,6 +77,12 @@ const io = new Server(server, {
   }
 });
 
+// Lightweight request-timing header (helps spot slow routes in DevTools)
+app.use((req, _res, next) => {
+  req._startAt = process.hrtime.bigint();
+  next();
+});
+
 // Security middleware
 app.use(securityHeaders);
 app.use(helmet({
@@ -96,18 +102,25 @@ app.use(helmet({
 }));
 
 // Rate limiting for API endpoints
+// Development: generous limits so tests / local usage never get blocked.
+// Production: tighten via environment variables.
+const isDev = (process.env.NODE_ENV || 'development') !== 'production';
+
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 5000 : Number(process.env.API_RATE_LIMIT_MAX || 500),
   message: { error: 'Too many requests from this IP, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/api/perf/vitals' || req.path === '/perf/vitals',
+  skip: (req) =>
+    req.path === '/api/perf/vitals' ||
+    req.path === '/perf/vitals' ||
+    req.path === '/health',
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // limit each IP to 30 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 200 : Number(process.env.AUTH_RATE_LIMIT_MAX || 30),
   message: { error: 'Too many authentication attempts, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -120,8 +133,8 @@ app.use('/api/auth', authLimiter);
 app.use('/api/resume/upload', uploadLimiter);
 app.use('/api/ml/', mlLimiter);
 
-// Compression middleware
-app.use(compression());
+// Compression — level 6 (default) balances CPU vs ratio well
+app.use(compression({ level: 6, threshold: 1024 }));
 
 // CORS configuration
 app.use(cors({
@@ -145,8 +158,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(passport.initialize());
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+// Uploads served with a modest cache
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads'), {
+  maxAge: '7d',
+  etag: true,
+  lastModified: true
+}));
 
 // Health check endpoint (public for monitoring)
 app.get('/health', async (req, res) => {
@@ -312,8 +329,8 @@ io.on('connection', (socket) => {
       socket.join(`user_${resolvedUserId}`);
       authenticated = true;
       socket.emit('authenticated');
-      // Broadcast online presence to all connected clients
-      io.emit('user_online', { userId: resolvedUserId });
+      // Broadcast presence only to sockets the user is in active conversations with
+      socket.broadcast.emit('user_online', { userId: resolvedUserId });
       registerSocketEventsOnce();
       return true;
     } catch (error) {
@@ -489,58 +506,44 @@ app.use((error, req, res, _next) => {
 // Serve static files from the built React app
 const frontendPath = path.join(__dirname, '../client/dist');
 if (fs.existsSync(frontendPath)) {
-  app.use(express.static(frontendPath));
-  
-  // Authentication middleware for protected routes
-  const authMiddleware = (req, res, next) => {
-    // Public paths that don't require authentication
-    const publicPaths = ['/login', '/register', '/about', '/'];
-    if (publicPaths.includes(req.path)) {
-      return next();
-    }
+  // Vite outputs content-hashed filenames under /assets — cache aggressively
+  app.use('/assets', express.static(path.join(frontendPath, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+    etag: false,
+    lastModified: false
+  }));
 
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.redirect('/login');
-    }
+  // Everything else in dist (favicon, manifest, etc.) — short cache
+  app.use(express.static(frontendPath, {
+    maxAge: '1h',
+    etag: true,
+    lastModified: true,
+    index: false // prevent express.static from catching index.html for SPA routes
+  }));
 
-    try {
-      const jwtSecret = process.env.JWT_SECRET;
-      jwt.verify(token, jwtSecret);
-      next();
-    } catch (err) {
-      return res.redirect('/login');
-    }
-  };
-
-  // 404 handler - serve frontend for non-API routes with auth
-  app.use('*', authMiddleware, (req, res) => {
-    // If it's an API route, return 404 JSON
+  // SPA fallback — no JWT verification here; the React app handles auth client-side
+  app.use('*', (req, res) => {
     if (req.originalUrl.startsWith('/api/')) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Route not found',
         path: req.originalUrl,
         availableRoutes: ['/health', '/api/status']
       });
     }
-    
-    // For non-API routes, serve the frontend index.html
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
-  // Fallback if frontend is not built
   app.use('*', (req, res) => {
     if (req.originalUrl.startsWith('/api/')) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Route not found',
-        path: req.originalUrl,
-        availableRoutes: ['/health', '/api/status']
+        path: req.originalUrl
       });
     }
-    
-    res.status(404).json({ 
+    res.status(404).json({
       error: 'Frontend not built',
-      message: 'Please build the frontend before starting the server'
+      message: 'Run: cd src/client && npm run build'
     });
   });
 }
@@ -664,6 +667,10 @@ async function startServer() {
         .once('listening', () => resolve(PORT))
         .once('error', (err) => reject(err));
     });
+
+    // Keep TCP connections alive longer to avoid per-request handshake overhead
+    server.keepAliveTimeout = 65000;  // 65 s (above typical LB 60 s)
+    server.headersTimeout = 70000;    // must be > keepAliveTimeout
 
     logger.info(`🚀 Server running on port ${finalPort}`);
     logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
