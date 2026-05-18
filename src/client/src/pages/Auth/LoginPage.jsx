@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -43,8 +42,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, loginWithToken } = useAuth();
-  const { t } = useTranslation();
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -251,7 +249,7 @@ const LoginPage = () => {
             <TextField
               className={fieldErrors.email ? 'field-error-shake' : formData.email ? 'field-success-pop' : ''}
               fullWidth
-              label={t('email')}
+              label="Email"
               name="email"
               type="email"
               value={formData.email}
@@ -271,7 +269,7 @@ const LoginPage = () => {
             <TextField
               className={fieldErrors.password ? 'field-error-shake' : formData.password ? 'field-success-pop' : ''}
               fullWidth
-              label={t('password')}
+              label="Password"
               name="password"
               type={showPassword ? 'text' : 'password'}
               value={formData.password}

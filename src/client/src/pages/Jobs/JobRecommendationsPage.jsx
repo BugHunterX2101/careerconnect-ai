@@ -68,7 +68,6 @@ import {
   Assessment,
   ArrowBack
 } from '@mui/icons-material';
-import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { employeeService } from '../../services/employeeService';
@@ -76,7 +75,6 @@ import { API_BASE_URL } from '../../config/appConfig';
 
 
 const JobRecommendationsPage = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [recommendations, setRecommendations] = useState([]);
@@ -477,12 +475,15 @@ Please provide detailed analysis covering:
       sx={{
         cursor: 'pointer',
         transition: 'all 0.3s',
-        border: isAI ? '2px solid' : '1px solid',
-        borderColor: isAI ? 'secondary.main' : 'divider',
+        background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+        border: '1px solid',
+        borderColor: isAI ? 'rgba(139, 111, 71, 0.4)' : 'rgba(139, 111, 71, 0.15)',
+        borderRadius: 2,
+        boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 6,
-          borderColor: isAI ? 'secondary.dark' : 'primary.main'
+          transform: 'translateY(-3px)',
+          boxShadow: '0 6px 20px rgba(139, 111, 71, 0.15)',
+          borderColor: 'rgba(139, 111, 71, 0.4)'
         }
       }}
       onClick={() => handleJobClick(job)}
@@ -507,12 +508,14 @@ Please provide detailed analysis covering:
                   <Chip size="small" label="Real-time" color="success" variant="outlined" />
                 </Badge>
               )}
-              <Chip
-                label={`${job.matchScore || 75}% Match`}
-                color={getMatchScoreColor(job.matchScore || 75)}
-                size="small"
-                icon={<Star />}
-              />
+              {typeof job.matchScore === 'number' && (
+                <Chip
+                  label={`${job.matchScore}% Match`}
+                  color={getMatchScoreColor(job.matchScore)}
+                  size="small"
+                  icon={<Star />}
+                />
+              )}
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 2 }}>
@@ -627,9 +630,13 @@ Please provide detailed analysis covering:
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
               variant="contained"
-              color="primary"
               startIcon={job.isExternal || job.isRealTime ? <Launch /> : <OpenInNew />}
               onClick={(e) => handleApplyToJob(job, e)}
+              sx={{
+                background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+                textTransform: 'none',
+                '&:hover': { background: 'linear-gradient(135deg, #7A6040 0%, #5A4535 100%)' }
+              }}
             >
               {job.isExternal || job.isRealTime ? 'Apply Now' : 'View Details'}
             </Button>
@@ -644,15 +651,23 @@ Please provide detailed analysis covering:
                   url: job.url || window.location.href
                 });
               }}
+              sx={{
+                color: '#8B6F47',
+                borderColor: 'rgba(139, 111, 71, 0.3)',
+                textTransform: 'none',
+                '&:hover': { borderColor: '#8B6F47', backgroundColor: 'rgba(139, 111, 71, 0.05)' }
+              }}
             >
               Share
             </Button>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              Match: {job.matchScore || 75}%
-            </Typography>
+            {typeof job.matchScore === 'number' && (
+              <Typography variant="caption" color="text.secondary">
+                Match: {job.matchScore}%
+              </Typography>
+            )}
             {job.applicants && (
               <Typography variant="caption" color="text.secondary">
                 {job.applicants} applicants
@@ -703,16 +718,17 @@ Please provide detailed analysis covering:
           <Tooltip title="Get comprehensive AI-powered career analysis">
             <Button
               variant="contained"
-              startIcon={gptAnalyzing ? <CircularProgress size={16} /> : <SmartToy />}
+              startIcon={gptAnalyzing ? <CircularProgress size={16} color="inherit" /> : <SmartToy />}
               onClick={analyzeJobsWithGPT}
               disabled={gptAnalyzing || (recommendations.length === 0 && aiRecommendations.length === 0)}
-              color="secondary"
-              sx={{ 
-                background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
-                boxShadow: '0 3px 5px 2px rgba(255, 105, 135, .3)'
+              sx={{
+                background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+                textTransform: 'none',
+                '&:hover': { background: 'linear-gradient(135deg, #7A6040 0%, #5A4535 100%)' },
+                '&.Mui-disabled': { opacity: 0.6 }
               }}
             >
-              {gptAnalyzing ? 'Analyzing with AI...' : 'Get AI Career Insights'}
+              {gptAnalyzing ? 'Analyzing...' : 'AI Career Insights'}
             </Button>
           </Tooltip>
           <Tooltip title="Filter jobs">
@@ -737,7 +753,7 @@ Please provide detailed analysis covering:
 
       {/* Filters */}
       {showFilters && (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', border: '1px solid rgba(139, 111, 71, 0.15)', borderRadius: 2 }}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
             <Tune sx={{ mr: 1 }} />
             Filter Recommendations
@@ -746,10 +762,10 @@ Please provide detailed analysis covering:
             <Grid item xs={12} md={3}>
               <TextField
                 fullWidth
-                label={t('filters.location')}
+                label="Location"
                 value={filters.location}
                 onChange={(e) => handleFilterChange('location', e.target.value)}
-                placeholder={t('filters.locationPlaceholder')}
+                placeholder="e.g. New York, Remote"
               />
             </Grid>
             <Grid item xs={12} md={3}>
@@ -761,8 +777,8 @@ Please provide detailed analysis covering:
                 >
                   <MenuItem value="">All Levels</MenuItem>
                   <MenuItem value="entry">Entry Level</MenuItem>
-                  <MenuItem value="mid">{t('experience.midLevel')}</MenuItem>
-                  <MenuItem value="senior">{t('experience.seniorLevel')}</MenuItem>
+                  <MenuItem value="mid">Mid Level</MenuItem>
+                  <MenuItem value="senior">Senior Level</MenuItem>
                   <MenuItem value="executive">Executive</MenuItem>
                 </Select>
               </FormControl>
@@ -810,10 +826,18 @@ Please provide detailed analysis covering:
             </Grid>
             <Grid item xs={12} md={6}>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
-                <Button variant="outlined" onClick={clearFilters}>
+                <Button
+                  variant="outlined"
+                  onClick={clearFilters}
+                  sx={{ color: '#8B6F47', borderColor: 'rgba(139, 111, 71, 0.3)', textTransform: 'none' }}
+                >
                   Clear Filters
                 </Button>
-                <Button variant="contained" onClick={fetchRecommendations}>
+                <Button
+                  variant="contained"
+                  onClick={fetchRecommendations}
+                  sx={{ background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none' }}
+                >
                   Apply Filters
                 </Button>
               </Box>
@@ -908,7 +932,7 @@ Please provide detailed analysis covering:
                             <strong>Time to Learn:</strong> {skill.timeToLearn}
                           </Typography>
                           <Typography variant="body2" sx={{ mt: 1 }}>
-                            <strong>{t('skills.learningPath')}:</strong><br/>
+                            <strong>Learning Path:</strong><br/>
                             {skill.learningPath}
                           </Typography>
                         </CardContent>
@@ -1023,61 +1047,41 @@ Please provide detailed analysis covering:
 
       {/* Stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={3}>
-          <Card sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4">
-                {recommendations.length + aiRecommendations.length}
-              </Typography>
-              <Typography variant="body2">
-                Total Recommendations
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={3}>
-          <Card sx={{ bgcolor: 'success.main', color: 'success.contrastText' }}>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4">
-                {recommendations.filter(job => job.isRealTime).length}
-              </Typography>
-              <Typography variant="body2">
-                Real-time Jobs
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={3}>
-          <Card sx={{ bgcolor: 'warning.main', color: 'warning.contrastText' }}>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4">
-                {recommendations.filter(job => job.matchScore >= 85).length}
-              </Typography>
-              <Typography variant="body2">
-                High Match (85%+)
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={3}>
-          <Card sx={{ bgcolor: 'info.main', color: 'info.contrastText' }}>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4">
-                {aiRecommendations.length}
-              </Typography>
-              <Typography variant="body2">
-                AI Recommendations
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {[
+          { label: 'Total Recommendations', value: recommendations.length + aiRecommendations.length },
+          { label: 'Real-time Jobs', value: recommendations.filter(job => job.isRealTime).length },
+          { label: 'High Match (85%+)', value: recommendations.filter(job => job.matchScore >= 85).length },
+          { label: 'AI Recommendations', value: aiRecommendations.length },
+        ].map(({ label, value }) => (
+          <Grid item xs={12} sm={3} key={label}>
+            <Card sx={{
+              background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+              border: '1px solid rgba(139, 111, 71, 0.15)',
+              borderRadius: 2,
+              boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
+            }}>
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#6B5544' }}>
+                  {value}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#8B6F47' }}>
+                  {label}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       {/* Recommendation Tabs */}
-      <Paper sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+      <Paper sx={{ mb: 3, background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', border: '1px solid rgba(139, 111, 71, 0.15)', borderRadius: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={(e, newValue) => setTabValue(newValue)}
+          sx={{ '& .MuiTab-root': { textTransform: 'none', color: '#8B6F47' }, '& .Mui-selected': { color: '#6B5544', fontWeight: 700 }, '& .MuiTabs-indicator': { backgroundColor: '#8B6F47' } }}
+        >
           <Tab label={`All Recommendations (${recommendations.length})`} />
-          <Tab label={`AI Powered (${aiRecommendations.length})`} icon={<Psychology />} />
+          <Tab label={`AI Powered (${aiRecommendations.length})`} icon={<Psychology />} iconPosition="start" />
           <Tab label={`High Match (${recommendations.filter(job => job.matchScore >= 85).length})`} />
         </Tabs>
       </Paper>

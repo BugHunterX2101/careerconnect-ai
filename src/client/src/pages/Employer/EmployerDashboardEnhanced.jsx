@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { 
+import React, { useState, useEffect, useRef } from 'react';
+import {
   Box, Typography, Card, CardContent, Grid, Button, Tabs, Tab,
   List, ListItem, ListItemText, ListItemAvatar, Avatar, Chip,
   IconButton, Menu, MenuItem, Divider, Alert, LinearProgress, Paper,
@@ -28,8 +27,8 @@ import { useSocket } from '../../contexts/SocketContext';
 const EmployerDashboardEnhanced = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { t } = useTranslation();
   const { socket, isConnected } = useSocket();
+  const isLoadingRef = useRef(false);
   
   // State management
   const [stats, setStats] = useState(null);
@@ -54,7 +53,7 @@ const EmployerDashboardEnhanced = () => {
 
   useEffect(() => {
     if (!socket) return;
-    const refresh = () => loadDashboardData();
+    const refresh = () => loadDashboardData({ silent: true });
     const events = [
       'interview:scheduled',
       'interview:cancelled',
@@ -69,49 +68,59 @@ const EmployerDashboardEnhanced = () => {
   }, [socket]);
 
   useEffect(() => {
-    if (isConnected) loadDashboardData();
+    if (isConnected) loadDashboardData({ silent: true });
   }, [isConnected]);
 
-  const loadDashboardData = async () => {
+  const withTimeout = (promise, ms = 8000) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ]);
+
+  const loadDashboardData = async ({ silent = false } = {}) => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [
-        statsData, analyticsData, pipelineData, teamData, reportData,
-        notificationsData, jobsData, interviewsData
-      ] = await Promise.all([
-        employerService.getDashboardStats().catch(() => null),
-        employerService.getAnalytics().catch(() => null),
-        employerService.getPipeline().catch(() => null),
-        employerService.getTeamMembers().catch(() => ({ members: [], pendingInvites: [] })),
-        employerService.getHiringReport().catch(() => null),
-        employerService.getNotifications().catch(() => ({ notifications: [] })),
-        employerService.getJobs({ limit: 5 }).catch(() => ({ jobs: [] })),
-        employerService.getInterviews({ limit: 5, status: 'scheduled' }).catch(() => ({ interviews: [] }))
+        statsRes, analyticsRes, pipelineRes, teamRes, reportRes,
+        notifRes, jobsRes, interviewsRes
+      ] = await Promise.allSettled([
+        withTimeout(employerService.getDashboardStats()),
+        withTimeout(employerService.getAnalytics()),
+        withTimeout(employerService.getPipeline()),
+        withTimeout(employerService.getTeamMembers()),
+        withTimeout(employerService.getHiringReport()),
+        withTimeout(employerService.getNotifications()),
+        withTimeout(employerService.getJobs({ limit: 5 })),
+        withTimeout(employerService.getInterviews({ limit: 5, status: 'scheduled' })),
       ]);
 
-      setStats(statsData);
-      setAnalytics(analyticsData);
-      setPipeline(pipelineData);
-      setTeam(teamData);
-      setHiringReport(reportData);
-      setNotifications(notificationsData?.notifications || []);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+      if (analyticsRes.status === 'fulfilled') setAnalytics(analyticsRes.value);
+      if (pipelineRes.status === 'fulfilled') setPipeline(pipelineRes.value);
+      if (teamRes.status === 'fulfilled') setTeam(teamRes.value ?? { members: [], pendingInvites: [] });
+      if (reportRes.status === 'fulfilled') setHiringReport(reportRes.value);
+      if (notifRes.status === 'fulfilled') setNotifications(notifRes.value?.notifications || []);
+      const jobsData = jobsRes.status === 'fulfilled' ? jobsRes.value : null;
       setRecentJobs(jobsData?.jobs || []);
-      setUpcomingInterviews(interviewsData?.interviews || []);
+      if (interviewsRes.status === 'fulfilled') setUpcomingInterviews(interviewsRes.value?.interviews || []);
 
       if (jobsData?.jobs?.length > 0) {
-        const jobPromises = jobsData.jobs.slice(0, 3).map(job =>
-          employerService.getJobApplicants(job._id, { limit: 3 })
-            .then(appData => (appData.applications || []).map(app => ({ ...app, jobTitle: job.title })))
-            .catch(() => [])
+        const results = await Promise.allSettled(
+          jobsData.jobs.slice(0, 3).map((job) =>
+            withTimeout(employerService.getJobApplicants(job._id, { limit: 3 }))
+              .then((d) => (d.applications || []).map((a) => ({ ...a, jobTitle: job.title })))
+              .catch(() => [])
+          )
         );
-
-        const applicationsArrays = await Promise.all(jobPromises);
-        setRecentApplications(applicationsArrays.flat().slice(0, 5));
+        setRecentApplications(results.flatMap((r) => r.status === 'fulfilled' ? r.value : []).slice(0, 5));
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
-      setLoading(false);
+      isLoadingRef.current = false;
+      if (!silent) setLoading(false);
     }
   };
 

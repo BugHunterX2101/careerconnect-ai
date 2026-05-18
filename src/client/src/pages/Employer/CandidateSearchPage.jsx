@@ -13,7 +13,6 @@ import {
   School, Business, CalendarToday
 } from '@mui/icons-material';
 import { FixedSizeList } from 'react-window';
-import { Trans } from 'react-i18next';
 import { employerService } from '../../services/employerService';
 import { useNavigate } from 'react-router-dom';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
@@ -188,12 +187,12 @@ const CandidateSearchPage = () => {
       <Box style={style} sx={{ px: 0.5, pb: 1 }}>
         <ListItem
           sx={{
-            border: '1px solid',
-            borderColor: 'divider',
+            border: '1px solid rgba(139, 111, 71, 0.2)',
             borderRadius: 2,
             height: 180,
             alignItems: 'flex-start',
-            '&:hover': { bgcolor: 'action.hover' }
+            background: 'rgba(255,255,255,0.6)',
+            '&:hover': { bgcolor: 'rgba(139, 111, 71, 0.06)', borderColor: 'rgba(139, 111, 71, 0.35)' }
           }}
         >
           <ListItemAvatar>
@@ -266,6 +265,7 @@ const CandidateSearchPage = () => {
               size="small"
               onClick={() => handleViewProfile(candidate)}
               startIcon={<Visibility />}
+              sx={{ background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none', '&:hover': { background: 'linear-gradient(135deg, #7A6040 0%, #5A4535 100%)' } }}
             >
               View Profile
             </Button>
@@ -274,6 +274,7 @@ const CandidateSearchPage = () => {
               size="small"
               onClick={() => handleStartChat(candidate._id)}
               startIcon={<Chat />}
+              sx={{ color: '#8B6F47', borderColor: 'rgba(139, 111, 71, 0.4)', textTransform: 'none', '&:hover': { borderColor: '#8B6F47', bgcolor: 'rgba(139, 111, 71, 0.05)' } }}
             >
               Message
             </Button>
@@ -285,6 +286,7 @@ const CandidateSearchPage = () => {
                 setInviteDialog(true);
               }}
               startIcon={<Email />}
+              sx={{ color: '#8B6F47', borderColor: 'rgba(139, 111, 71, 0.4)', textTransform: 'none', '&:hover': { borderColor: '#8B6F47', bgcolor: 'rgba(139, 111, 71, 0.05)' } }}
             >
               Invite
             </Button>
@@ -296,7 +298,7 @@ const CandidateSearchPage = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#6B5544' }}>
         Search Candidates
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
@@ -306,7 +308,7 @@ const CandidateSearchPage = () => {
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
       
       {/* Search Filters */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', border: '1px solid rgba(139, 111, 71, 0.15)', borderRadius: 2, boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)' }}>
         <CardContent>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
             <FilterList sx={{ mr: 1 }} />
@@ -376,9 +378,9 @@ const CandidateSearchPage = () => {
                 variant="contained"
                 onClick={handleSearch}
                 disabled={loading}
-                sx={{ height: '56px' }}
+                sx={{ height: '56px', background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none', '&:hover': { background: 'linear-gradient(135deg, #7A6040 0%, #5A4535 100%)' } }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Search'}
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Search'}
               </Button>
             </Grid>
             <Grid item xs={12}>
@@ -407,7 +409,7 @@ const CandidateSearchPage = () => {
       </Card>
 
       {/* Search Results */}
-      <Card>
+      <Card sx={{ background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', border: '1px solid rgba(139, 111, 71, 0.15)', borderRadius: 2, boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)' }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6">
@@ -520,7 +522,7 @@ const CandidateSearchPage = () => {
                 
                 {selectedCandidate.profile?.skills && (
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" gutterBottom><Trans>Skills</Trans></Typography>
+                    <Typography variant="subtitle2" gutterBottom>Skills</Typography>
                     <Box>
                       {selectedCandidate.profile.skills.map((skill, idx) => (
                         <Chip key={idx} label={skill} sx={{ mr: 1, mb: 1 }} />
@@ -531,7 +533,7 @@ const CandidateSearchPage = () => {
                 
                 {selectedCandidate.profile?.summary && (
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" gutterBottom><Trans>Summary</Trans></Typography>
+                    <Typography variant="subtitle2" gutterBottom>Summary</Typography>
                     <Typography variant="body2">
                       {selectedCandidate.profile.summary}
                     </Typography>
@@ -540,20 +542,20 @@ const CandidateSearchPage = () => {
               </Grid>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setSelectedCandidate(null)}><Trans>Close</Trans></Button>
+              <Button onClick={() => setSelectedCandidate(null)} sx={{ color: '#8B6F47', textTransform: 'none' }}>Close</Button>
               <Button
                 variant="outlined"
                 onClick={() => handleStartChat(selectedCandidate._id)}
                 startIcon={<Chat />}
+                sx={{ color: '#8B6F47', borderColor: 'rgba(139, 111, 71, 0.4)', textTransform: 'none' }}
               >
                 Message
               </Button>
               <Button
                 variant="contained"
-                onClick={() => {
-                  setInviteDialog(true);
-                }}
+                onClick={() => { setInviteDialog(true); }}
                 startIcon={<Email />}
+                sx={{ background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none' }}
               >
                 Invite to Job
               </Button>
@@ -570,7 +572,7 @@ const CandidateSearchPage = () => {
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
               <FormControl fullWidth required>
-                <InputLabel><Trans>Select Job</Trans></InputLabel>
+                <InputLabel>Select Job</InputLabel>
                 <Select
                   value={inviteJobId}
                   onChange={(e) => setInviteJobId(e.target.value)}
@@ -598,13 +600,14 @@ const CandidateSearchPage = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setInviteDialog(false); setInviteJobId(''); setInviteMessage(''); setInviteSuccess(''); }}>Cancel</Button>
+          <Button onClick={() => { setInviteDialog(false); setInviteJobId(''); setInviteMessage(''); setInviteSuccess(''); }} sx={{ color: '#8B6F47', textTransform: 'none' }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleInviteCandidate}
             disabled={!inviteJobId || inviteSending}
+            sx={{ background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none' }}
           >
-            {inviteSending ? 'Sending...' : <Trans>Send Invitation</Trans>}
+            {inviteSending ? 'Sending...' : 'Send Invitation'}
           </Button>
         </DialogActions>
       </Dialog>

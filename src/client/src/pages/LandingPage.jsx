@@ -1075,45 +1075,101 @@ const LandingPage = () => {
         sx={{
           background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
           color: 'white',
-          py: { xs: 8, md: 10 },
+          py: { xs: 7, md: 9 },
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        {/* Particle constellation background for CTA */}
-        <ParticleBackground id="cta-particles" variant="cta" />
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
           <Box textAlign="center">
-            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '2.2rem', md: '3rem' }, mb: 3 }}>
-              Ready to Accelerate Your Career?
-            </Typography>
-            <Typography
-              variant="h5"
-              paragraph
-              sx={{ opacity: 0.95, mb: 5, fontWeight: 400, fontSize: { xs: '1.05rem', md: '1.25rem' }, lineHeight: 1.7 }}
+            {/* Icon badge */}
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
+                boxShadow: '0 8px 32px rgba(13, 148, 136, 0.5)',
+                mb: 2,
+              }}
             >
-              Join over 50,000 professionals who have already transformed their careers
-              with CareerConnect AI. Start your free trial today.
+              <Rocket sx={{ fontSize: 36, color: 'white' }} />
+            </Box>
+
+            <Chip
+              label="Free to Start"
+              sx={{
+                display: 'block',
+                width: 'fit-content',
+                mx: 'auto',
+                mb: 2,
+                backgroundColor: alpha('#ffffff', 0.15),
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                border: '1px solid rgba(255,255,255,0.25)',
+              }}
+            />
+
+            <Typography
+              variant="h2"
+              sx={{
+                fontWeight: 800,
+                fontSize: { xs: '2rem', sm: '2.5rem', md: '3.2rem' },
+                lineHeight: 1.15,
+                mb: 1.5,
+                textShadow: '0 4px 8px rgba(0,0,0,0.2)',
+              }}
+            >
+              Ready to Accelerate<br />Your Career?
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center" sx={{ mb: 4 }}>
+
+            <Typography
+              variant="body1"
+              sx={{
+                opacity: 0.9,
+                mb: 3,
+                fontWeight: 400,
+                fontSize: { xs: '1.05rem', md: '1.2rem' },
+                lineHeight: 1.8,
+                maxWidth: 560,
+                mx: 'auto',
+              }}
+            >
+              Join over 50,000 professionals who have already transformed their careers with CareerConnect AI. Start your free trial today — no card needed.
+            </Typography>
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2.5}
+              justifyContent="center"
+              alignItems="center"
+              sx={{ mb: 3 }}
+            >
               <Button
                 variant="contained"
                 size="large"
+                endIcon={<ArrowForward />}
                 onClick={() => navigate('/register')}
                 sx={{
                   background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
                   color: 'white',
                   px: 6,
-                  py: 2.5,
+                  py: 2,
                   fontSize: '1.05rem',
                   fontWeight: 700,
                   borderRadius: 3,
                   border: '3px solid #14B8A6',
                   boxShadow: '0 8px 32px rgba(13, 148, 136, 0.5)',
+                  textTransform: 'none',
+                  minWidth: { xs: '100%', sm: 200 },
                   transition: 'all 0.3s ease',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
-                    transform: 'translateY(-4px) scale(1.05)',
+                    transform: 'translateY(-4px) scale(1.04)',
                     boxShadow: '0 12px 48px rgba(13, 148, 136, 0.7)',
                     borderColor: '#2DD4BF',
                   },
@@ -1124,20 +1180,23 @@ const LandingPage = () => {
               <Button
                 variant="outlined"
                 size="large"
+                startIcon={<PlayArrow />}
                 onClick={() => navigate('/features')}
                 sx={{
-                  borderColor: 'white',
+                  borderColor: alpha('#ffffff', 0.7),
                   color: 'white',
-                  px: 6,
-                  py: 2.5,
+                  px: 5,
+                  py: 2,
                   fontSize: '1.05rem',
                   fontWeight: 600,
-                  borderWidth: 3,
+                  borderWidth: 2,
                   borderRadius: 3,
+                  textTransform: 'none',
+                  minWidth: { xs: '100%', sm: 180 },
                   '&:hover': {
                     borderColor: 'white',
-                    borderWidth: 3,
-                    backgroundColor: alpha('#ffffff', 0.15),
+                    borderWidth: 2,
+                    backgroundColor: alpha('#ffffff', 0.12),
                     transform: 'translateY(-3px)',
                   },
                 }}
@@ -1145,12 +1204,34 @@ const LandingPage = () => {
                 Watch Demo
               </Button>
             </Stack>
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <CheckCircle sx={{ color: '#34d399', fontSize: 32 }} />
-              <Typography variant="body2" sx={{ opacity: 0.95, fontSize: '0.98rem', fontWeight: 500 }}>
-                No credit card required • 14-day free trial • Cancel anytime
-              </Typography>
-            </Box>
+
+            {/* Guarantee row — individual checkmarks per item */}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={{ xs: 1.5, sm: 3 }}
+              justifyContent="center"
+              alignItems="center"
+              flexWrap="wrap"
+            >
+              {[
+                'No credit card required',
+                '14-day free trial',
+                'Cancel anytime',
+              ].map((label) => (
+                <Box
+                  key={label}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}
+                >
+                  <CheckCircle sx={{ color: '#34d399', fontSize: 20, flexShrink: 0 }} />
+                  <Typography
+                    variant="body2"
+                    sx={{ opacity: 0.9, fontSize: '0.95rem', fontWeight: 500, whiteSpace: 'nowrap' }}
+                  >
+                    {label}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
           </Box>
         </Container>
       </Box>

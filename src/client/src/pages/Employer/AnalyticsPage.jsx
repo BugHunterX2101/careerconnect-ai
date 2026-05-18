@@ -10,7 +10,8 @@ import {
   Chip,
   LinearProgress,
   Avatar,
-  IconButton
+  IconButton,
+  Paper
 } from '@mui/material';
 import {
   TrendingUp,
@@ -36,9 +37,15 @@ import {
   Cell
 } from 'recharts';
 import { FixedSizeList } from 'react-window';
-import { ExecutiveTable, MetricChip, SignatureCard, TrendBadge } from '../../components/common';
-import { CountUpNumber } from '../../components/common';
+import { ExecutiveTable, CountUpNumber } from '../../components/common';
 import useReducedMotion from '../../hooks/useReducedMotion';
+
+const cardSx = {
+  background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+  border: '1px solid rgba(139, 111, 71, 0.15)',
+  borderRadius: 2,
+  boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
+};
 
 const CHART_COLORS = {
   accent: '#0F5FCC',
@@ -54,21 +61,20 @@ const StatCard = React.memo(function StatCard({
   title,
   value,
   icon,
-  color = 'primary',
   subtitle,
   reducedMotion = false,
   duration = 780,
   suffix = '',
 }) {
   return (
-    <SignatureCard>
+    <Card sx={cardSx}>
       <CardContent>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
+            <Typography sx={{ color: '#8B6F47' }} gutterBottom variant="body2">
               {title}
             </Typography>
-            <Typography variant="h4" component="div">
+            <Typography variant="h4" component="div" sx={{ fontWeight: 700, color: '#6B5544' }}>
               <CountUpNumber value={value} duration={duration} suffix={suffix} reducedMotion={reducedMotion} />
             </Typography>
             {subtitle && (
@@ -76,16 +82,13 @@ const StatCard = React.memo(function StatCard({
                 {subtitle}
               </Typography>
             )}
-            <Box sx={{ mt: 1 }}>
-              <TrendBadge direction="up" label="Healthy trend" />
-            </Box>
           </Box>
-          <Avatar sx={{ bgcolor: `${color}.main` }}>
+          <Avatar sx={{ bgcolor: '#8B6F47' }}>
             {icon}
           </Avatar>
         </Box>
       </CardContent>
-    </SignatureCard>
+    </Card>
   );
 });
 
@@ -223,12 +226,12 @@ const AnalyticsPage = () => {
 
   return (
     <Box sx={{ p: 3 }} className="motion-page-enter">
-      <Box className="dashboard-highlight-panel" sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', border: '1px solid rgba(139, 111, 71, 0.15)', borderRadius: 2, boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
-          <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ color: '#8B6F47' }}>
             <ArrowBack />
           </IconButton>
-          <Typography variant="h4">
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#6B5544' }}>
             Recruitment Analytics
           </Typography>
         </Box>
@@ -236,11 +239,11 @@ const AnalyticsPage = () => {
           Executive overview of pipeline velocity, source quality, and conversion efficiency across active hiring campaigns.
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <MetricChip label="Data refreshed" color="success" />
-          <MetricChip label="Forecast enabled" />
-          <MetricChip label="Stakeholder-ready" color="warning" />
+          <Chip label="Data refreshed" size="small" sx={{ bgcolor: 'rgba(139, 111, 71, 0.12)', color: '#6B5544' }} />
+          <Chip label="Forecast enabled" size="small" sx={{ bgcolor: 'rgba(139, 111, 71, 0.08)', color: '#8B6F47' }} />
+          <Chip label="Stakeholder-ready" size="small" sx={{ bgcolor: 'rgba(139, 111, 71, 0.16)', color: '#6B5544' }} />
         </Box>
-      </Box>
+      </Paper>
 
       <Typography variant="h4" gutterBottom sx={{ display: 'none' }}>
         Recruitment Analytics
@@ -308,7 +311,7 @@ const AnalyticsPage = () => {
       <Grid container spacing={3}>
         {/* Application Trends */}
         <Grid item xs={12} lg={8}>
-          <SignatureCard>
+          <Card sx={cardSx}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Application Trends
@@ -326,12 +329,12 @@ const AnalyticsPage = () => {
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
-          </SignatureCard>
+          </Card>
         </Grid>
 
         {/* Application Sources */}
         <Grid item xs={12} lg={4}>
-          <SignatureCard>
+          <Card sx={cardSx}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Application Sources
@@ -356,12 +359,12 @@ const AnalyticsPage = () => {
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
-          </SignatureCard>
+          </Card>
         </Grid>
 
         {/* Job Performance */}
         <Grid item xs={12} lg={8}>
-          <SignatureCard>
+          <Card sx={cardSx}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Role Funnel Performance
@@ -378,12 +381,12 @@ const AnalyticsPage = () => {
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
-          </SignatureCard>
+          </Card>
         </Grid>
 
         {/* Top Performing Jobs */}
         <Grid item xs={12} lg={4}>
-          <SignatureCard>
+          <Card sx={cardSx}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Top Performing Jobs
@@ -404,57 +407,32 @@ const AnalyticsPage = () => {
                 </FixedSizeList>
               </ExecutiveTable>
             </CardContent>
-          </SignatureCard>
+          </Card>
         </Grid>
 
         {/* Conversion Funnel */}
         <Grid item xs={12}>
-          <SignatureCard>
+          <Card sx={cardSx}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Recruitment Funnel
               </Typography>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={2}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="primary">
-                      {analytics.overview.totalApplicants}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Applications
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={2}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="info.main">
-                      {Math.round(analytics.overview.totalApplicants * 0.3)}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Screened
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={2}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="warning.main">
-                      {analytics.overview.interviewsScheduled}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Interviews
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={2}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="success.main">
-                      {analytics.overview.hiredCandidates}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Hired
-                    </Typography>
-                  </Box>
-                </Grid>
+                {[
+                  { label: 'Applications', value: analytics.overview.totalApplicants },
+                  { label: 'Screened', value: Math.round(analytics.overview.totalApplicants * 0.3) },
+                  { label: 'Interviews', value: analytics.overview.interviewsScheduled },
+                  { label: 'Hired', value: analytics.overview.hiredCandidates },
+                ].map(({ label, value }) => (
+                  <Grid item xs={12} md={2} key={label}>
+                    <Box textAlign="center">
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: '#6B5544' }}>
+                        {value}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">{label}</Typography>
+                    </Box>
+                  </Grid>
+                ))}
                 <Grid item xs={12} md={4}>
                   <Box>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
@@ -462,17 +440,21 @@ const AnalyticsPage = () => {
                     </Typography>
                     <LinearProgress
                       variant="determinate"
-                      value={(analytics.overview.hiredCandidates / analytics.overview.totalApplicants) * 100}
-                      sx={{ height: 8, borderRadius: 4 }}
+                      value={analytics.overview.totalApplicants > 0
+                        ? Math.min(100, (analytics.overview.hiredCandidates / analytics.overview.totalApplicants) * 100)
+                        : 0}
+                      sx={{ height: 8, borderRadius: 4, bgcolor: 'rgba(139, 111, 71, 0.15)', '& .MuiLinearProgress-bar': { bgcolor: '#8B6F47' } }}
                     />
                     <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                      {((analytics.overview.hiredCandidates / analytics.overview.totalApplicants) * 100).toFixed(1)}%
+                      {analytics.overview.totalApplicants > 0
+                        ? `${((analytics.overview.hiredCandidates / analytics.overview.totalApplicants) * 100).toFixed(1)}%`
+                        : '0.0%'}
                     </Typography>
                   </Box>
                 </Grid>
               </Grid>
             </CardContent>
-          </SignatureCard>
+          </Card>
         </Grid>
       </Grid>
     </Box>

@@ -172,7 +172,7 @@ const ProfilePage = () => {
       {saveSuccess && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveSuccess('')}>{saveSuccess}</Alert>}
       {saveError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError('')}>{saveError}</Alert>}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, color: '#6B5544' }}>
           Profile
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
@@ -183,6 +183,7 @@ const ProfilePage = () => {
                 startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />}
                 onClick={handleSave}
                 disabled={saving}
+                sx={{ background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none' }}
               >
                 Save Changes
               </Button>
@@ -190,6 +191,7 @@ const ProfilePage = () => {
                 variant="outlined"
                 startIcon={<Cancel />}
                 onClick={handleCancel}
+                sx={{ color: '#8B6F47', borderColor: 'rgba(139, 111, 71, 0.3)', textTransform: 'none' }}
               >
                 Cancel
               </Button>
@@ -199,6 +201,7 @@ const ProfilePage = () => {
               variant="contained"
               startIcon={<Edit />}
               onClick={handleEdit}
+              sx={{ background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', textTransform: 'none' }}
             >
               Edit Profile
             </Button>
@@ -209,7 +212,12 @@ const ProfilePage = () => {
       <Grid container spacing={3}>
         {/* Profile Header */}
         <Grid item xs={12}>
-          <Card>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+            border: '1px solid rgba(139, 111, 71, 0.15)',
+            borderRadius: 2,
+            boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
+          }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                 <Avatar
@@ -222,9 +230,13 @@ const ProfilePage = () => {
                   <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
                     {profileData.firstName} {profileData.lastName}
                   </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-                    {profileData.currentRole} at {profileData.company}
-                  </Typography>
+                  {(profileData.currentRole || profileData.company) && (
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                      {profileData.currentRole && profileData.company
+                        ? `${profileData.currentRole} at ${profileData.company}`
+                        : profileData.currentRole || profileData.company}
+                    </Typography>
+                  )}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <LocationOn sx={{ mr: 1, color: 'text.secondary' }} />
@@ -272,7 +284,12 @@ const ProfilePage = () => {
 
         {/* Profile Content */}
         <Grid item xs={12}>
-          <Card>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+            border: '1px solid rgba(139, 111, 71, 0.15)',
+            borderRadius: 2,
+            boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
+          }}>
             <CardContent>
               <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 3 }}>
                 <Tab label="Basic Info" />

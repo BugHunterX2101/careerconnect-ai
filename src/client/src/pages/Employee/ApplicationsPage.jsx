@@ -22,13 +22,11 @@ import {
 } from '@mui/material';
 import { Visibility, Delete, FilterList, ArrowBack } from '@mui/icons-material';
 import { FixedSizeList } from 'react-window';
-import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { employeeService } from '../../services/employeeService';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 
 const ApplicationsPage = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +182,7 @@ const ApplicationsPage = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label={t('applications.searchLabel', 'Search applications')}
+                label="Search applications"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 size="small"
@@ -194,17 +192,17 @@ const ApplicationsPage = () => {
               <TextField
                 fullWidth
                 select
-                label={t('filter.status', 'Status')}
+                label="Status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 size="small"
               >
-                <MenuItem value="all">{t('filter.allStatus', 'All')}</MenuItem>
-                <MenuItem value="pending">{t('filter.pending', 'Pending')}</MenuItem>
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
                 <MenuItem value="applied">Applied</MenuItem>
-                <MenuItem value="interview">{t('filter.interview', 'Interview')}</MenuItem>
-                <MenuItem value="accepted">{t('filter.accepted', 'Accepted')}</MenuItem>
-                <MenuItem value="rejected">{t('filter.rejected', 'Rejected')}</MenuItem>
+                <MenuItem value="interview">Interview</MenuItem>
+                <MenuItem value="accepted">Accepted</MenuItem>
+                <MenuItem value="rejected">Rejected</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12} md={2}>
@@ -255,12 +253,12 @@ const ApplicationsPage = () => {
               color: '#6B5544',
               fontSize: '0.95rem'
             }}>
-              <Box>{t('table.jobTitle', 'Job Title')}</Box>
-              <Box>{t('table.company', 'Company')}</Box>
-              <Box>{t('table.status', 'Status')}</Box>
-              <Box>{t('table.appliedDate', 'Applied')}</Box>
-              <Box>{t('table.location', 'Location')}</Box>
-              <Box>{t('table.actions', 'Actions')}</Box>
+              <Box>Job Title</Box>
+              <Box>Company</Box>
+              <Box>Status</Box>
+              <Box>Applied</Box>
+              <Box>Location</Box>
+              <Box>Actions</Box>
             </Box>
             <FixedSizeList
               height={listHeight}

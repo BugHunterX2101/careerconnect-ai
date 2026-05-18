@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box, Typography, Card, CardContent, Grid, Button,
   List, ListItem, ListItemText, ListItemAvatar, Avatar,
@@ -7,20 +6,37 @@ import {
   IconButton, Tooltip, Divider
 } from '@mui/material';
 import {
-  Work, Assessment, Schedule, TrendingUp, Add, Search,
-  Description, Visibility, Chat, VideoCall, Star,
-  LocationOn, Business, CalendarToday, CheckCircle, Refresh
+  Work, Assessment, Schedule, TrendingUp, Search,
+  Visibility, Chat, VideoCall, Star,
+  LocationOn, Business, OpenInNew, Refresh, Launch
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { employeeService } from '../../services/employeeService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
-import { MetricChip, SignatureCard, TrendBadge } from '../../components/common';
+// Returns true when a job came from LinkedIn/Apify (external live listing)
+const isExternalJob = (job) =>
+  job?.platform === 'linkedin' ||
+  job?.source === 'LinkedIn' ||
+  job?.isRealTime === true ||
+  Boolean(job?.applyUrl?.includes('linkedin.com'));
+
+const cardSx = {
+  background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+  border: '1px solid rgba(139, 111, 71, 0.12)',
+  borderRadius: 2,
+  transition: 'all 0.25s ease',
+  '&:hover': {
+    transform: 'translateY(-3px)',
+    boxShadow: '0 8px 16px rgba(139, 111, 71, 0.12)',
+    borderColor: 'rgba(139, 111, 71, 0.25)',
+  },
+};
+
 const EmployeeDashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
-  const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [recentApplications, setRecentApplications] = useState([]);
   const [upcomingInterviews, setUpcomingInterviews] = useState([]);
@@ -31,41 +47,45 @@ const EmployeeDashboardPage = () => {
   const [loadError, setLoadError] = useState('');
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const isRefreshingRef = useRef(false);
+  const hasInitialLoadedRef = useRef(false);
 
   const resolveEntityId = (entity) => entity?._id || entity?.id || null;
 
+  const withTimeout = (promise, ms = 6000) =>
+    Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+
   const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
-    if (isRefreshingRef.current) {
-      return;
-    }
+    if (isRefreshingRef.current) return;
 
     try {
       isRefreshingRef.current = true;
       setLoadError('');
-      if (!silent) {
-        setLoading(true);
+      if (!silent) setLoading(true);
+
+      const [statsRes, applicationsRes, interviewsRes, recommendationsRes] = await Promise.allSettled([
+        withTimeout(employeeService.getDashboardStats()),
+        withTimeout(employeeService.getApplications({ limit: 5 })),
+        withTimeout(employeeService.getInterviews({ limit: 5, status: 'scheduled' })),
+        withTimeout(employeeService.getJobRecommendations({ limit: 5 })),
+      ]);
+
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+      if (applicationsRes.status === 'fulfilled')
+        setRecentApplications(applicationsRes.value?.applications || applicationsRes.value?.data?.applications || []);
+      if (interviewsRes.status === 'fulfilled')
+        setUpcomingInterviews(interviewsRes.value?.interviews || interviewsRes.value?.data?.interviews || []);
+      if (recommendationsRes.status === 'fulfilled') {
+        const rec = recommendationsRes.value;
+        setJobRecommendations(rec?.jobs || rec?.recommendations || rec?.data?.recommendations || []);
       }
 
-      const [statsData, applicationsData, interviewsData, recommendationsData] = await Promise.all([
-        employeeService.getDashboardStats(),
-        employeeService.getApplications({ limit: 5 }),
-        employeeService.getInterviews({ limit: 5, status: 'scheduled' }),
-        employeeService.getJobRecommendations({ limit: 5 })
-      ]);
-      
-      setStats(statsData);
-      setRecentApplications(applicationsData.applications || []);
-      setUpcomingInterviews(interviewsData.interviews || []);
-      setJobRecommendations(recommendationsData.jobs || []);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Dashboard load error:', error);
       setLoadError('Unable to refresh your dashboard right now. Showing the most recent data available.');
     } finally {
       isRefreshingRef.current = false;
-      if (!silent) {
-        setLoading(false);
-      }
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -103,13 +123,16 @@ const EmployeeDashboardPage = () => {
     };
   }, [socket, loadDashboardData]);
 
+  // Only silent-refresh on reconnect — never on the initial mount where
+  // hasInitialLoadedRef is still false (that initial load is handled below).
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && hasInitialLoadedRef.current) {
       loadDashboardData({ silent: true });
     }
   }, [isConnected, loadDashboardData]);
 
   useEffect(() => {
+    hasInitialLoadedRef.current = true;
     loadDashboardData();
   }, [loadDashboardData]);
 
@@ -181,22 +204,30 @@ const EmployeeDashboardPage = () => {
             Welcome back, {user?.firstName}!
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '1.05rem', lineHeight: 1.6, maxWidth: '650px' }}>
-            {t('dashboard.welcomeMessage', 'Your AI-powered career dashboard with GPT-enhanced job matching, LinkedIn integration, and comprehensive resume analysis')}
+            Your AI-powered career hub — live LinkedIn job matches, application tracking, and scheduled interviews all in one place.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
-            <MetricChip label="Role-fit scoring" />
-            <MetricChip label="Interview readiness" color="success" />
             <Chip
               size="small"
-              label={isConnected ? 'Real-time connected' : 'Reconnecting live updates'}
+              label={isConnected ? 'Live updates active' : 'Reconnecting…'}
               color={isConnected ? 'success' : 'warning'}
               variant="outlined"
             />
-            <Chip
-              size="small"
-              label={lastUpdated ? `Updated ${formatDate(lastUpdated)}` : 'Waiting for first sync'}
-              variant="outlined"
-            />
+            {lastUpdated && (
+              <Chip
+                size="small"
+                label={`Refreshed ${formatDate(lastUpdated)}`}
+                variant="outlined"
+              />
+            )}
+            {stats?.totalApplications > 0 && (
+              <Chip
+                size="small"
+                label={`${stats.totalApplications} application${stats.totalApplications !== 1 ? 's' : ''}`}
+                color="default"
+                variant="outlined"
+              />
+            )}
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexShrink: 0 }}>
@@ -252,16 +283,16 @@ const EmployeeDashboardPage = () => {
         </Alert>
       )}
 
-      {/* AI-Powered Quick Actions */}
-      <Paper className="dashboard-highlight-panel" sx={{ 
-        p: 3, 
+      {/* Quick Actions */}
+      <Paper sx={{
+        p: 3,
         mb: 3,
-        border: '1px solid rgba(15, 95, 204, 0.16)',
+        background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
+        border: '1px solid rgba(139, 111, 71, 0.15)',
         borderRadius: 2,
-        boxShadow: '0 10px 28px rgba(27, 43, 59, 0.08)'
+        boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)'
       }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: 'text.primary', mb: 1 }}>AI-Powered Quick Actions</Typography>
-        <TrendBadge direction="up" label="Personalized for your recent profile activity" />
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 2.5 }}>Quick Actions</Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <Button
@@ -312,7 +343,7 @@ const EmployeeDashboardPage = () => {
                 transition: 'all 0.2s ease'
               }}
             >
-              {t('dashboard.gptJobSearch', 'GPT Job Search')}
+              Search Jobs
             </Button>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -338,7 +369,7 @@ const EmployeeDashboardPage = () => {
                 transition: 'all 0.2s ease'
               }}
             >
-              {t('dashboard.resumeAnalysis', 'Resume Analysis')}
+              Resume Analysis
             </Button>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -373,44 +404,24 @@ const EmployeeDashboardPage = () => {
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <SignatureCard sx={{
-            cursor: 'pointer',
-            borderRadius: 2,
-            transition: 'all 0.25s ease',
-            '&:hover': {
-              transform: 'translateY(-3px)',
-              boxShadow: '0 8px 16px rgba(27, 43, 59, 0.12)',
-              borderColor: 'rgba(15, 95, 204, 0.25)'
-            }
-          }} onClick={() => navigate('/employee/applications')}>
+          <Card sx={{ cursor: 'pointer', ...cardSx }} onClick={() => navigate('/employee/applications')}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Work sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Job Applications</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Applications</Typography>
               </Box>
               <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.totalApplications || 0}
               </Typography>
               <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '1rem' }}>
-                {stats?.pendingApplications || 0} pending
+                {stats?.pendingApplications || 0} pending review
               </Typography>
             </CardContent>
-          </SignatureCard>
+          </Card>
         </Grid>
         
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
-            cursor: 'pointer',
-            background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
-            border: '1px solid rgba(139, 111, 71, 0.12)',
-            borderRadius: 2,
-            transition: 'all 0.25s ease',
-            '&:hover': {
-              transform: 'translateY(-3px)',
-              boxShadow: '0 8px 16px rgba(139, 111, 71, 0.12)',
-              borderColor: 'rgba(139, 111, 71, 0.25)'
-            }
-          }} onClick={() => navigate('/employee/interviews')}>
+          <Card sx={{ cursor: 'pointer', ...cardSx }} onClick={() => navigate('/employee/interviews')}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Schedule sx={{ mr: 1.5, color: '#6B5544', fontSize: 28 }} />
@@ -425,19 +436,9 @@ const EmployeeDashboardPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{
-            background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
-            border: '1px solid rgba(139, 111, 71, 0.12)',
-            borderRadius: 2,
-            transition: 'all 0.25s ease',
-            '&:hover': {
-              transform: 'translateY(-3px)',
-              boxShadow: '0 8px 16px rgba(139, 111, 71, 0.12)',
-              borderColor: 'rgba(139, 111, 71, 0.25)'
-            }
-          }}>
+          <Card sx={cardSx}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Assessment sx={{ mr: 1.5, color: '#A67C52', fontSize: 28 }} />
@@ -452,30 +453,19 @@ const EmployeeDashboardPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ 
-            cursor: 'pointer',
-            background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)',
-            border: '1px solid rgba(139, 111, 71, 0.12)',
-            borderRadius: 2,
-            transition: 'all 0.25s ease',
-            '&:hover': {
-              transform: 'translateY(-3px)',
-              boxShadow: '0 8px 16px rgba(139, 111, 71, 0.12)',
-              borderColor: 'rgba(139, 111, 71, 0.25)'
-            }
-          }} onClick={() => navigate('/jobs/recommendations')}>
+          <Card sx={{ cursor: 'pointer', ...cardSx }} onClick={() => navigate('/jobs/recommendations')}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <TrendingUp sx={{ mr: 1.5, color: '#8B6F47', fontSize: 28 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>AI Match Score</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', color: '#6B5544' }}>Job Matches</Typography>
               </Box>
               <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.25rem', mb: 1, letterSpacing: '-1px' }}>
                 {stats?.jobMatches || 0}
               </Typography>
-              <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '0.875rem' }}>
-                {stats?.newMatches || 0} new matches
+              <Typography variant="body2" sx={{ color: '#8B6F47', fontSize: '1rem' }}>
+                {stats?.newMatches || 0} new this week
               </Typography>
             </CardContent>
           </Card>
@@ -648,89 +638,145 @@ const EmployeeDashboardPage = () => {
         {/* Job Recommendations Tab */}
         {tabValue === 1 && (
           <Box sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544', mb: 3 }}>Recommended Jobs</Typography>
-            <List>
-              {jobRecommendations.map((job, index) => (
-                <ListItem key={resolveEntityId(job) || `${job?.title || 'job'}-${index}`} sx={{ 
-                  border: 2, 
-                  borderColor: 'rgba(139, 111, 71, 0.3)', 
-                  borderRadius: 3, 
-                  mb: 2,
-                  p: 3,
-                  background: 'linear-gradient(135deg, rgba(250, 243, 224, 0.5) 0%, rgba(245, 230, 211, 0.5) 100%)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 16px rgba(139, 111, 71, 0.2)'
-                  }
-                }}>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: '#8B6F47', width: 56, height: 56 }}>
-                      <Business sx={{ fontSize: 32 }} />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={<Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#6B5544' }}>{job.title}</Typography>}
-                    secondary={
-                      <Box>
-                        <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#8B6F47', mt: 1 }}>{job.company}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-                          <LocationOn sx={{ fontSize: 20, color: '#8B6F47' }} />
-                          <Typography variant="body1" sx={{ fontSize: '1.125rem', color: '#8B6F47' }}>{job.location}</Typography>
-                          <Chip size="medium" label={`${job.matchScore}% match`} sx={{ bgcolor: '#A67C52', color: '#FAF3E0', fontWeight: 700, fontSize: '1rem' }} />
-                        </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#6B5544' }}>
+                Recommended Jobs
+              </Typography>
+              <Chip
+                size="small"
+                label="Live LinkedIn data"
+                icon={<Launch sx={{ fontSize: '14px !important' }} />}
+                sx={{ bgcolor: '#0077b5', color: '#fff', fontWeight: 600, fontSize: '0.78rem' }}
+              />
+            </Box>
+
+            {jobRecommendations.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: '#6B5544', mb: 1 }}>No recommendations yet</Typography>
+                <Typography variant="body1" sx={{ color: '#8B6F47', mb: 3 }}>
+                  Add skills to your profile to get personalised LinkedIn job matches.
+                </Typography>
+                <Button variant="outlined" onClick={() => navigate('/profile')}
+                  sx={{ borderColor: '#8B6F47', color: '#8B6F47', textTransform: 'none', fontWeight: 600 }}>
+                  Update Profile
+                </Button>
+              </Box>
+            ) : (
+              <List disablePadding>
+                {jobRecommendations.map((job, index) => {
+                  const jobId = resolveEntityId(job);
+                  const external = isExternalJob(job);
+                  const score = typeof job.matchScore === 'number' ? job.matchScore : null;
+
+                  return (
+                    <ListItem
+                      key={jobId || `${job?.title || 'job'}-${index}`}
+                      sx={{
+                        border: '1px solid rgba(139, 111, 71, 0.2)',
+                        borderRadius: 2,
+                        mb: 2,
+                        p: 2.5,
+                        background: 'linear-gradient(135deg, rgba(250,243,224,0.6) 0%, rgba(245,230,211,0.4) 100%)',
+                        transition: 'all 0.25s ease',
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 6px 14px rgba(139,111,71,0.15)' },
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: external ? '#0077b5' : '#8B6F47', width: 48, height: 48 }}>
+                          {external ? (
+                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>in</Typography>
+                          ) : (
+                            <Business sx={{ fontSize: 26 }} />
+                          )}
+                        </Avatar>
+                      </ListItemAvatar>
+
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#6B5544' }}>
+                              {job.title}
+                            </Typography>
+                            {external && (
+                              <Chip label="LinkedIn" size="small"
+                                sx={{ bgcolor: '#0077b5', color: '#fff', fontWeight: 600, fontSize: '0.7rem', height: 20 }} />
+                            )}
+                            {score !== null && (
+                              <Chip
+                                label={`${score}% match`}
+                                size="small"
+                                sx={{ bgcolor: score >= 60 ? '#A67C52' : 'rgba(139,111,71,0.25)', color: score >= 60 ? '#FAF3E0' : '#6B5544', fontWeight: 700, fontSize: '0.75rem', height: 20 }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" sx={{ color: '#8B6F47', mt: 0.5 }}>
+                              {job.company || 'Company not listed'}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                              <LocationOn sx={{ fontSize: 14, color: '#A67C52' }} />
+                              <Typography variant="body2" sx={{ color: '#8B6F47' }}>
+                                {job.location || 'Location not specified'}
+                                {job.employmentType && ` · ${job.employmentType}`}
+                              </Typography>
+                            </Box>
+                            {job.salary && (
+                              <Typography variant="body2" sx={{ color: '#6B5544', mt: 0.5, fontWeight: 600 }}>
+                                {typeof job.salary === 'string' ? job.salary : JSON.stringify(job.salary)}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ml: 1 }}>
+                        {external ? (
+                          <Tooltip title="View & Apply on LinkedIn">
+                            <Button
+                              size="small"
+                              variant="contained"
+                              endIcon={<OpenInNew sx={{ fontSize: 14 }} />}
+                              onClick={() => job.applyUrl && window.open(job.applyUrl, '_blank', 'noopener,noreferrer')}
+                              disabled={!job.applyUrl}
+                              sx={{
+                                bgcolor: '#0077b5', color: '#fff', textTransform: 'none',
+                                fontWeight: 600, fontSize: '0.8rem', whiteSpace: 'nowrap',
+                                '&:hover': { bgcolor: '#005885' }
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip title="View Job Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => jobId && navigate(`/jobs/${jobId}`)}
+                              sx={{ color: '#8B6F47' }}
+                            >
+                              <Visibility />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
-                    }
-                  />
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Tooltip title="View Job">
-                      <IconButton
-                        onClick={() => {
-                          const jobId = resolveEntityId(job);
-                          if (jobId) navigate(`/jobs/${jobId}`);
-                        }}
-                        sx={{ color: '#8B6F47' }}
-                      >
-                        <Visibility sx={{ fontSize: 28 }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Save Job">
-                      <IconButton sx={{ color: '#D4BA94' }}>
-                        <Star sx={{ fontSize: 28 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </ListItem>
-              ))}
-              {jobRecommendations.length === 0 && (
-                <ListItem sx={{ p: 3 }}>
-                  <ListItemText
-                    primary={<Typography variant="h6" sx={{ color: '#6B5544', fontSize: '1rem' }}>No recommendations yet</Typography>}
-                    secondary={<Typography variant="body1" sx={{ color: '#8B6F47', fontSize: '1.125rem' }}>Keep your profile updated to unlock better AI matches.</Typography>}
-                  />
-                </ListItem>
-              )}
-            </List>
-            <Button 
-              fullWidth 
-              variant="outlined" 
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
+
+            <Button
+              fullWidth variant="outlined"
               onClick={() => navigate('/jobs/recommendations')}
               sx={{
-                borderColor: '#8B6F47',
-                color: '#8B6F47',
-                borderWidth: 2,
-                py: 2.5,
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                mt: 3,
-                '&:hover': {
-                  borderWidth: 2,
-                  borderColor: '#6B5544',
-                  background: 'rgba(139, 111, 71, 0.08)'
-                }
+                borderColor: '#8B6F47', color: '#8B6F47', borderWidth: 2,
+                py: 2, fontSize: '1rem', fontWeight: 600, mt: 3, textTransform: 'none',
+                '&:hover': { borderWidth: 2, borderColor: '#6B5544', background: 'rgba(139,111,71,0.08)' }
               }}
             >
-              View All Recommendations
+              View All Live Job Matches
             </Button>
           </Box>
         )}

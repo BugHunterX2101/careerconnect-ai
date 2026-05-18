@@ -24,7 +24,6 @@ import {
   LinearProgress,
   Chip
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
 import {
   Person,
   Email,
@@ -48,15 +47,14 @@ import { CalmAlert } from '../../components/common';
 const RegisterPage = () => {
   const navigate = useNavigate();
   const { register, loginWithToken } = useAuth();
-  const { t } = useTranslation();
-  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'jobseeker'
+    role: 'jobseeker',
+    company: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -130,6 +128,9 @@ const RegisterPage = () => {
       nextErrors.email = 'Email is required.';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       nextErrors.email = 'Please enter a valid email address.';
+    }
+    if (formData.role === 'employer' && !formData.company.trim()) {
+      nextErrors.company = 'Company name is required for employer accounts.';
     }
     if (!formData.password) {
       nextErrors.password = 'Password is required.';
@@ -319,7 +320,7 @@ const RegisterPage = () => {
             <TextField
               className={fieldErrors.email ? 'field-error-shake' : formData.email ? 'field-success-pop' : ''}
               fullWidth
-              label={t('email')}
+              label="Email"
               name="email"
               type="email"
               value={formData.email}
@@ -338,11 +339,11 @@ const RegisterPage = () => {
             />
 
             <FormControl fullWidth sx={{ mb: 3.5 }}>
-              <InputLabel>{t('register.roleLabel')}</InputLabel>
+              <InputLabel>I am a</InputLabel>
               <Select
                 name="role"
                 value={formData.role}
-                label={t('register.roleLabel')}
+                label="I am a"
                 onChange={handleChange}
                 startAdornment={
                   <InputAdornment position="start">
@@ -353,13 +354,13 @@ const RegisterPage = () => {
                 <MenuItem value="jobseeker">
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <Work sx={{ mr: 1 }} />
-                    {t('register.jobSeeker')}
+                    Job Seeker
                   </Box>
                 </MenuItem>
                 <MenuItem value="employer">
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <Business sx={{ mr: 1 }} />
-                    {t('register.employer')}
+                    Employer
                   </Box>
                 </MenuItem>
               </Select>
@@ -368,6 +369,28 @@ const RegisterPage = () => {
             <CalmAlert severity="info" sx={{ mb: 3, borderRadius: 3 }}>
               {roleGuidance[formData.role]}
             </CalmAlert>
+
+            {formData.role === 'employer' && (
+              <TextField
+                className={fieldErrors.company ? 'field-error-shake' : formData.company ? 'field-success-pop' : ''}
+                fullWidth
+                label="Company Name"
+                name="company"
+                value={formData.company}
+                onChange={handleChange}
+                error={!!fieldErrors.company}
+                helperText={fieldErrors.company}
+                required
+                sx={{ mb: 3.5 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Business sx={{ color: '#8B6F47', fontSize: 28 }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
 
             <TextField
               className={fieldErrors.password ? 'field-error-shake' : formData.password ? 'field-success-pop' : ''}

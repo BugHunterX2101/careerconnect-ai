@@ -4,7 +4,8 @@ import {
   FormControl, InputLabel, Select, MenuItem, Chip, Avatar, List,
   ListItem, ListItemAvatar, ListItemText, Divider, Dialog, DialogTitle,
   DialogContent, DialogActions, Alert, CircularProgress, Badge,
-  IconButton, Tooltip, Stepper, Step, StepLabel
+  IconButton, Tooltip, Stepper, Step, StepLabel, Switch, FormControlLabel,
+  Snackbar
 } from '@mui/material';
 import {
   Work, LocationOn, AttachMoney, Schedule, Person, Email,
@@ -48,6 +49,12 @@ const JobPostingPage = () => {
   const [newSkill, setNewSkill] = useState('');
   const [error, setError] = useState(null);
   const [postedJobId, setPostedJobId] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [newBenefit, setNewBenefit] = useState('');
+
+  const showSnackbar = (message, severity = 'success') =>
+    setSnackbar({ open: true, message, severity });
+  const closeSnackbar = () => setSnackbar((prev) => ({ ...prev, open: false }));
 
   const steps = ['Job Details', 'Requirements', 'Review & Post', 'Matching Candidates'];
 
@@ -131,6 +138,16 @@ const JobPostingPage = () => {
     }
   };
 
+  const addBenefit = () => {
+    if (newBenefit.trim() && !jobData.benefits.includes(newBenefit.trim())) {
+      setJobData((prev) => ({ ...prev, benefits: [...prev.benefits, newBenefit.trim()] }));
+      setNewBenefit('');
+    }
+  };
+
+  const removeBenefit = (b) =>
+    setJobData((prev) => ({ ...prev, benefits: prev.benefits.filter((x) => x !== b) }));
+
   const scheduleInterview = async (candidateId) => {
     try {
       const interviewData = {
@@ -142,10 +159,10 @@ const JobPostingPage = () => {
         notes: `Interview for ${jobData.title} position`
       };
       await jobService.scheduleInterview(interviewData);
-      alert('Interview scheduled successfully!');
+      showSnackbar('Interview scheduled successfully!');
     } catch (error) {
       console.error('Error scheduling interview:', error);
-      alert('Failed to schedule interview');
+      showSnackbar('Failed to schedule interview', 'error');
     }
   };
 
@@ -233,6 +250,18 @@ const JobPostingPage = () => {
           </Select>
         </FormControl>
       </Grid>
+      <Grid item xs={12}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={jobData.remote}
+              onChange={(e) => handleInputChange('remote', e.target.checked)}
+              sx={{ '& .Mui-checked': { color: '#8B6F47' }, '& .Mui-checked + .MuiSwitch-track': { bgcolor: '#8B6F47' } }}
+            />
+          }
+          label="Remote / Work from Home"
+        />
+      </Grid>
     </Grid>
   );
 
@@ -246,7 +275,7 @@ const JobPostingPage = () => {
               key={index}
               label={skill}
               onDelete={() => removeSkill(skill)}
-              color="primary"
+              sx={{ bgcolor: 'rgba(139, 111, 71, 0.12)', color: '#6B5544', '& .MuiChip-deleteIcon': { color: '#8B6F47' } }}
             />
           ))}
         </Box>
@@ -296,11 +325,29 @@ const JobPostingPage = () => {
           InputLabelProps={{ shrink: true }}
         />
       </Grid>
+      <Grid item xs={12}>
+        <Typography variant="h6" gutterBottom>Benefits</Typography>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          {jobData.benefits.map((benefit, index) => (
+            <Chip key={index} label={benefit} onDelete={() => removeBenefit(benefit)} />
+          ))}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            label="Add Benefit"
+            value={newBenefit}
+            onChange={(e) => setNewBenefit(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addBenefit()}
+            placeholder="e.g. Health insurance, 401k, Remote work"
+          />
+          <Button onClick={addBenefit} startIcon={<Add />}>Add</Button>
+        </Box>
+      </Grid>
     </Grid>
   );
 
   const renderReviewStep = () => (
-    <Card>
+    <Card sx={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(139, 111, 71, 0.2)', borderRadius: 2 }}>
       <CardContent>
         <Typography variant="h6" gutterBottom>{jobData.title}</Typography>
         <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -425,13 +472,26 @@ const JobPostingPage = () => {
     </Box>
   );
 
+  const btnSx = {
+    background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
+    textTransform: 'none',
+    '&:hover': { background: 'linear-gradient(135deg, #7A6040 0%, #5A4535 100%)' },
+    '&.Mui-disabled': { opacity: 0.6 }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#6B5544' }}>
         Post New Job
       </Typography>
 
-      <Stepper activeStep={currentStep} sx={{ mb: 4 }}>
+      <Stepper activeStep={currentStep} sx={{
+        mb: 4,
+        '& .MuiStepIcon-root.Mui-active': { color: '#8B6F47' },
+        '& .MuiStepIcon-root.Mui-completed': { color: '#6B5544' },
+        '& .MuiStepLabel-label.Mui-active': { color: '#6B5544', fontWeight: 700 },
+        '& .MuiStepConnector-line': { borderColor: 'rgba(139, 111, 71, 0.3)' }
+      }}>
         {steps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
@@ -445,7 +505,7 @@ const JobPostingPage = () => {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', border: '1px solid rgba(139, 111, 71, 0.15)', borderRadius: 2, boxShadow: '0 2px 8px rgba(139, 111, 71, 0.08)' }}>
         {currentStep === 0 && renderJobDetailsStep()}
         {currentStep === 1 && renderRequirementsStep()}
         {currentStep === 2 && renderReviewStep()}
@@ -456,10 +516,11 @@ const JobPostingPage = () => {
         <Button
           onClick={handleBack}
           disabled={currentStep === 0}
+          sx={{ color: '#8B6F47', textTransform: 'none' }}
         >
           Back
         </Button>
-        
+
         <Box sx={{ display: 'flex', gap: 1 }}>
           {currentStep < 2 && (
             <Button
@@ -469,33 +530,48 @@ const JobPostingPage = () => {
                 (currentStep === 0 && (!jobData.title || !jobData.description)) ||
                 (currentStep === 1 && jobData.skills.length === 0)
               }
+              sx={btnSx}
             >
               Next
             </Button>
           )}
-          
+
           {currentStep === 2 && (
             <Button
               variant="contained"
               onClick={postJob}
               disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <Work />}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Work />}
+              sx={btnSx}
             >
               {loading ? 'Posting...' : 'Post Job'}
             </Button>
           )}
-          
+
           {currentStep === 3 && (
             <Button
               variant="contained"
               onClick={() => navigate('/employer/jobs')}
               startIcon={<CheckCircle />}
+              sx={btnSx}
             >
               Done
             </Button>
           )}
         </Box>
       </Box>
+
+      {/* Feedback Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={closeSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={closeSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Candidate Details Dialog */}
       <Dialog

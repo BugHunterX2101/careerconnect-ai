@@ -408,8 +408,8 @@ const Layout = ({ children }) => {
                   },
                 }}
               >
-                <Badge 
-                  badgeContent={4} 
+                <Badge
+                  badgeContent={0}
                   sx={{
                     '& .MuiBadge-badge': {
                       backgroundColor: '#ef4444',

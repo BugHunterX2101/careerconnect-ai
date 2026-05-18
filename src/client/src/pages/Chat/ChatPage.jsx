@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Box,
   Card,
@@ -39,7 +38,6 @@ import { useSearchParams } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/appConfig';
 
 const ChatPage = () => {
-  const { t } = useTranslation();
   const { user } = useAuth();
   const { socket, connected, joinConversation, leaveConversation, startTyping, stopTyping } = useSocket();
   const [searchParams] = useSearchParams();
@@ -321,10 +319,10 @@ const ChatPage = () => {
   return (
     <Box sx={{ height: { xs: 'calc(100vh - 80px)', md: 'calc(100vh - 96px)' }, display: 'flex', overflow: 'hidden' }}>
       {/* Conversations Sidebar */}
-      <Card sx={{ width: { xs: 260, sm: 300, md: 320 }, minWidth: { xs: 200, md: 280 }, borderRadius: 0, flexShrink: 0 }}>
+      <Card sx={{ width: { xs: 260, sm: 300, md: 320 }, minWidth: { xs: 200, md: 280 }, borderRadius: 0, flexShrink: 0, background: 'linear-gradient(135deg, #FAF3E0 0%, #F5E6D3 100%)', borderRight: '1px solid rgba(139, 111, 71, 0.15)' }}>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
-            {t('messages')}
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: '#6B5544' }}>
+            Messages
           </Typography>
 
           <TextField
@@ -356,10 +354,13 @@ const ChatPage = () => {
                       borderRadius: 1,
                       mb: 1,
                       '&.Mui-selected': {
-                        backgroundColor: 'primary.light',
+                        backgroundColor: 'rgba(139, 111, 71, 0.15)',
                         '&:hover': {
-                          backgroundColor: 'primary.light',
+                          backgroundColor: 'rgba(139, 111, 71, 0.2)',
                         },
+                      },
+                      '&:hover': {
+                        backgroundColor: 'rgba(139, 111, 71, 0.08)',
                       },
                     }}
                   >
@@ -524,7 +525,7 @@ const ChatPage = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
                   <Paper sx={{ p: 1.5, backgroundColor: 'white' }}>
                     <Typography variant="body2" color="text.secondary">
-                      {t('typing')}
+                      Typing...
                     </Typography>
                   </Paper>
                 </Box>
@@ -599,7 +600,7 @@ const ChatPage = () => {
                   variant="contained"
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() && !attachmentPreview}
-                  sx={{ minWidth: 'auto', p: 1.5 }}
+                  sx={{ minWidth: 'auto', p: 1.5, background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)', '&:hover': { background: 'linear-gradient(135deg, #7A6040 0%, #5A4535 100%)' } }}
                 >
                   <Send />
                 </Button>

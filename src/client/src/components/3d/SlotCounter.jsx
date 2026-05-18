@@ -11,11 +11,17 @@ import { useInView } from 'react-intersection-observer'
  */
 export default function SlotCounter({ value, duration = 1800, style = {} }) {
   const [triggered, setTriggered] = useState(false)
-  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.4 })
+  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 })
 
   useEffect(() => {
     if (inView) setTriggered(true)
   }, [inView])
+
+  // Fallback: trigger after 2.5 s if the element never enters the viewport
+  useEffect(() => {
+    const id = setTimeout(() => setTriggered(true), 2500)
+    return () => clearTimeout(id)
+  }, [])
 
   const chars = useMemo(() => value.split(''), [value])
 

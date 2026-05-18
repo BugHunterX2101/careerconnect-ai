@@ -63,13 +63,13 @@ const CareerImprovementPage = () => {
         console.warn('Could not fetch profile data:', error);
       }
 
-      // If no BERT keywords from profile, use mock data
+      // If no profile data available, proceed with empty context
       if (!bertKeywords) {
         bertKeywords = {
-          technical: ['javascript', 'react', 'node.js', 'python'],
-          roles: ['developer'],
-          experience: 3,
-          skills: ['javascript', 'react', 'node.js', 'python', 'sql']
+          technical: [],
+          roles: [],
+          experience: 0,
+          skills: []
         };
       }
 
