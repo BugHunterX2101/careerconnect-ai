@@ -1,23 +1,20 @@
-import React, { useCallback, useMemo } from 'react'
-import Particles from '@tsparticles/react'
+import React, { useCallback, useMemo, useEffect, useState } from 'react'
+import Particles, { initParticlesEngine } from '@tsparticles/react'
 import { loadSlim } from '@tsparticles/slim'
 
-/**
- * ParticleBackground – renders a subtle constellation / data-flow
- * particle field behind content.
- *
- * Props:
- *   id        – unique DOM id (default "tsparticles-bg")
- *   variant   – "hero" | "cta"  (adjusts density / speed)
- *   style     – forwarded to container
- */
 export default function ParticleBackground({
   id = 'tsparticles-bg',
   variant = 'hero',
   style = {},
 }) {
-  const particlesInit = useCallback(async (engine) => {
-    await loadSlim(engine)
+  const [engineReady, setEngineReady] = useState(false)
+
+  useEffect(() => {
+    initParticlesEngine(async (engine) => {
+      await loadSlim(engine)
+    })
+      .then(() => setEngineReady(true))
+      .catch(() => {})
   }, [])
 
   const isHero = variant === 'hero'
@@ -31,9 +28,7 @@ export default function ParticleBackground({
           value: isHero ? 70 : 50,
           density: { enable: true, width: 1200, height: 800 },
         },
-        color: {
-          value: ['#14B8A6', '#3A5A8C', '#0D9488', '#2DD4BF'],
-        },
+        color: { value: ['#14B8A6', '#3A5A8C', '#0D9488', '#2DD4BF'] },
         shape: { type: 'circle' },
         opacity: {
           value: { min: 0.15, max: 0.5 },
@@ -73,10 +68,11 @@ export default function ParticleBackground({
     [isHero],
   )
 
+  if (!engineReady) return null
+
   return (
     <Particles
       id={id}
-      init={particlesInit}
       options={options}
       style={{
         position: 'absolute',

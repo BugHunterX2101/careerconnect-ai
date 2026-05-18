@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react'
+import React, { useState, useEffect, Suspense, lazy, Component } from 'react'
 import {
   Box,
   Container,
@@ -48,6 +48,13 @@ import SlotCounter from '../components/3d/SlotCounter'
 import ParticleBackground from '../components/3d/ParticleBackground'
 
 const NeuralNetwork3D = lazy(() => import('../components/3d/NeuralNetwork3D'))
+
+class ThreeDErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { failed: false } }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(err) { console.warn('3D render error (non-fatal):', err?.message) }
+  render() { return this.state.failed ? null : this.props.children }
+}
 
 const orbitSpin = keyframes`
   from {
@@ -222,22 +229,7 @@ const LandingPage = () => {
   ]
 
   return (
-    <Box sx={{ 
-      backgroundColor: '#F9FAFB',
-      position: 'relative',
-      overflow: 'hidden',
-      '&::before': {
-        content: '""',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(circle at 10% 20%, rgba(58, 90, 140, 0.05) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(13, 148, 136, 0.03) 0%, transparent 40%)',
-        pointerEvents: 'none',
-        zIndex: 0,
-      },
-    }}>
+    <Box sx={{ backgroundColor: '#F9FAFB', position: 'relative', overflow: 'hidden' }}>
       {/* Navigation */}
       <AppBar
         position="fixed"
@@ -568,32 +560,34 @@ const LandingPage = () => {
                 }}
               >
                 {/* 3D Neural Network Brain */}
-                <Suspense
-                  fallback={
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Avatar
+                <ThreeDErrorBoundary>
+                  <Suspense
+                    fallback={
+                      <Box
                         sx={{
-                          width: 120,
-                          height: 120,
-                          background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
-                          boxShadow: '0 20px 40px rgba(58, 90, 140, 0.4)',
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                         }}
                       >
-                        <Psychology sx={{ fontSize: 60, color: 'white' }} />
-                      </Avatar>
-                    </Box>
-                  }
-                >
-                  <NeuralNetwork3D />
-                </Suspense>
+                        <Avatar
+                          sx={{
+                            width: 120,
+                            height: 120,
+                            background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
+                            boxShadow: '0 20px 40px rgba(58, 90, 140, 0.4)',
+                          }}
+                        >
+                          <Psychology sx={{ fontSize: 60, color: 'white' }} />
+                        </Avatar>
+                      </Box>
+                    }
+                  >
+                    <NeuralNetwork3D />
+                  </Suspense>
+                </ThreeDErrorBoundary>
               </Box>
             </Grid>
           </Grid>
@@ -648,7 +642,7 @@ const LandingPage = () => {
       </Container>
 
       {/* Role-Based Entry Section */}
-      <Box sx={{ py: { xs: 2, md: 4 } }}>
+      <Box sx={{ py: { xs: 8, md: 10 } }}>
         <Container maxWidth="lg">
           <Paper
             elevation={0}
@@ -727,17 +721,17 @@ const LandingPage = () => {
                   component="div"
                   sx={{
                     fontWeight: 900,
-                    fontSize: { xs: '3.2rem', md: '5.5rem', lg: '6.5rem' },
+                    fontSize: { xs: '2.8rem', md: '3.6rem' },
                     background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
-                    mb: 2,
+                    mb: 1,
                     letterSpacing: '-0.02em',
                   }}
                 >
                   <SlotCounter value={stat.number} duration={2000} />
                 </Typography>
-                <Typography variant="h6" sx={{ color: '#475569', fontWeight: 700, fontSize: { xs: '1.4rem', md: '1.75rem' } }}>
+                <Typography variant="h6" sx={{ color: '#475569', fontWeight: 600, fontSize: { xs: '0.95rem', md: '1.05rem' } }}>
                   {stat.label}
                 </Typography>
               </Box>
@@ -785,12 +779,10 @@ const LandingPage = () => {
               gutterBottom
               sx={{
                 fontWeight: 800,
-                fontSize: { xs: '3.5rem', md: '5rem' },
-                background: 'linear-gradient(135deg, #0f172a 0%, #475569 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                mb: 3,
-                letterSpacing: '-0.02em',
+                fontSize: { xs: '2rem', md: '2.8rem' },
+                color: '#0f172a',
+                mb: 2,
+                letterSpacing: '-0.01em',
               }}
             >
               Why Choose CareerConnect AI?
@@ -798,10 +790,9 @@ const LandingPage = () => {
             <Typography
               variant="h5"
               color="text.secondary"
-              sx={{ maxWidth: 900, mx: 'auto', fontWeight: 400, fontSize: { xs: '1.05rem', md: '1.7rem' }, lineHeight: 1.7 }}
+              sx={{ maxWidth: 720, mx: 'auto', fontWeight: 400, fontSize: { xs: '1rem', md: '1.15rem' }, lineHeight: 1.7 }}
             >
-              Built with cutting-edge artificial intelligence to revolutionize how you
-              discover, apply, and succeed in your career journey.
+              Built with cutting-edge AI to help you discover, apply, and succeed in your career journey.
             </Typography>
           </Box>
 
@@ -893,7 +884,7 @@ const LandingPage = () => {
             border: '1px solid rgba(13, 148, 136, 0.2)',
           }}
         >
-          <Chip label="How It Works Proof" sx={{ mb: 2, fontWeight: 700, backgroundColor: '#0D9488', color: 'white' }} />
+          <Chip label="Real Results" sx={{ mb: 2, fontWeight: 700, backgroundColor: '#0D9488', color: 'white' }} />
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.5 }}>
             From 12% to 38% interview rate in 30 days.
           </Typography>
@@ -966,40 +957,41 @@ const LandingPage = () => {
                   height: '100%',
                   p: { xs: 3, md: 4 },
                   borderRadius: 4,
-                  border: '2px solid',
-                   borderColor: 'rgba(13, 148, 136, 0.2)',
+                  border: '2px solid rgba(13, 148, 136, 0.2)',
                   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                   animation: enableMotion ? `fadeIn 0.8s ease-out ${index * 0.15}s both` : 'none',
                   '&:hover': {
                     transform: 'translateY(-8px)',
-                     borderColor: 'rgba(13, 148, 136, 0.5)',
-                     boxShadow: '0 16px 48px rgba(13, 148, 136, 0.3)',
+                    borderColor: 'rgba(13, 148, 136, 0.5)',
+                    boxShadow: '0 16px 48px rgba(13, 148, 136, 0.3)',
                   },
                 }}
               >
-                <Box sx={{ display: 'flex', mb: 2 }}>
+                <Box sx={{ display: 'flex', gap: 0.25, mb: 2 }}>
                   {[...Array(5)].map((_, i) => (
-                    <Star 
-                      key={i} 
-                       sx={{
-                         color: '#0D9488',
-                        fontSize: 28,
-                      }} 
-                    />
+                    <Star key={i} sx={{ color: '#F59E0B', fontSize: 20 }} />
                   ))}
                 </Box>
                 <Typography variant="body1" sx={{ mb: 3, fontStyle: 'italic', fontSize: { xs: '1rem', md: '1.05rem' }, lineHeight: 1.8 }}>
                   "{testimonial.content}"
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography sx={{ fontSize: '1.5rem', mr: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Avatar
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      background: 'linear-gradient(135deg, #3A5A8C 0%, #0D9488 100%)',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                    }}
+                  >
                     {testimonial.avatar}
-                  </Typography>
+                  </Avatar>
                   <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '1rem' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.95rem' }}>
                       {testimonial.name}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '1.05rem' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
                       {testimonial.role} at {testimonial.company}
                     </Typography>
                   </Box>
@@ -1024,7 +1016,7 @@ const LandingPage = () => {
             Frequently Asked Questions
           </Typography>
           <Typography variant="h6" sx={{ color: '#64748b', fontWeight: 500 }}>
-            Quick answers to the top objections before users commit.
+            Everything you need to know before getting started.
           </Typography>
         </Box>
         <Box>
@@ -1044,9 +1036,9 @@ const LandingPage = () => {
       {/* CTA Section */}
       <Box
         sx={{
-           background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
+          background: 'linear-gradient(135deg, #3A5A8C 0%, #2F4A73 100%)',
           color: 'white',
-          py: { xs: 6, md: 8 },
+          py: { xs: 8, md: 10 },
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -1072,21 +1064,21 @@ const LandingPage = () => {
                 size="large"
                 onClick={() => navigate('/register')}
                 sx={{
-                   background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
+                  background: 'linear-gradient(135deg, #0D9488 0%, #047857 100%)',
                   color: 'white',
                   px: 6,
                   py: 2.5,
                   fontSize: '1.05rem',
                   fontWeight: 700,
                   borderRadius: 3,
-                   border: '3px solid #14B8A6',
-                   boxShadow: '0 8px 32px rgba(13, 148, 136, 0.5), 0 0 40px rgba(20, 184, 166, 0.4)',
+                  border: '3px solid #14B8A6',
+                  boxShadow: '0 8px 32px rgba(13, 148, 136, 0.5)',
                   transition: 'all 0.3s ease',
                   '&:hover': {
-                     background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
+                    background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
                     transform: 'translateY(-4px) scale(1.05)',
-                     boxShadow: '0 12px 48px rgba(13, 148, 136, 0.7), 0 0 50px rgba(20, 184, 166, 0.6)',
-                     borderColor: '#2DD4BF',
+                    boxShadow: '0 12px 48px rgba(13, 148, 136, 0.7)',
+                    borderColor: '#2DD4BF',
                   },
                 }}
               >
@@ -1187,7 +1179,7 @@ const LandingPage = () => {
                 sx={{
                   fontWeight: 800,
                   fontSize: { xs: '1.35rem', md: '1.55rem' },
-                   background: 'linear-gradient(135deg, #0D9488 0%, #3A5A8C 100%)',
+                  background: 'linear-gradient(135deg, #0D9488 0%, #3A5A8C 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   mb: 2.5,

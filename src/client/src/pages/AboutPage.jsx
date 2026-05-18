@@ -299,6 +299,7 @@ const AboutPage = () => {
                   variant="h3"
                   sx={{
                     fontWeight: 800,
+                    fontSize: { xs: '1.6rem', md: '2.2rem' },
                     background: 'linear-gradient(135deg, #8B6F47 0%, #6B5544 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -321,7 +322,7 @@ const AboutPage = () => {
         <Container maxWidth="lg">
           <Grid container spacing={8} alignItems="center">
             <Grid item xs={12} md={6}>
-              <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+              <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
                 Our Story
               </Typography>
               <Typography variant="body1" paragraph sx={{ lineHeight: 1.8, fontSize: '1.1rem' }}>
@@ -378,7 +379,7 @@ const AboutPage = () => {
       {/* Our Values */}
       <Container maxWidth="lg" sx={{ py: 10 }}>
         <Box textAlign="center" sx={{ mb: 8 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
             Our Values
           </Typography>
           <Typography variant="h6" color="text.secondary">
@@ -433,7 +434,7 @@ const AboutPage = () => {
       <Box sx={{ backgroundColor: '#f8fafc', py: 10 }}>
         <Container maxWidth="lg">
           <Box textAlign="center" sx={{ mb: 8 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
               Meet Our Team
             </Typography>
             <Typography variant="h6" color="text.secondary">
@@ -467,7 +468,7 @@ const AboutPage = () => {
       <Container maxWidth="lg" sx={{ py: 10 }}>
         <Grid container spacing={8} alignItems="center">
           <Grid item xs={12} md={6}>
-            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
               Cutting-Edge Technology
             </Typography>
             <Typography variant="body1" paragraph sx={{ lineHeight: 1.8, fontSize: '1.1rem' }}>

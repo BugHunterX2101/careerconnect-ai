@@ -362,9 +362,9 @@ const ApplicantsPage = () => {
 
   return (
     <Box>
-      <Typography variant="h3" gutterBottom sx={{ 
-        fontWeight: 700, 
-        fontSize: '2.5rem', 
+      <Typography variant="h3" gutterBottom sx={{
+        fontWeight: 700,
+        fontSize: { xs: '1.6rem', md: '2.2rem' },
         color: '#6B5544',
         letterSpacing: '-0.5px'
       }}>
@@ -481,10 +481,10 @@ const ApplicantsPage = () => {
                   }
                 }}>
                   <CardContent sx={{ textAlign: 'center' }}>
-                    <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: '2.75rem' }}>
+                    <Typography variant="h3" sx={{ fontWeight: 700, color: '#6B5544', fontSize: { xs: '1.8rem', md: '2.25rem' } }}>
                       {getApplicantsByStatus(status.value).length}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#8B6F47', mt: 0.5, fontSize: '1.05rem' }}>
+                    <Typography variant="body2" sx={{ color: '#8B6F47', mt: 0.5, fontSize: { xs: '0.8rem', md: '0.95rem' } }}>
                       {status.label}
                     </Typography>
                   </CardContent>

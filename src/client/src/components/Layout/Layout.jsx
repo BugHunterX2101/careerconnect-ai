@@ -367,7 +367,7 @@ const Layout = ({ children }) => {
             <Typography variant="h4" sx={{ fontWeight: 700, fontSize: { xs: '1.5rem', md: '2rem' }, color: 'text.primary', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
               {navigationItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
             </Typography>
-            <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: { xs: '1.125rem', md: '1.25rem' }, transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: { xs: '0.8rem', md: '0.9rem' }, transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
               Welcome back, {user?.firstName}!
             </Typography>
           </Box>
@@ -501,9 +501,9 @@ const Layout = ({ children }) => {
           flexGrow: 1,
           p: { xs: 2, md: 4 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: 9,
+          mt: { xs: '80px', md: '96px' },
           backgroundColor: '#FAF3E0',
-          minHeight: 'calc(100vh - 72px)',
+          minHeight: { xs: 'calc(100vh - 80px)', md: 'calc(100vh - 96px)' },
         }}
       >
         <Box className="animate-fade-in">

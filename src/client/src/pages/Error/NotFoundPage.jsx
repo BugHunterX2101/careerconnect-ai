@@ -54,11 +54,12 @@ const NotFoundPage = () => {
               404
             </Typography>
             
-            <Typography 
-              variant="h3" 
-              gutterBottom 
-              sx={{ 
+            <Typography
+              variant="h3"
+              gutterBottom
+              sx={{
                 fontWeight: 700,
+                fontSize: { xs: '1.6rem', md: '2.2rem' },
                 color: 'text.primary',
                 mb: 2,
               }}

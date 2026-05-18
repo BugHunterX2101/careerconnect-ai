@@ -17,10 +17,7 @@ import AppErrorNotifier from './components/shared/AppErrorNotifier'
 import queryClient from './utils/queryClient'
 import { initializeErrorHandling } from './utils/errorHandler'
 import { AuthProvider } from './contexts/AuthContext'
-import { AppProvider } from './contexts/AppContext'
 import { SocketProvider } from './contexts/SocketContext'
-import { ResumeProvider } from './contexts/ResumeContext'
-import { JobProvider } from './contexts/JobContext'
 import { startWebVitalsTracking } from './utils/webVitals'
 
 // Initialize global error handling
@@ -47,13 +44,9 @@ if (typeof window !== 'undefined' && 'loading' in HTMLImageElement.prototype) {
 
 const AppProviders = ({ children }) => (
   <AuthProvider>
-    <AppProvider>
-      <SocketProvider>
-        <ResumeProvider>
-          <JobProvider>{children}</JobProvider>
-        </ResumeProvider>
-      </SocketProvider>
-    </AppProvider>
+    <SocketProvider>
+      {children}
+    </SocketProvider>
   </AuthProvider>
 )
 

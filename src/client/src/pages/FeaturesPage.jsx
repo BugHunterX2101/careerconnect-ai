@@ -291,10 +291,10 @@ const FeaturesPage = () => {
       <Box sx={{ backgroundColor: '#f8fafc', py: 10 }}>
         <Container maxWidth="lg">
           <Box textAlign="center" sx={{ mb: 8 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
               Complete Feature Suite
             </Typography>
-            <Typography variant="h6" color="text.secondary">
+            <Typography variant="h6" color="text.secondary" sx={{ fontSize: { xs: '1rem', md: '1.15rem' } }}>
               Everything you need for career success in one platform
             </Typography>
           </Box>
@@ -339,10 +339,10 @@ const FeaturesPage = () => {
       {/* Integrations */}
       <Container maxWidth="lg" sx={{ py: 10 }}>
         <Box textAlign="center" sx={{ mb: 8 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
             Powerful Integrations
           </Typography>
-          <Typography variant="h6" color="text.secondary">
+          <Typography variant="h6" color="text.secondary" sx={{ fontSize: { xs: '1rem', md: '1.15rem' } }}>
             Connect with your favorite tools and platforms
           </Typography>
         </Box>

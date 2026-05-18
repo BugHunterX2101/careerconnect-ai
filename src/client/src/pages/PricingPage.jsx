@@ -294,6 +294,7 @@ const PricingPage = () => {
                           variant="h2"
                           sx={{
                             fontWeight: 800,
+                            fontSize: { xs: '2.5rem', md: '3.5rem' },
                             background: plan.gradient,
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
@@ -388,10 +389,10 @@ const PricingPage = () => {
       <Box sx={{ backgroundColor: '#f8fafc', py: 10 }}>
         <Container maxWidth="lg">
           <Box textAlign="center" sx={{ mb: 8 }}>
-            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+            <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
               Feature Comparison
             </Typography>
-            <Typography variant="h6" color="text.secondary">
+            <Typography variant="h6" color="text.secondary" sx={{ fontSize: { xs: '1rem', md: '1.15rem' } }}>
               Compare features across all plans
             </Typography>
           </Box>
@@ -479,7 +480,7 @@ const PricingPage = () => {
       {/* FAQ Section */}
       <Container maxWidth="md" sx={{ py: 10 }}>
         <Box textAlign="center" sx={{ mb: 8 }}>
-          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800 }}>
+          <Typography variant="h2" gutterBottom sx={{ fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.5rem' } }}>
             Frequently Asked Questions
           </Typography>
         </Box>

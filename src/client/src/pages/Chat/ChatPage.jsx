@@ -318,9 +318,9 @@ const ChatPage = () => {
   );
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex' }}>
+    <Box sx={{ height: { xs: 'calc(100vh - 80px)', md: 'calc(100vh - 96px)' }, display: 'flex', overflow: 'hidden' }}>
       {/* Conversations Sidebar */}
-      <Card sx={{ width: 320, borderRadius: 0 }}>
+      <Card sx={{ width: { xs: 260, sm: 300, md: 320 }, minWidth: { xs: 200, md: 280 }, borderRadius: 0, flexShrink: 0 }}>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
             {t('messages')}
