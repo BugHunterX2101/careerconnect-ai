@@ -704,6 +704,10 @@ router.put('/:id', csrfWithJWT, authenticateToken, authorizeRole('employer'), va
       return res.status(400).json({ errors: errors.array() });
     }
 
+    if (!/^[0-9a-fA-F]{24}$/.test(req.params.id)) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
     const job = await Job.findById(req.params.id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -738,6 +742,10 @@ router.delete('/:id', csrfWithJWT, authenticateToken, authorizeRole('employer'),
   try {
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });
+    }
+
+    if (!/^[0-9a-fA-F]{24}$/.test(req.params.id)) {
+      return res.status(404).json({ error: 'Job not found' });
     }
 
     const job = await Job.findById(req.params.id);
@@ -812,6 +820,10 @@ router.get('/employer/applications/:jobId', authenticateToken, authorizeRole('em
   try {
     const { jobId } = req.params;
     const { page = 1, limit = 20, status } = req.query;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(jobId)) {
+      return res.json({ applications: [], total: 0, page: 1, totalPages: 0 });
+    }
 
     if (!Job) {
       return res.status(503).json({ error: 'Job model not available' });

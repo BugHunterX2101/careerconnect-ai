@@ -416,8 +416,8 @@ router.post('/logout', authenticateToken, (_req, res) => {
 router.delete('/account', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    if (UserModelModule) {
-      const User = UserModelModule.User || UserModelModule;
+    const User = getUser();
+    if (User) {
       const user = await (User.findByPk ? User.findByPk(userId) : User.findOne({ where: { id: userId } }));
       if (user) await user.destroy();
     }
