@@ -176,10 +176,11 @@ const ChatPage = () => {
 
       if (response.ok) {
         const data = await response.json();
+        const sentMsg = data.data || data.message;
 
         // Replace temp message with real message
         setMessages(prev => prev.map(msg =>
-          msg.id === tempId ? { ...data.message, status: 'sent' } : msg
+          msg.id === tempId ? { ...sentMsg, status: 'sent' } : msg
         ));
       } else {
         // Mark message as failed

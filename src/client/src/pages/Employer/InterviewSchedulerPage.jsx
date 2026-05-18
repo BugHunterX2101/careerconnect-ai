@@ -18,10 +18,12 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { FixedSizeList } from 'react-window';
 import { employerService } from '../../services/employerService';
+import { useSocket } from '../../contexts/SocketContext';
 import { useNavigate } from 'react-router-dom';
 const InterviewSchedulerPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const [tabValue, setTabValue] = useState(0);
   const [interviews, setInterviews] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -43,6 +45,8 @@ const InterviewSchedulerPage = () => {
     description: ''
   });
 
+  const [scheduledMeetLink, setScheduledMeetLink] = useState('');
+
   const interviewTypes = [
     { value: 'video', label: 'Video Call', icon: <VideoCall /> },
     { value: 'phone', label: 'Phone Call', icon: <Phone /> },
@@ -54,6 +58,19 @@ const InterviewSchedulerPage = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => loadData();
+    socket.on('interview:scheduled', refresh);
+    socket.on('interview:cancelled', refresh);
+    socket.on('interview:rescheduled', refresh);
+    return () => {
+      socket.off('interview:scheduled', refresh);
+      socket.off('interview:cancelled', refresh);
+      socket.off('interview:rescheduled', refresh);
+    };
+  }, [socket]);
 
   const loadData = async () => {
     try {
@@ -86,9 +103,17 @@ const InterviewSchedulerPage = () => {
     try {
       setLoading(true);
       setError('');
-      
-      await employerService.scheduleInterview(interviewData);
-      setSuccess('Interview scheduled successfully!');
+
+      const response = await employerService.scheduleInterview(interviewData);
+      const createdInterview = response.interview;
+      const meetLink = createdInterview?.meetLink;
+
+      setScheduledMeetLink(meetLink || '');
+      setSuccess(
+        meetLink
+          ? 'Interview scheduled! Google Meet link created.'
+          : 'Interview scheduled successfully!'
+      );
       setScheduleDialog(false);
       resetForm();
       loadData();
@@ -346,7 +371,29 @@ const InterviewSchedulerPage = () => {
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
+        {success && (
+          <Alert severity="success" sx={{ mb: 1 }}>
+            {success}
+          </Alert>
+        )}
+        {scheduledMeetLink && (
+          <Alert
+            severity="info"
+            sx={{ mb: 3 }}
+            action={
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<VideoCall />}
+                onClick={() => window.open(scheduledMeetLink, '_blank')}
+              >
+                Join Meet
+              </Button>
+            }
+          >
+            Google Meet: <strong>{scheduledMeetLink}</strong>
+          </Alert>
+        )}
 
         {/* Quick Stats */}
         <Grid container spacing={3} sx={{ mb: 4 }}>

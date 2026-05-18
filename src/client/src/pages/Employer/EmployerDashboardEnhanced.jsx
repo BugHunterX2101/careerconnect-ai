@@ -59,6 +59,7 @@ const EmployerDashboardEnhanced = () => {
       'interview:scheduled',
       'interview:cancelled',
       'interview:completed',
+      'interview:rescheduled',
       'application:received',
       'application:status_changed',
       'job:posted',

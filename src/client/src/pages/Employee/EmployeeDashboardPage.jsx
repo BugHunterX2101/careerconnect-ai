@@ -87,6 +87,7 @@ const EmployeeDashboardPage = () => {
       'interview:scheduled',
       'interview:cancelled',
       'interview:completed',
+      'interview:rescheduled',
       'job_recommendations_ready',
       'resume_progress_update'
     ];

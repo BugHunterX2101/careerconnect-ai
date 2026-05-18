@@ -1386,10 +1386,46 @@ router.post('/interviews', [
     const interview = new Interview(interviewData);
     await interview.save();
 
+    // Create Google Meet link for video interviews
+    if (req.body.type === 'video') {
+      try {
+        const candidateUser = User ? await User.findById(req.body.candidateId).select('firstName lastName email') : null;
+        if (candidateUser) {
+          const startTime = new Date(req.body.scheduledAt);
+          const endTime = new Date(startTime.getTime() + parseInt(req.body.duration, 10) * 60000);
+          const meetEvent = await createGMeetEvent({
+            summary: `Interview: ${job.title}`,
+            description: req.body.description || `Interview for ${job.title}`,
+            startTime,
+            endTime,
+            attendees: [
+              { email: candidateUser.email, displayName: `${candidateUser.firstName} ${candidateUser.lastName}` },
+              { email: req.user.email || '', displayName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() }
+            ]
+          });
+          interview.meetLink = meetEvent.hangoutLink;
+          interview.meetEventId = meetEvent.id;
+          await interview.save();
+        }
+      } catch (meetError) {
+        getLogger().warn('Google Meet creation failed for MongoDB interview:', meetError.message);
+      }
+    }
+
     await interview.populate([
       { path: 'job', select: 'title company' },
       { path: 'candidate', select: 'firstName lastName email' }
-    ]).execPopulate();
+    ]);
+
+    // Emit real-time notification to candidate
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${req.body.candidateId}`).emit('interview:scheduled', {
+        interview,
+        job: job.title,
+        employer: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim()
+      });
+    }
 
     res.status(201).json({
       message: 'Interview scheduled successfully',
@@ -1434,6 +1470,15 @@ router.put('/interviews/:id', async (req, res) => {
       return res.status(404).json({ error: 'Interview not found' });
     }
 
+    const io = req.app.get('io');
+    if (io && interview.candidate?._id) {
+      io.to(`user_${interview.candidate._id}`).emit('interview:rescheduled', {
+        interview,
+        job: interview.job?.title,
+        employer: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim()
+      });
+    }
+
     res.json({ message: 'Interview updated successfully', interview });
 
   } catch (error) {
@@ -1472,6 +1517,15 @@ router.patch('/interviews/:id/cancel', async (req, res) => {
 
     if (!interview) {
       return res.status(404).json({ error: 'Interview not found' });
+    }
+
+    const io = req.app.get('io');
+    if (io && interview.candidate) {
+      io.to(`user_${interview.candidate}`).emit('interview:cancelled', {
+        interviewId: id,
+        job: interview.job,
+        reason
+      });
     }
 
     res.json({ message: 'Interview cancelled successfully', interview });
