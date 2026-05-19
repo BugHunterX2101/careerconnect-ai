@@ -664,8 +664,6 @@ curl http://localhost:3000/health
 
 All three providers are optional. Configure only the ones you need, or set `ENABLE_DEV_OAUTH_MOCK=true` to bypass OAuth entirely during local development.
 
-**Status (May 2026):** Google, LinkedIn, and GitHub OAuth are all working end-to-end. LinkedIn uses OIDC `userinfo` as the primary flow with legacy profile/email endpoints as fallback.
-
 ```bash
 # Verify all providers
 node scripts/test-oauth.js
