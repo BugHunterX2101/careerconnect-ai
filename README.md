@@ -43,7 +43,7 @@ CareerConnect AI is a full-stack hiring and job-search platform that brings toge
 | AI Resume Analysis | BERT + Universal Sentence Encoder parses and scores your resume against job requirements |
 | Smart Recommendations | Jobs sourced from three independent channels: internal DB, LinkedIn feed, and GPT-generated listings |
 | One-Click Applications | Apply with your resume and cover letter in a single action |
-| Interview Management | Schedule, confirm, or decline interviews; join via Google Meet |
+| Interview Management | Schedule, confirm, or decline interviews; join via Zoom |
 | Career Intelligence | ML-powered skill-gap analysis and career improvement suggestions |
 | Real-time Chat | Communicate with recruiters instantly via Socket.IO-powered messaging |
 | Job Alerts | Set keyword and location alerts; receive daily or weekly digests |
@@ -134,7 +134,7 @@ flowchart TD
         DOC[(MongoDB\nJobs · Interviews · Chat)]
         REDIS[(Redis\nCache · Queues)]
         OAUTH[OAuth Providers\nGoogle · LinkedIn · GitHub]
-        EXT[External APIs\nOpenAI · Google Meet · LinkedIn]
+        EXT[External APIs\nOpenAI · Zoom · LinkedIn]
     end
 
     U --> SPA
@@ -378,7 +378,7 @@ mindmap
 | `/api/resume` | `resume.js` | Upload, list, analysis, public resume, delete |
 | `/api/profile` | `profile.js` | Profile CRUD, skills, experience, education, avatar, stats |
 | `/api/chat` | `chat.js` | Conversations, messages, attachments, real-time via Socket.IO |
-| `/api/video` | `video.js` | Video interview scheduling, join/end, Google Meet link generation |
+| `/api/video` | `video.js` | Video interview scheduling, join/end, Zoom link generation |
 | `/api/ml` | `ml.js` | BERT resume parsing, career improvement, skill gap analysis |
 | `/api/bert` | `bertRoutes.js` | Direct BERT embedding and text analysis |
 | `/api/gpt-jobs` | `gpt-jobs.js` | GPT/Groq-generated job listings and search |
@@ -478,8 +478,10 @@ GROQ_API_KEY=
 GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_MODEL=llama-3.3-70b-versatile
 
-# ── Google Meet  [optional] ─────────────────────────────────────────
-GOOGLE_MEET_API_KEY=
+# ── Zoom  [optional] ─────────────────────────────────────────────
+ZOOM_ACCOUNT_ID=
+ZOOM_CLIENT_ID=
+ZOOM_CLIENT_SECRET=
 
 # ── Dev helpers ─────────────────────────────────────────────────────
 ENABLE_DEV_OAUTH_MOCK=true

@@ -239,7 +239,7 @@ app.get('/', apiLimiter, (req, res) => {
       realtime: 'Socket.IO (ready)',
       bert: 'Available (basic parsing)',
       linkedin: 'Configured',
-      googleMeet: 'Configured'
+      zoom: 'Configured'
     },
     documentation: 'API endpoints require authentication via JWT tokens'
   });

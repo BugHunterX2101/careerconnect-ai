@@ -26,7 +26,7 @@ try {
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { rateLimit } = require('express-rate-limit');
 const logger = require('../middleware/logger');
-const { createGMeetEvent, updateGMeetEvent, deleteGMeetEvent } = require('../services/gmeetService');
+const { createZoomMeeting, updateZoomMeeting, deleteZoomMeeting } = require('../services/zoomService');
 
 const router = express.Router();
 
@@ -111,10 +111,10 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
 
     await interview.save();
 
-    // Create Google Meet event if it's a video interview
+    // Create Zoom meeting if it's a video interview
     if (type === 'video') {
       try {
-        const meetEvent = await createGMeetEvent({
+        const meetEvent = await createZoomMeeting({
           summary: `Interview: ${job.title} - ${candidate.firstName} ${candidate.lastName}`,
           description: description || `Interview for ${job.title} position`,
           startTime: new Date(scheduledAt),
@@ -125,11 +125,11 @@ router.post('/interviews', authenticateToken, authorizeRole('employer'), intervi
           ]
         });
 
-        interview.meetLink = meetEvent.hangoutLink;
-        interview.meetEventId = meetEvent.id;
+        interview.meetLink = meetEvent.joinUrl;
+        interview.meetEventId = meetEvent.meetingId;
         await interview.save();
       } catch (error) {
-        logger.error('Google Meet creation error:', error);
+        logger.error('Zoom meeting creation error:', error);
         // Continue without meet link
       }
     }
@@ -295,16 +295,16 @@ router.put('/interviews/:id', authenticateToken, async (req, res) => {
       interview.status = status;
     }
 
-    // Update Google Meet if it's a video interview and time changed
+    // Update Zoom meeting if it's a video interview and time changed
     if (interview.type === 'video' && interview.meetEventId && (scheduledAt || duration)) {
       try {
         const endTime = new Date(interview.scheduledAt.getTime() + interview.duration * 60000);
-        await updateGMeetEvent(interview.meetEventId, {
+        await updateZoomMeeting(interview.meetEventId, {
           startTime: interview.scheduledAt,
           endTime
         });
       } catch (error) {
-        logger.error('Google Meet update error:', error);
+        logger.error('Zoom meeting update error:', error);
       }
     }
 
@@ -350,12 +350,12 @@ router.delete('/interviews/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to cancel this interview' });
     }
 
-    // Delete Google Meet event if exists
+    // Delete Zoom meeting if exists
     if (interview.meetEventId) {
       try {
-        await deleteGMeetEvent(interview.meetEventId);
+        await deleteZoomMeeting(interview.meetEventId);
       } catch (error) {
-        logger.error('Google Meet deletion error:', error);
+        logger.error('Zoom meeting deletion error:', error);
       }
     }
 
@@ -491,7 +491,7 @@ router.post('/interviews/:id/end', authenticateToken, [
 });
 
 // @route   GET /api/video/meet-link/:interviewId
-// @desc    Get or create Google Meet link for interview
+// @desc    Get or create Zoom meeting link for interview
 // @access  Private
 router.get('/meet-link/:interviewId', authenticateToken, async (req, res) => {
   try {
@@ -517,10 +517,10 @@ router.get('/meet-link/:interviewId', authenticateToken, async (req, res) => {
       return res.json({ meetLink: interview.meetLink });
     }
 
-    // Create new meet link if it's a video interview
+    // Create new Zoom meeting link if it's a video interview
     if (interview.type === 'video') {
       try {
-        const meetEvent = await createGMeetEvent({
+        const meetEvent = await createZoomMeeting({
           summary: `Interview: ${interview.job.title} - ${interview.candidate.firstName} ${interview.candidate.lastName}`,
           description: `Interview for ${interview.job.title} position`,
           startTime: interview.scheduledAt,
@@ -531,21 +531,21 @@ router.get('/meet-link/:interviewId', authenticateToken, async (req, res) => {
           ]
         });
 
-        interview.meetLink = meetEvent.hangoutLink;
-        interview.meetEventId = meetEvent.id;
+        interview.meetLink = meetEvent.joinUrl;
+        interview.meetEventId = meetEvent.meetingId;
         await interview.save();
 
         res.json({ meetLink: interview.meetLink });
       } catch (error) {
-        logger.error('Google Meet creation error:', error);
-        res.status(500).json({ error: 'Failed to create meet link' });
+        logger.error('Zoom meeting creation error:', error);
+        res.status(500).json({ error: 'Failed to create meeting link' });
       }
     } else {
       res.status(400).json({ error: 'This interview is not a video interview' });
     }
 
   } catch (error) {
-    logger.error('Get meet link error:', error);
+    logger.error('Get meeting link error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

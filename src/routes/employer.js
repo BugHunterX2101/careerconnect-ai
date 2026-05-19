@@ -2,7 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
-const { createGMeetEvent } = require('../services/gmeetService');
+const { createZoomMeeting } = require('../services/zoomService');
 
 // Try to import models (optional)
 let Job = null;
@@ -52,7 +52,7 @@ const interviewMemoryStore = {
 
 const localJobStore = require('./localJobStore');
 
-const isMongoObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value));
+const isMongoObjectId = (value) => /^[0-9a-fA-F]{24}$/.test(String(value)) && mongoose.Types.ObjectId.isValid(String(value));
 const isNumericId = (value) => /^\d+$/.test(String(value));
 const shouldUseInterviewFallback = (interviewerId, payload = {}) => {
   return !isMongoObjectId(interviewerId) ||
@@ -170,7 +170,9 @@ router.use(authorizeRole('employer'));
 // @access  Private (employer)
 router.get('/dashboard/stats', async (req, res) => {
   try {
-    if (!Job || !Interview) {
+    const employerId = req.user.userId;
+
+    if (!Job || !Interview || !isMongoObjectId(employerId)) {
       return res.json({
         activeJobs: 0,
         totalJobs: 0,
@@ -187,8 +189,6 @@ router.get('/dashboard/stats', async (req, res) => {
       });
     }
 
-    const employerId = req.user.userId;
-    
     // Get job statistics
     const jobs = await Job.find({ employerId: employerId });
     const activeJobs = jobs.filter(job => job.status === 'active').length;
@@ -1328,7 +1328,7 @@ router.post('/interviews', [
 
       if (req.body.type === 'video') {
         try {
-          const meetEvent = await createGMeetEvent({
+          const meetEvent = await createZoomMeeting({
             summary: `Interview - ${req.body.jobTitle || 'General Position'}`,
             description: req.body.description || req.body.notes || 'Scheduled interview',
             startTime,
@@ -1339,10 +1339,10 @@ router.post('/interviews', [
             ]
           });
 
-          meetLink = meetEvent?.hangoutLink || null;
-          meetEventId = meetEvent?.id || null;
+          meetLink = meetEvent?.joinUrl || null;
+          meetEventId = meetEvent?.meetingId || null;
         } catch (meetError) {
-          getLogger().warn('Fallback schedule Google Meet creation failed:', meetError.message);
+          getLogger().warn('Fallback schedule Zoom meeting creation failed:', meetError.message);
         }
       }
 
@@ -1410,14 +1410,14 @@ router.post('/interviews', [
     const interview = new Interview(interviewData);
     await interview.save();
 
-    // Create Google Meet link for video interviews
+    // Create Zoom meeting link for video interviews
     if (req.body.type === 'video') {
       try {
         const candidateUser = User ? await User.findById(req.body.candidateId).select('firstName lastName email') : null;
         if (candidateUser) {
           const startTime = new Date(req.body.scheduledAt);
           const endTime = new Date(startTime.getTime() + parseInt(req.body.duration, 10) * 60000);
-          const meetEvent = await createGMeetEvent({
+          const meetEvent = await createZoomMeeting({
             summary: `Interview: ${job.title}`,
             description: req.body.description || `Interview for ${job.title}`,
             startTime,
@@ -1427,12 +1427,12 @@ router.post('/interviews', [
               { email: req.user.email || '', displayName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() }
             ]
           });
-          interview.meetLink = meetEvent.hangoutLink;
-          interview.meetEventId = meetEvent.id;
+          interview.meetLink = meetEvent.joinUrl;
+          interview.meetEventId = meetEvent.meetingId;
           await interview.save();
         }
       } catch (meetError) {
-        getLogger().warn('Google Meet creation failed for MongoDB interview:', meetError.message);
+        getLogger().warn('Zoom meeting creation failed for MongoDB interview:', meetError.message);
       }
     }
 
@@ -1569,7 +1569,7 @@ router.get('/analytics', async (req, res) => {
     let jobs = [];
     let interviews = [];
     try {
-      if (Job && typeof Job.find === 'function') {
+      if (Job && typeof Job.find === 'function' && isMongoObjectId(employerId)) {
         jobs = await Job.find({ employerId: employerId });
       }
     } catch (error) {
@@ -1577,7 +1577,7 @@ router.get('/analytics', async (req, res) => {
     }
 
     try {
-      if (Interview && typeof Interview.find === 'function') {
+      if (Interview && typeof Interview.find === 'function' && isMongoObjectId(employerId)) {
         interviews = await Interview.find({ interviewer: employerId });
       }
     } catch (error) {
@@ -1811,7 +1811,7 @@ router.get('/reports/hiring', async (req, res) => {
     const employerId = req.user.userId;
 
     let jobs = [];
-    if (Job && typeof Job.find === 'function') {
+    if (Job && typeof Job.find === 'function' && isMongoObjectId(employerId)) {
       try {
         jobs = await Job.find({ employerId: employerId });
       } catch (jobQueryError) {
@@ -1861,7 +1861,7 @@ router.get('/pipeline', async (req, res) => {
     const employerId = req.user.userId;
 
     let jobs = [];
-    if (Job && typeof Job.find === 'function') {
+    if (Job && typeof Job.find === 'function' && isMongoObjectId(employerId)) {
       try {
         jobs = await Job.find({ employerId: employerId });
       } catch (jobQueryError) {
